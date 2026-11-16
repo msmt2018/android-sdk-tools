@@ -198,7 +198,7 @@ jobs:
           set -euo pipefail
           python3 scripts/package_sdk.py \
             --version "${{ needs.prepare.outputs.version }}" \
-            --build-tools-base-version "${{ needs.prepare.outputs.build-tools-base-version }}" \\
+            --build-tools-base-version "${{ needs.prepare.outputs.build-tools-base-version }}" \
             --artifacts artifacts \
             --output dist
           ls -lh dist
