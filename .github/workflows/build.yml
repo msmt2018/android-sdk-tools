@@ -57,10 +57,12 @@ jobs:
             SOURCE_TAG="android-16.0.0_r1"
           elif [ "$VERSION" = "36.0.1" ]; then
             SOURCE_TAG="android-16.0.0_r2"
-          elif [ "$VERSION" = "37.0.0" ] || [ "$VERSION" = "37.0.1" ] || [ "$VERSION" = "37.0.2" ]; then
-            # 37.0.1 is the official follow-up release; 37.0.2 never passed Canary.
-            # Android 17 currently has only one public AOSP release snapshot tag.
+          elif [ "$VERSION" = "37.0.0" ] || [ "$VERSION" = "37.0.1" ]; then
+            # Android 17 source snapshot used for the 37.0.0/37.0.1 builds.
             SOURCE_TAG="android-17.0.0_r1"
+          elif [ "$VERSION" = "37.0.2" ]; then
+            # 37.0.2 can reuse the immediately preceding official Platform Tools source tag.
+            SOURCE_TAG="platform-tools-37.0.1"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
