@@ -35,6 +35,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       source-tag: ${{ steps.version.outputs.source-tag }}
+      build-tools-base-version: ${{ steps.version.outputs.build-tools-base-version }}
       cache-key: ${{ steps.version.outputs.cache-key }}
     steps:
       - uses: actions/checkout@v4
@@ -56,6 +57,11 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
+          # Build Tools 35.0.2 is not published as a Google Linux archive.
+          # Use the official 35.0.0 resource base and rewrite package metadata.
+          BUILD_TOOLS_BASE_VERSION="$VERSION"
+          if [ "$VERSION" = "35.0.2" ]; then BUILD_TOOLS_BASE_VERSION="35.0.0"; fi
+          echo "build-tools-base-version=$BUILD_TOOLS_BASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "cache-key=sources-$VERSION-$SOURCE_TAG-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
           echo "platform-tools version: $VERSION"
           echo "AOSP source tag: $SOURCE_TAG"
@@ -192,6 +198,7 @@ jobs:
           set -euo pipefail
           python3 scripts/package_sdk.py \
             --version "${{ needs.prepare.outputs.version }}" \
+            --build-tools-base-version "${{ needs.prepare.outputs.build-tools-base-version }}" \\
             --artifacts artifacts \
             --output dist
           ls -lh dist
