@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0, platform-tools-36.0.1, platform-tools-37.0.0 ]
+    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0, platform-tools-36.0.1, platform-tools-37.0.0, platform-tools-37.0.1, platform-tools-37.0.2 ]
     paths-ignore:
       - '**.md'
       - 'LICENSE.txt'
@@ -57,7 +57,9 @@ jobs:
             SOURCE_TAG="android-16.0.0_r1"
           elif [ "$VERSION" = "36.0.1" ]; then
             SOURCE_TAG="android-16.0.0_r4"
-          elif [ "$VERSION" = "37.0.0" ]; then
+          elif [ "$VERSION" = "37.0.0" ] || [ "$VERSION" = "37.0.1" ] || [ "$VERSION" = "37.0.2" ]; then
+            # Android 17 has one public AOSP release snapshot tag. Platform Tools 37.0.2
+            # was never released past Canary, so it has no distinct official source tag.
             SOURCE_TAG="android-17.0.0_r1"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
