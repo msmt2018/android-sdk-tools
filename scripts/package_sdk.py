@@ -6,6 +6,7 @@ import subprocess
 import tarfile
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ARCHES = {
@@ -46,6 +47,59 @@ def find_parent(root, filename):
     return min(found, key=lambda p: len(p.parts))
 
 
+def normalize_build_tools_metadata(root, version):
+    """Make the repacked SDK metadata agree with its output directory version."""
+    major, minor, micro = version.split(".", 2)
+    source_properties = root / "source.properties"
+    if source_properties.is_file():
+        lines = source_properties.read_text(encoding="utf-8").splitlines()
+        found_revision = False
+        for index, line in enumerate(lines):
+            if line.startswith("Pkg.Revision="):
+                lines[index] = f"Pkg.Revision={version}"
+                found_revision = True
+        if not found_revision:
+            lines.append(f"Pkg.Revision={version}")
+        source_properties.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    package_xml = root / "package.xml"
+    if package_xml.is_file():
+        tree = ET.parse(package_xml)
+        package = next(
+            (node for node in tree.iter()
+             if node.tag.rsplit("}", 1)[-1] == "localPackage"),
+            None,
+        )
+        if package is None:
+            raise RuntimeError(f"Build Tools package.xml has no localPackage: {package_xml}")
+        package.set("path", f"build-tools;{version}")
+        revision = next(
+            (node for node in package
+             if node.tag.rsplit("}", 1)[-1] == "revision"),
+            None,
+        )
+        if revision is None:
+            raise RuntimeError(f"Build Tools package.xml has no revision: {package_xml}")
+        for component, value in (("major", major), ("minor", minor), ("micro", micro)):
+            node = next(
+                (child for child in revision
+                 if child.tag.rsplit("}", 1)[-1] == component),
+                None,
+            )
+            if node is None:
+                namespace = package.tag.split("}", 1)[0] + "}" if "}" in package.tag else ""
+                node = ET.SubElement(revision, f"{namespace}{component}")
+            node.text = value
+        display_name = next(
+            (node for node in package
+             if node.tag.rsplit("}", 1)[-1] == "display-name"),
+            None,
+        )
+        if display_name is not None:
+            display_name.text = f"Android SDK Build-Tools {version}"
+        tree.write(package_xml, encoding="utf-8", xml_declaration=True)
+
+
 def create_build_tools_zip(source, output, version):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED,
                          compresslevel=9, allowZip64=True) as archive:
@@ -62,10 +116,14 @@ def create_build_tools_zip(source, output, version):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version", required=True,
+                        help="output Platform Tools and Build Tools version")
+    parser.add_argument("--build-tools-base-version",
+                        help="Google Build Tools archive version used as the resource base")
     parser.add_argument("--artifacts", type=Path, default=Path("artifacts"))
     parser.add_argument("--output", type=Path, default=Path("dist"))
     args = parser.parse_args()
+    build_tools_base_version = args.build_tools_base_version or args.version
     args.output.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
@@ -76,8 +134,12 @@ def main():
             f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
             pt_zip,
         )
+        # Google's initial 35.0.0 Build Tools package is named build-tools_r35_linux.zip.
+        build_tools_archive_version = build_tools_base_version
+        if build_tools_archive_version.endswith(".0.0"):
+            build_tools_archive_version = build_tools_archive_version.rsplit(".", 2)[0]
         download(
-            f"https://dl.google.com/android/repository/build-tools_r{args.version}_linux.zip",
+            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}_linux.zip",
             bt_zip,
         )
 
@@ -108,6 +170,7 @@ def main():
             bt_root = root / f"bt-{abi}"
             shutil.copytree(official_pt, pt_root)
             shutil.copytree(official_bt, bt_root)
+            normalize_build_tools_metadata(bt_root, args.version)
 
             # Keep the official Java tools/resources intact; adapt only launcher shebangs
             # for Android's shell environment.
@@ -116,9 +179,9 @@ def main():
                 if launcher_path.is_file():
                     data = launcher_path.read_bytes()
                     if data.startswith(b"#!"):
-                        _, separator, remainder = data.partition(b"\\n")
+                        _, separator, remainder = data.partition(b"\n")
                         if separator:
-                            launcher_path.write_bytes(b"#!/system/bin/env sh\\n" + remainder)
+                            launcher_path.write_bytes(b"#!/system/bin/env sh\n" + remainder)
 
             for group, names in GROUPS.items():
                 destination_root = pt_root if group == "platform-tools" else bt_root
@@ -155,6 +218,17 @@ def main():
                 } - members
                 if missing:
                     raise RuntimeError(f"{abi}: build-tools archive missing {sorted(missing)}")
+                metadata = archive.read(f"{args.version}/source.properties").decode("utf-8")
+                if f"Pkg.Revision={args.version}" not in metadata:
+                    raise RuntimeError(f"{abi}: Build Tools source.properties version mismatch")
+                package_xml = ET.fromstring(archive.read(f"{args.version}/package.xml"))
+                package = next(
+                    (node for node in package_xml.iter()
+                     if node.tag.rsplit("}", 1)[-1] == "localPackage"),
+                    None,
+                )
+                if package is None or package.get("path") != f"build-tools;{args.version}":
+                    raise RuntimeError(f"{abi}: Build Tools package.xml version mismatch")
 
             print(f"created {pt_output}")
             print(f"created {bt_output}")
