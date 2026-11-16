@@ -97,7 +97,28 @@ def normalize_build_tools_metadata(root, version):
         )
         if display_name is not None:
             display_name.text = f"Android SDK Build-Tools {version}"
-        tree.write(package_xml, encoding="utf-8", xml_declaration=True)
+    else:
+        # Some official Linux Build Tools ZIPs contain source.properties but omit
+        # package.xml. Generate SDK Manager metadata for the repacked package.
+        common_ns = "http://schemas.android.com/repository/android/common/02"
+        generic_ns = "http://schemas.android.com/repository/android/generic/02"
+        xsi_ns = "http://www.w3.org/2001/XMLSchema-instance"
+        ET.register_namespace("ns2", common_ns)
+        ET.register_namespace("ns3", generic_ns)
+        ET.register_namespace("xsi", xsi_ns)
+        q = lambda name: f"{{{common_ns}}}{name}"
+        tree = ET.ElementTree(ET.Element(q("repository")))
+        package = ET.SubElement(tree.getroot(), q("localPackage"),
+                                {"path": f"build-tools;{version}"})
+        ET.SubElement(package, q("type-details"),
+                      {f"{{{xsi_ns}}}type": "ns3:genericDetailsType"})
+        revision = ET.SubElement(package, q("revision"))
+        for component, value in (("major", major), ("minor", minor), ("micro", micro)):
+            ET.SubElement(revision, q(component)).text = value
+        ET.SubElement(package, q("display-name")).text = (
+            f"Android SDK Build-Tools {version}"
+        )
+    tree.write(package_xml, encoding="utf-8", xml_declaration=True)
 
 
 def create_build_tools_zip(source, output, version):
