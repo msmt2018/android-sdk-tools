@@ -92,7 +92,14 @@ if(DEFINED PROTOC_PATH)
 endif()
 
 # thrid-party libraries
-add_subdirectory(src/boringssl EXCLUDE_FROM_ALL)
+# BoringSSL in Platform Tools 34.x keeps its generated CMake project under src/.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/boringssl/CMakeLists.txt")
+    add_subdirectory(src/boringssl EXCLUDE_FROM_ALL)
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/boringssl/src/CMakeLists.txt")
+    add_subdirectory(src/boringssl/src EXCLUDE_FROM_ALL)
+else()
+    message(FATAL_ERROR "BoringSSL CMakeLists.txt not found in the checked-out AOSP source")
+endif()
 add_subdirectory(src/fmtlib EXCLUDE_FROM_ALL)
 add_subdirectory(src/pcre EXCLUDE_FROM_ALL)
 add_subdirectory(src/libpng EXCLUDE_FROM_ALL)
