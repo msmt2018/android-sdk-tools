@@ -26,6 +26,11 @@ if(EXISTS "${LIBUTILS_BINDER_DIR}/Errors.cpp")
     list(APPEND LIBUTILS_BINDER_ERRORS_SRC ${LIBUTILS_BINDER_DIR}/Errors.cpp)
 endif()
 
+set(LIBUTILS_REFBASE_SRC)
+if(EXISTS "${LIBUTILS_BINDER_DIR}/RefBase.cpp")
+    list(APPEND LIBUTILS_REFBASE_SRC ${LIBUTILS_BINDER_DIR}/RefBase.cpp)
+endif()
+
 set(LIBUTILS_BINDER_SRC
     ${LIBUTILS_BINDER_ERRORS_SRC}
     ${LIBUTILS_REFBASE_SRC}
@@ -37,10 +42,6 @@ set(LIBUTILS_BINDER_SRC
     ${LIBUTILS_BINDER_DIR}/VectorImpl.cpp
     )
 
-set(LIBUTILS_REFBASE_SRC)
-if(EXISTS "${LIBUTILS_BINDER_DIR}/RefBase.cpp")
-    list(APPEND LIBUTILS_REFBASE_SRC ${LIBUTILS_BINDER_DIR}/RefBase.cpp)
-endif()
 
 add_library(libutils STATIC
     ${SRC}/core/libutils/FileMap.cpp
