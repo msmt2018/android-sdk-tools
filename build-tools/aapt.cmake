@@ -35,6 +35,11 @@ if(EXISTS "${SRC}/base/tools/aapt/Utils.cpp")
     list(APPEND AAPT_LEGACY_UTILS_SRC ${SRC}/base/tools/aapt/Utils.cpp)
 endif()
 
+set(AAPT_LEGACY_UTILS_SRC)
+if(EXISTS "${SRC}/base/tools/aapt/Utils.cpp")
+    list(APPEND AAPT_LEGACY_UTILS_SRC ${SRC}/base/tools/aapt/Utils.cpp)
+endif()
+
 add_library(libaapt STATIC
     ${SRC}/base/tools/aapt/AaptAssets.cpp
     ${SRC}/base/tools/aapt/AaptConfig.cpp
