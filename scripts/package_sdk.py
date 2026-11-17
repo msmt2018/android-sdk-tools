@@ -101,7 +101,7 @@ def main():
         if args.version.endswith(".0.0"):
             build_tools_archive_version = args.version.rsplit(".", 2)[0]
         download(
-            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}_linux.zip",
+            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}-linux.zip",
             bt_zip,
         )
 
