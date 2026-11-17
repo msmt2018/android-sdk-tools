@@ -172,12 +172,12 @@ def main():
             f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
             pt_zip,
         )
-        # Google's initial 35.0.0 Build Tools package is named build-tools_r35-linux.zip.
+        # Google's initial 35.0.0 Build Tools package is named build-tools_r35_linux.zip.
         build_tools_archive_version = build_tools_base_version
         if build_tools_archive_version.endswith(".0.0"):
             build_tools_archive_version = build_tools_archive_version.rsplit(".", 2)[0]
         download(
-            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}-linux.zip",
+            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}_linux.zip",
             bt_zip,
         )
 
