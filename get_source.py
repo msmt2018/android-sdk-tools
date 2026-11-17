@@ -248,10 +248,25 @@ def patches():
 
     replace_in_file('src/abseil-cpp/CMakeLists.txt', '/usr/src/googletest', '${CMAKE_SOURCE_DIR}/src/googletest')
 
-    # symlink googletest to boringssl/**/googletest
-    dest = ROOT / 'src/boringssl/src/third_party/googletest'
-    if dest.parent.exists() and not dest.exists():
-        dest.symlink_to(ROOT / 'src/googletest')
+    # BoringSSL 34.x expects the googletest project root itself at
+    # third_party/googletest, while newer snapshots expect the repository root.
+    # Select the layout from BoringSSL's own CMakeLists instead of assuming one.
+    boringssl_cmake = ROOT / 'src/boringssl/src/CMakeLists.txt'
+    if boringssl_cmake.is_file():
+        cmake_text = boringssl_cmake.read_text()
+        dest = ROOT / 'src/boringssl/src/third_party/googletest'
+        if 'third_party/googletest/src/gtest-all.cc' in cmake_text:
+            googletest_target = ROOT / 'src/googletest/googletest'
+        else:
+            googletest_target = ROOT / 'src/googletest'
+        if dest.is_symlink():
+            try:
+                if dest.resolve() != googletest_target.resolve():
+                    dest.unlink()
+            except FileNotFoundError:
+                dest.unlink()
+        if dest.parent.exists() and not dest.exists():
+            dest.symlink_to(googletest_target)
 
     # the source patches only apply to specific versions, apply them when possible
     for patch in sorted((ROOT / 'patches').rglob('*.patch')):
