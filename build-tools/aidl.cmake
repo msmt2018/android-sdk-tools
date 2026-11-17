@@ -43,6 +43,11 @@ add_flex_bison_dependency(LangScanner LangParser)
 message(STATUS ${FLEX_LangScanner_OUTPUTS})          
 message(STATUS ${BISON_LangParser_OUTPUTS})
 
+set(AIDL_TO_COMMON_SRC)
+if(EXISTS "${SRC}/aidl/aidl_to_common.cpp")
+    list(APPEND AIDL_TO_COMMON_SRC ${SRC}/aidl/aidl_to_common.cpp)
+endif()
+
 add_executable(aidl
     ${SRC}/aidl/aidl_checkapi.cpp
     ${SRC}/aidl/aidl_const_expressions.cpp
@@ -50,7 +55,7 @@ add_executable(aidl
     ${SRC}/aidl/aidl_language_l.ll
     ${SRC}/aidl/aidl_language_y.yy
     ${SRC}/aidl/aidl_language.cpp
-    ${SRC}/aidl/aidl_to_common.cpp
+    ${AIDL_TO_COMMON_SRC}
     ${SRC}/aidl/aidl_to_cpp_common.cpp
     ${SRC}/aidl/aidl_to_cpp.cpp
     ${SRC}/aidl/aidl_to_java.cpp
