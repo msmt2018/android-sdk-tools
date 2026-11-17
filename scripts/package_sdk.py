@@ -98,10 +98,13 @@ def create_build_tools_zip(source, output, version):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version", required=True, help="Build Tools package revision")
+    parser.add_argument("--platform-tools-version", help="Platform Tools archive/revision; defaults to --version")
     parser.add_argument("--artifacts", type=Path, default=Path("artifacts"))
     parser.add_argument("--output", type=Path, default=Path("dist"))
     args = parser.parse_args()
+    platform_tools_version = args.platform_tools_version or args.version
+    build_tools_version = args.version
     args.output.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
@@ -109,15 +112,15 @@ def main():
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
         download(
-            f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
+            f"https://dl.google.com/android/repository/platform-tools_r{platform_tools_version}-linux.zip",
             pt_zip,
         )
         # Platform Tools and Build Tools have independent release trains.
         # Prefer an exact matching Build Tools archive, then the official major
         # release archive, followed by published preview archives for that major.
-        major = args.version.split(".", 1)[0]
+        major = build_tools_version.split(".", 1)[0]
         build_tools_versions = []
-        exact = args.version
+        exact = build_tools_version
         if exact.endswith(".0.0"):
             exact = exact.rsplit(".", 2)[0]
         build_tools_versions.append(exact)
@@ -183,19 +186,19 @@ def main():
                     print(f"[{abi}] replaced {group}/{name} mode=755")
 
             # Rewrite metadata only after all custom native binaries are installed.
-            update_pkg_revision(pt_root, args.version)
-            update_pkg_revision(bt_root, args.version)
+            update_pkg_revision(pt_root, platform_tools_version)
+            update_pkg_revision(bt_root, build_tools_version)
 
-            pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
+            pt_output = args.output / f"platform-tools-{platform_tools_version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
                 archive.add(pt_root, arcname="platform-tools")
 
-            bt_output = args.output / f"build-tools-{args.version}-{abi}.zip"
-            create_build_tools_zip(bt_root, bt_output, args.version)
+            bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
+            create_build_tools_zip(bt_root, bt_output, build_tools_version)
 
             with tarfile.open(pt_output, "r:gz") as archive:
                 pt_metadata = archive.extractfile("platform-tools/source.properties")
-                if pt_metadata is None or f"Pkg.Revision={args.version}".encode() not in pt_metadata.read():
+                if pt_metadata is None or f"Pkg.Revision={platform_tools_version}".encode() not in pt_metadata.read():
                     raise RuntimeError(f"{abi}: platform-tools source.properties has the wrong Pkg.Revision")
                 members = set(archive.getnames())
                 missing = {
@@ -205,12 +208,12 @@ def main():
                     raise RuntimeError(f"{abi}: platform-tools archive missing {sorted(missing)}")
 
             with zipfile.ZipFile(bt_output) as archive:
-                bt_metadata = archive.read(f"{args.version}/source.properties")
-                if f"Pkg.Revision={args.version}".encode() not in bt_metadata:
+                bt_metadata = archive.read(f"{build_tools_version}/source.properties")
+                if f"Pkg.Revision={build_tools_version}".encode() not in bt_metadata:
                     raise RuntimeError(f"{abi}: build-tools source.properties has the wrong Pkg.Revision")
                 members = set(archive.namelist())
                 missing = {
-                    f"{args.version}/{name}"
+                    f"{build_tools_version}/{name}"
                     for name in GROUPS["build-tools"] + GROUPS["others"]
                 } - members
                 if missing:
