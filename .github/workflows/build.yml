@@ -7,7 +7,7 @@ concurrency:
 
 on:
   push:
-    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0, platform-tools-36.0.1, platform-tools-36.0.2 ]
+    branches: [ master, main, platform-tools-35.0.2, platform-tools-36.0.0, platform-tools-36.0.1, platform-tools-36.0.2, platform-tools-36.1.0 ]
     paths-ignore:
       - '**.md'
       - 'LICENSE.txt'
@@ -62,7 +62,7 @@ jobs:
             SOURCE_TAG="android-16.0.0_r1"
           elif [ "$VERSION" = "36.0.1" ]; then
             SOURCE_TAG="android-16.0.0_r4"
-          elif [ "$VERSION" = "36.0.2" ]; then
+          elif [ "$VERSION" = "36.0.2" ] || [ "$VERSION" = "36.1.0" ]; then
             SOURCE_TAG="android-16.0.0_r3"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -140,6 +140,7 @@ jobs:
           cache: false
 
       - name: Restore sources
+        id: sources
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -147,7 +148,13 @@ jobs:
             !src/**/.git
             host-tools
           key: ${{ needs.prepare.outputs.cache-key }}
-          fail-on-cache-miss: true
+
+      - name: Fetch sources when cache restore is unavailable
+        if: steps.sources.outputs.cache-hit != 'true'
+        run: |
+          rm -rf src host-tools
+          python3 get_source.py --tags "${{ needs.prepare.outputs.source-tag }}"
+          python3 build.py --protoc-only --protoc-output host-tools/protoc
 
       - name: Setup NDK
         id: ndk
@@ -203,6 +210,7 @@ jobs:
           set -euo pipefail
           python3 scripts/package_sdk.py \
             --version "${{ needs.prepare.outputs.version }}" \
+            --platform-tools-version "36.0.2" \
             --artifacts artifacts \
             --output dist
           ls -lh dist
@@ -234,9 +242,9 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          TAG="platform-tools-$VERSION"
+          TAG="sdk-tools-$VERSION"
           git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
-          NOTES="Release packages for Android Platform Tools $VERSION and Build Tools $VERSION."
+          NOTES="Release packages: Google Platform Tools 36.0.2 and Build Tools $VERSION. Native binaries built from AOSP android-16.0.0_r3."
           printf '%s\\n\\nCommit: %s\\n' "$NOTES" "$GITHUB_SHA" > notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
