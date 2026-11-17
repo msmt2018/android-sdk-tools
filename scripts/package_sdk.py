@@ -135,7 +135,7 @@ def normalize_source_properties(root, version):
             del lines[index]
     else:
         lines.append(f"Pkg.Revision={version}")
-    source_properties.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+    source_properties.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def create_build_tools_zip(source, output, version):
