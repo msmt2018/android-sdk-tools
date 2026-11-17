@@ -60,7 +60,7 @@ def normalize_source_properties(root, version):
             del lines[index]
     else:
         lines.append(f"Pkg.Revision={version}")
-    source_properties.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+    source_properties.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def create_build_tools_zip(source, output, version):
@@ -140,7 +140,7 @@ def main():
                 if launcher_path.is_file():
                     data = launcher_path.read_bytes()
                     if data.startswith(b"#!"):
-                        _, separator, remainder = data.partition(b"\\n")
+                        _, separator, remainder = data.partition(b"\n")
                         if separator:
                             launcher_path.write_bytes(b"#!/system/bin/env sh\\n" + remainder)
 
