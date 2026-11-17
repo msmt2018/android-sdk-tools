@@ -117,6 +117,11 @@ if(EXISTS "${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp")
     list(APPEND AAPT2_APK_INFO_CMD_SRC ${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp)
 endif()
 
+set(AAPT2_FEATURE_FLAGS_FILTER_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/link/FeatureFlagsFilter.cpp")
+    list(APPEND AAPT2_FEATURE_FLAGS_FILTER_SRC ${SRC}/base/tools/aapt2/link/FeatureFlagsFilter.cpp)
+endif()
+
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
     ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
@@ -142,7 +147,7 @@ add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/io/Util.cpp
     ${SRC}/base/tools/aapt2/io/ZipArchive.cpp
     ${SRC}/base/tools/aapt2/link/AutoVersioner.cpp
-    ${SRC}/base/tools/aapt2/link/FeatureFlagsFilter.cpp
+    ${AAPT2_FEATURE_FLAGS_FILTER_SRC}
     ${SRC}/base/tools/aapt2/link/ManifestFixer.cpp
     ${SRC}/base/tools/aapt2/link/NoDefaultResourceRemover.cpp
     ${SRC}/base/tools/aapt2/link/PrivateAttributeMover.cpp
