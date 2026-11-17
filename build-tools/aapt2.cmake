@@ -87,7 +87,7 @@ set(COMPILE_FLAGS
     )
 
 set(TOOL_SOURCE
-    ${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp
+    ${AAPT2_APK_INFO_CMD_SRC}
     ${SRC}/base/tools/aapt2/cmd/Command.cpp
     ${SRC}/base/tools/aapt2/cmd/Compile.cpp
     ${SRC}/base/tools/aapt2/cmd/Convert.cpp
@@ -99,6 +99,15 @@ set(TOOL_SOURCE
     )
     
 # build the host static library: aapt2
+set(AAPT2_RES_ENTRY_WRITER_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/format/binary/ResEntryWriter.cpp")
+    list(APPEND AAPT2_RES_ENTRY_WRITER_SRC ${SRC}/base/tools/aapt2/format/binary/ResEntryWriter.cpp)
+endif()
+set(AAPT2_APK_INFO_CMD_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp")
+    list(APPEND AAPT2_APK_INFO_CMD_SRC ${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp)
+endif()
+
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
     ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
@@ -113,7 +122,7 @@ add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/format/Container.cpp
     ${SRC}/base/tools/aapt2/format/binary/BinaryResourceParser.cpp
     ${SRC}/base/tools/aapt2/format/binary/ResChunkPullParser.cpp
-    ${SRC}/base/tools/aapt2/format/binary/ResEntryWriter.cpp
+    ${AAPT2_RES_ENTRY_WRITER_SRC}
     ${SRC}/base/tools/aapt2/format/binary/TableFlattener.cpp
     ${SRC}/base/tools/aapt2/format/binary/XmlFlattener.cpp
     ${SRC}/base/tools/aapt2/format/proto/ProtoDeserialize.cpp
