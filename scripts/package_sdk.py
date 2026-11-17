@@ -121,6 +121,23 @@ def normalize_build_tools_metadata(root, version):
     tree.write(package_xml, encoding="utf-8", xml_declaration=True)
 
 
+def normalize_source_properties(root, version):
+    """Set SDK package revision metadata to the version of this repacked branch."""
+    source_properties = root / "source.properties"
+    if not source_properties.is_file():
+        raise RuntimeError(f"SDK package is missing source.properties: {source_properties}")
+    lines = source_properties.read_text(encoding="utf-8").splitlines()
+    revision_lines = [i for i, line in enumerate(lines) if line.startswith("Pkg.Revision=")]
+    if revision_lines:
+        first = revision_lines[0]
+        lines[first] = f"Pkg.Revision={version}"
+        for index in reversed(revision_lines[1:]):
+            del lines[index]
+    else:
+        lines.append(f"Pkg.Revision={version}")
+    source_properties.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+
+
 def create_build_tools_zip(source, output, version):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED,
                          compresslevel=9, allowZip64=True) as archive:
@@ -216,6 +233,10 @@ def main():
                     destination.chmod(0o755)
                     print(f"[{abi}] replaced {group}/{name} mode=755")
 
+            # Normalize Google package metadata only after all native binaries are replaced.
+            normalize_source_properties(pt_root, args.version)
+            normalize_source_properties(bt_root, args.version)
+
             pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
                 archive.add(pt_root, arcname="platform-tools")
@@ -250,6 +271,16 @@ def main():
                 )
                 if package is None or package.get("path") != f"build-tools;{args.version}":
                     raise RuntimeError(f"{abi}: Build Tools package.xml version mismatch")
+
+            with tarfile.open(pt_output, "r:gz") as archive:
+                metadata = archive.extractfile("platform-tools/source.properties")
+                if metadata is None or f"Pkg.Revision={args.version}" not in metadata.read().decode("utf-8").splitlines():
+                    raise RuntimeError(f"{abi}: Platform Tools source.properties version mismatch")
+
+            with zipfile.ZipFile(bt_output) as archive:
+                metadata = archive.read(f"{args.version}/source.properties").decode("utf-8").splitlines()
+                if f"Pkg.Revision={args.version}" not in metadata:
+                    raise RuntimeError(f"{abi}: Build Tools source.properties version mismatch")
 
             print(f"created {pt_output}")
             print(f"created {bt_output}")
