@@ -108,6 +108,15 @@ if(EXISTS "${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp")
     list(APPEND AAPT2_APK_INFO_CMD_SRC ${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp)
 endif()
 
+set(AAPT2_RES_ENTRY_WRITER_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/format/binary/ResEntryWriter.cpp")
+    list(APPEND AAPT2_RES_ENTRY_WRITER_SRC ${SRC}/base/tools/aapt2/format/binary/ResEntryWriter.cpp)
+endif()
+set(AAPT2_APK_INFO_CMD_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp")
+    list(APPEND AAPT2_APK_INFO_CMD_SRC ${SRC}/base/tools/aapt2/cmd/ApkInfo.cpp)
+endif()
+
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
     ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
