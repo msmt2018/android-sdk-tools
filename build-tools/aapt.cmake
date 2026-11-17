@@ -30,6 +30,11 @@ set(INCLUDES
     ${SRC}/incremental_delivery/incfs/kernel-headers
     )
 
+set(AAPT_LEGACY_UTILS_SRC)
+if(EXISTS "${SRC}/base/tools/aapt/Utils.cpp")
+    list(APPEND AAPT_LEGACY_UTILS_SRC ${SRC}/base/tools/aapt/Utils.cpp)
+endif()
+
 add_library(libaapt STATIC
     ${SRC}/base/tools/aapt/AaptAssets.cpp
     ${SRC}/base/tools/aapt/AaptConfig.cpp
@@ -48,7 +53,7 @@ add_library(libaapt STATIC
     ${SRC}/base/tools/aapt/ResourceTable.cpp
     ${SRC}/base/tools/aapt/SourcePos.cpp
     ${SRC}/base/tools/aapt/StringPool.cpp
-    ${SRC}/base/tools/aapt/Utils.cpp
+    ${AAPT_LEGACY_UTILS_SRC}
     ${SRC}/base/tools/aapt/WorkQueue.cpp
     ${SRC}/base/tools/aapt/XMLNode.cpp
     ${SRC}/base/tools/aapt/ZipEntry.cpp
