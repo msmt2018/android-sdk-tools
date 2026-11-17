@@ -94,7 +94,7 @@ def main():
             pt_zip,
         )
         download(
-            f"https://dl.google.com/android/repository/build-tools_r{args.version}_linux.zip",
+            f"https://dl.google.com/android/repository/build-tools_r{args.version}-linux.zip",
             bt_zip,
         )
 
