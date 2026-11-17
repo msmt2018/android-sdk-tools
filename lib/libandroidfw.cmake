@@ -19,6 +19,11 @@ if(EXISTS "${SRC}/base/libs/androidfw/ApkParsing.cpp")
     list(APPEND LIBANDROIDFW_APK_PARSING_SRC ${SRC}/base/libs/androidfw/ApkParsing.cpp)
 endif()
 
+set(LIBANDROIDFW_APK_PARSING_SRC)
+if(EXISTS "${SRC}/base/libs/androidfw/ApkParsing.cpp")
+    list(APPEND LIBANDROIDFW_APK_PARSING_SRC ${SRC}/base/libs/androidfw/ApkParsing.cpp)
+endif()
+
 add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/ApkAssets.cpp
     ${LIBANDROIDFW_APK_PARSING_SRC}
