@@ -21,7 +21,7 @@ endif()
 
 set(LIBUTILS_BINDER_SRC
     ${LIBUTILS_BINDER_ERRORS_SRC}
-    ${SRC}/core/libutils/binder/RefBase.cpp
+    ${LIBUTILS_REFBASE_SRC}
     ${SRC}/core/libutils/binder/SharedBuffer.cpp
     ${SRC}/core/libutils/binder/String16.cpp
     ${SRC}/core/libutils/binder/String8.cpp
@@ -29,6 +29,11 @@ set(LIBUTILS_BINDER_SRC
     ${SRC}/core/libutils/binder/Unicode.cpp
     ${SRC}/core/libutils/binder/VectorImpl.cpp
     )
+
+set(LIBUTILS_REFBASE_SRC)
+if(EXISTS "${SRC}/core/libutils/binder/RefBase.cpp")
+    list(APPEND LIBUTILS_REFBASE_SRC ${SRC}/core/libutils/binder/RefBase.cpp)
+endif()
 
 add_library(libutils STATIC
     ${SRC}/core/libutils/FileMap.cpp
