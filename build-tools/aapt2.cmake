@@ -113,6 +113,11 @@ if(EXISTS "${SRC}/base/tools/aapt2/link/FeatureFlagsFilter.cpp")
     list(APPEND AAPT2_FEATURE_FLAGS_FILTER_SRC ${SRC}/base/tools/aapt2/link/FeatureFlagsFilter.cpp)
 endif()
 
+set(AAPT2_OBFUSCATOR_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/optimize/Obfuscator.cpp")
+    list(APPEND AAPT2_OBFUSCATOR_SRC ${SRC}/base/tools/aapt2/optimize/Obfuscator.cpp)
+endif()
+
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
     ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
@@ -151,7 +156,7 @@ add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/optimize/MultiApkGenerator.cpp
     ${SRC}/base/tools/aapt2/optimize/ResourceDeduper.cpp
     ${SRC}/base/tools/aapt2/optimize/ResourceFilter.cpp
-    ${SRC}/base/tools/aapt2/optimize/Obfuscator.cpp
+    ${AAPT2_OBFUSCATOR_SRC}
     ${SRC}/base/tools/aapt2/optimize/VersionCollapser.cpp
     ${SRC}/base/tools/aapt2/process/ProductFilter.cpp
     ${SRC}/base/tools/aapt2/process/SymbolTable.cpp
