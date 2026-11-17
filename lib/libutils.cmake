@@ -14,8 +14,13 @@
 # limitations under the License.
 #
 
+set(LIBUTILS_BINDER_ERRORS_SRC)
+if(EXISTS "${SRC}/core/libutils/binder/Errors.cpp")
+    list(APPEND LIBUTILS_BINDER_ERRORS_SRC ${SRC}/core/libutils/binder/Errors.cpp)
+endif()
+
 set(LIBUTILS_BINDER_SRC
-    ${SRC}/core/libutils/binder/Errors.cpp
+    ${LIBUTILS_BINDER_ERRORS_SRC}
     ${SRC}/core/libutils/binder/RefBase.cpp
     ${SRC}/core/libutils/binder/SharedBuffer.cpp
     ${SRC}/core/libutils/binder/String16.cpp
