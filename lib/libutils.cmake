@@ -14,25 +14,32 @@
 # limitations under the License.
 #
 
+# Android 14 keeps these sources directly under libutils; newer snapshots
+# place binder-related sources in the binder/ subdirectory.
+set(LIBUTILS_BINDER_DIR "${SRC}/core/libutils/binder")
+if(NOT EXISTS "${LIBUTILS_BINDER_DIR}/SharedBuffer.cpp")
+    set(LIBUTILS_BINDER_DIR "${SRC}/core/libutils")
+endif()
+
 set(LIBUTILS_BINDER_ERRORS_SRC)
-if(EXISTS "${SRC}/core/libutils/binder/Errors.cpp")
-    list(APPEND LIBUTILS_BINDER_ERRORS_SRC ${SRC}/core/libutils/binder/Errors.cpp)
+if(EXISTS "${LIBUTILS_BINDER_DIR}/Errors.cpp")
+    list(APPEND LIBUTILS_BINDER_ERRORS_SRC ${LIBUTILS_BINDER_DIR}/Errors.cpp)
 endif()
 
 set(LIBUTILS_BINDER_SRC
     ${LIBUTILS_BINDER_ERRORS_SRC}
     ${LIBUTILS_REFBASE_SRC}
-    ${SRC}/core/libutils/binder/SharedBuffer.cpp
-    ${SRC}/core/libutils/binder/String16.cpp
-    ${SRC}/core/libutils/binder/String8.cpp
-    ${SRC}/core/libutils/binder/StrongPointer.cpp
-    ${SRC}/core/libutils/binder/Unicode.cpp
-    ${SRC}/core/libutils/binder/VectorImpl.cpp
+    ${LIBUTILS_BINDER_DIR}/SharedBuffer.cpp
+    ${LIBUTILS_BINDER_DIR}/String16.cpp
+    ${LIBUTILS_BINDER_DIR}/String8.cpp
+    ${LIBUTILS_BINDER_DIR}/StrongPointer.cpp
+    ${LIBUTILS_BINDER_DIR}/Unicode.cpp
+    ${LIBUTILS_BINDER_DIR}/VectorImpl.cpp
     )
 
 set(LIBUTILS_REFBASE_SRC)
-if(EXISTS "${SRC}/core/libutils/binder/RefBase.cpp")
-    list(APPEND LIBUTILS_REFBASE_SRC ${SRC}/core/libutils/binder/RefBase.cpp)
+if(EXISTS "${LIBUTILS_BINDER_DIR}/RefBase.cpp")
+    list(APPEND LIBUTILS_REFBASE_SRC ${LIBUTILS_BINDER_DIR}/RefBase.cpp)
 endif()
 
 add_library(libutils STATIC
