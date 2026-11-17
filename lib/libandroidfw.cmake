@@ -14,9 +14,14 @@
 # limitations under the License.
 #
 
+set(LIBANDROIDFW_APK_PARSING_SRC)
+if(EXISTS "${SRC}/base/libs/androidfw/ApkParsing.cpp")
+    list(APPEND LIBANDROIDFW_APK_PARSING_SRC ${SRC}/base/libs/androidfw/ApkParsing.cpp)
+endif()
+
 add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/ApkAssets.cpp
-    ${SRC}/base/libs/androidfw/ApkParsing.cpp
+    ${LIBANDROIDFW_APK_PARSING_SRC}
     ${SRC}/base/libs/androidfw/Asset.cpp
     ${SRC}/base/libs/androidfw/AssetDir.cpp
     ${SRC}/base/libs/androidfw/AssetManager.cpp
