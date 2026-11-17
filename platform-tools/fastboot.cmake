@@ -47,12 +47,17 @@ target_include_directories(libfsmgr PRIVATE
     )
 target_link_libraries(libfsmgr PUBLIC fmt::fmt)
 
+set(FASTBOOT_FILESYSTEM_SRC)
+if(EXISTS "${SRC}/core/fastboot/filesystem.cpp")
+    list(APPEND FASTBOOT_FILESYSTEM_SRC ${SRC}/core/fastboot/filesystem.cpp)
+endif()
+
 add_executable(fastboot
     ${SRC}/core/fastboot/bootimg_utils.cpp
     ${SRC}/core/fastboot/fastboot.cpp
     ${SRC}/core/fastboot/fastboot_driver.cpp
     ${SRC}/core/fastboot/fs.cpp
-    ${SRC}/core/fastboot/filesystem.cpp
+    ${FASTBOOT_FILESYSTEM_SRC}
     ${SRC}/core/fastboot/super_flash_helper.cpp
     ${SRC}/core/fastboot/main.cpp
     ${SRC}/core/fastboot/socket.cpp
