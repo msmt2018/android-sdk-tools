@@ -52,6 +52,11 @@ if(EXISTS "${SRC}/core/fastboot/filesystem.cpp")
     list(APPEND FASTBOOT_FILESYSTEM_SRC ${SRC}/core/fastboot/filesystem.cpp)
 endif()
 
+set(FASTBOOT_STORAGE_SRC)
+if(EXISTS "${SRC}/core/fastboot/storage.cpp")
+    list(APPEND FASTBOOT_STORAGE_SRC ${SRC}/core/fastboot/storage.cpp)
+endif()
+
 add_executable(fastboot
     ${SRC}/core/fastboot/bootimg_utils.cpp
     ${SRC}/core/fastboot/fastboot.cpp
@@ -61,7 +66,7 @@ add_executable(fastboot
     ${SRC}/core/fastboot/super_flash_helper.cpp
     ${SRC}/core/fastboot/main.cpp
     ${SRC}/core/fastboot/socket.cpp
-    ${SRC}/core/fastboot/storage.cpp
+    ${FASTBOOT_STORAGE_SRC}
     ${SRC}/core/fastboot/task.cpp
     ${SRC}/core/fastboot/tcp.cpp
     ${SRC}/core/fastboot/udp.cpp
