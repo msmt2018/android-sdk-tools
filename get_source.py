@@ -420,6 +420,39 @@ def ensure_expat_android_entropy_source():
         raise RuntimeError('Expat Android entropy definition missing in {}'.format(path))
 
 
+
+def ensure_androidfw_combined_iterator_swap_compat():
+    """Add rvalue swap for CombinedIterator's proxy reference."""
+    path = ROOT / 'src/base/libs/androidfw/include/androidfw/CombinedIterator.h'
+    if not path.exists():
+        raise RuntimeError('CombinedIterator.h not found')
+    text = path.read_text()
+    anchor = 'friend void swap(RefPair& l, RefPair& r)'
+    if anchor in text and 'friend void swap(RefPair&& l, RefPair&& r)' not in text:
+        start = text.find(anchor)
+        brace = text.find('{', start)
+        depth = 0
+        end = -1
+        for index in range(brace, len(text)):
+            if text[index] == '{': depth += 1
+            elif text[index] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = index + 1
+                    break
+        if end < 0:
+            raise RuntimeError('cannot locate RefPair swap')
+        body = text[start:end]
+        overload = body.replace('friend void swap(RefPair& l, RefPair& r)',
+                                'friend void swap(RefPair&& l, RefPair&& r)', 1)
+        text = text[:end] + '\n\n  ' + overload + text[end:]
+        path.write_text(text)
+        print('androidfw: added rvalue RefPair swap', flush=True)
+    if 'friend void swap(RefPair&& l, RefPair&& r)' not in path.read_text():
+        raise RuntimeError('rvalue RefPair swap missing')
+
+
+
 def ensure_bionic_private_property_headers():
     """Expose Bionic private property serial APIs before including the public header."""
     sources = (
@@ -493,6 +526,7 @@ def patches():
     ensure_boringssl_arm_asm_comment_compat()
     ensure_expat_android_entropy_source()
     ensure_bionic_private_property_headers()
+    ensure_androidfw_combined_iterator_swap_compat()
     ensure_liblog_ndk_private_property_api()
     ensure_liblog_api37_ndk_compat()
 
