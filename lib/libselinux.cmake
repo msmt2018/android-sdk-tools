@@ -19,6 +19,19 @@ if(EXISTS "${SRC}/selinux/libselinux/src/android/android_seapp.c")
     list(APPEND LIBSELINUX_ANDROID_SEAPP_SOURCE ${SRC}/selinux/libselinux/src/android/android_seapp.c)
 endif()
 
+# These implementation files vary between the Android platform-tools source
+# snapshots. Keep the target aligned with the files actually present in the
+# version-pinned AOSP checkout instead of passing nonexistent paths to CMake.
+set(LIBSELINUX_INTERNAL_SOURCE)
+if(EXISTS "${SRC}/selinux/libselinux/src/selinux_internal.c")
+    list(APPEND LIBSELINUX_INTERNAL_SOURCE ${SRC}/selinux/libselinux/src/selinux_internal.c)
+endif()
+
+set(LIBSELINUX_HASHTAB_SOURCE)
+if(EXISTS "${SRC}/selinux/libselinux/src/hashtab.c")
+    list(APPEND LIBSELINUX_HASHTAB_SOURCE ${SRC}/selinux/libselinux/src/hashtab.c)
+endif()
+
 add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/android/android.c
     ${LIBSELINUX_ANDROID_SEAPP_SOURCE}
@@ -58,7 +71,8 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/procattr.c
     ${SRC}/selinux/libselinux/src/regex.c
     ${SRC}/selinux/libselinux/src/reject_unknown.c
-    ${SRC}/selinux/libselinux/src/selinux_internal.c
+    ${LIBSELINUX_INTERNAL_SOURCE}
+    ${LIBSELINUX_HASHTAB_SOURCE}
     ${SRC}/selinux/libselinux/src/sestatus.c
     ${SRC}/selinux/libselinux/src/setenforce.c
     ${SRC}/selinux/libselinux/src/setfilecon.c
