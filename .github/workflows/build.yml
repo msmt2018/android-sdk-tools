@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master, main, platform-tools-35.0.2, platform-tools-34.0.0, platform-tools-34.0.1, platform-tools-34.0.3, platform-tools-34.0.4, platform-tools-34.0.5 ]
+    branches: [ master, main, platform-tools-35.0.2, platform-tools-34.0.0, platform-tools-34.0.1, platform-tools-34.0.3, platform-tools-34.0.4, platform-tools-34.0.5, platform-tools-33.0.0, platform-tools-33.0.1, platform-tools-33.0.2, platform-tools-33.0.3 ]
     paths-ignore:
       - '**.md'
       - 'LICENSE.txt'
