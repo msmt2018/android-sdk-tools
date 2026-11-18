@@ -80,9 +80,15 @@ def create_build_tools_zip(source, output, version):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", required=True)
+    parser.add_argument("--build-tools-version")
     parser.add_argument("--artifacts", type=Path, default=Path("artifacts"))
     parser.add_argument("--output", type=Path, default=Path("dist"))
     args = parser.parse_args()
+    # Platform Tools and Build Tools have independent release trains.
+    # Google published Build Tools 34.0.0, but not 34.0.1/34.0.3/34.0.4/34.0.5.
+    build_tools_version = args.build_tools_version
+    if build_tools_version is None:
+        build_tools_version = "34.0.0" if args.version.startswith("34.0.") else args.version
     args.output.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
@@ -97,9 +103,9 @@ def main():
         # the initial major Build Tools release (for example, 35.0.0 is
         # published as build-tools_r35_linux.zip). Patch releases retain
         # their full version in the filename (35.0.1 -> build-tools_r35.0.1_linux.zip).
-        build_tools_archive_version = args.version
-        if args.version.endswith(".0.0"):
-            build_tools_archive_version = args.version.rsplit(".", 2)[0]
+        build_tools_archive_version = build_tools_version
+        if build_tools_version.endswith(".0.0"):
+            build_tools_archive_version = build_tools_version.rsplit(".", 2)[0]
         download(
             f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}_linux.zip",
             bt_zip,
@@ -158,14 +164,14 @@ def main():
 
             # Normalize Google package metadata only after all native binaries are replaced.
             normalize_source_properties(pt_root, args.version)
-            normalize_source_properties(bt_root, args.version)
+            normalize_source_properties(bt_root, build_tools_version)
 
             pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
                 archive.add(pt_root, arcname="platform-tools")
 
-            bt_output = args.output / f"build-tools-{args.version}-{abi}.zip"
-            create_build_tools_zip(bt_root, bt_output, args.version)
+            bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
+            create_build_tools_zip(bt_root, bt_output, build_tools_version)
 
             with tarfile.open(pt_output, "r:gz") as archive:
                 members = set(archive.getnames())
@@ -178,7 +184,7 @@ def main():
             with zipfile.ZipFile(bt_output) as archive:
                 members = set(archive.namelist())
                 missing = {
-                    f"{args.version}/{name}"
+                    f"{build_tools_version}/{name}"
                     for name in GROUPS["build-tools"] + GROUPS["others"]
                 } - members
                 if missing:
@@ -190,8 +196,8 @@ def main():
                     raise RuntimeError(f"{abi}: Platform Tools source.properties version mismatch")
 
             with zipfile.ZipFile(bt_output) as archive:
-                metadata = archive.read(f"{args.version}/source.properties").decode("utf-8").splitlines()
-                if f"Pkg.Revision={args.version}" not in metadata:
+                metadata = archive.read(f"{build_tools_version}/source.properties").decode("utf-8").splitlines()
+                if f"Pkg.Revision={build_tools_version}" not in metadata:
                     raise RuntimeError(f"{abi}: Build Tools source.properties version mismatch")
 
             print(f"created {pt_output}")
