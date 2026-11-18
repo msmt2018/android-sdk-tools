@@ -79,8 +79,15 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/setrans_client.c
     ${SRC}/selinux/libselinux/src/sha1.c
     ${SRC}/selinux/libselinux/src/stringrep.c
-    ${SRC}/selinux/libselinux/src/android/android_device.c
     )
+
+# android_device.c is an Android-only addition in newer SELinux snapshots.
+# Older platform-tools-33 source tags do not contain it.
+if(EXISTS "${SRC}/selinux/libselinux/src/android/android_device.c")
+    target_sources(libselinux PRIVATE
+        ${SRC}/selinux/libselinux/src/android/android_device.c
+    )
+endif()
 
 target_compile_definitions(libselinux PRIVATE
     -DAUDITD_LOG_TAG=1003 
