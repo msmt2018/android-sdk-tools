@@ -184,16 +184,8 @@ target_include_directories(libprotoc PRIVATE
     ${SRC}/protobuf/src
     )
     
-add_executable(protoc ${SRC}/protobuf/src/google/protobuf/compiler/main.cc)
-target_include_directories(protoc PRIVATE 
-    ${SRC}/protobuf/android
-    ${SRC}/protobuf/src
-    )
-target_link_libraries(protoc
-    libprotoc
-    liblog
-    sdk_system_libs
-    )
+# The host protoc is built by build.py before target configuration.
+# Do not add a second protoc executable to the Android cross-build.
 
 # The API 33 protobuf snapshot is built as one combined static archive.
 # Expose the upstream CMake target names consumed by AAPT2 and ADB.
