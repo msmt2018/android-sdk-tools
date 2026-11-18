@@ -14,9 +14,14 @@
 # limitations under the License.
 #
 
+set(LIBSELINUX_ANDROID_SEAPP_SOURCE)
+if(EXISTS "${SRC}/selinux/libselinux/src/android/android_seapp.c")
+    list(APPEND LIBSELINUX_ANDROID_SEAPP_SOURCE ${SRC}/selinux/libselinux/src/android/android_seapp.c)
+endif()
+
 add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/android/android.c
-    ${SRC}/selinux/libselinux/src/android/android_seapp.c
+    ${LIBSELINUX_ANDROID_SEAPP_SOURCE}
     ${SRC}/selinux/libselinux/src/avc.c
     ${SRC}/selinux/libselinux/src/avc_internal.c
     ${SRC}/selinux/libselinux/src/avc_sidtab.c
