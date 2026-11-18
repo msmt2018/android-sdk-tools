@@ -278,6 +278,27 @@ def ensure_androidfw_theme_entry_definition():
     print('androidfw Theme::Entry: defined complete nested type in public header', flush=True)
 
 
+def ensure_libziparchive_span_compat():
+    """Use size_t for the std::span extent instead of narrowing it through ssize_t."""
+    path = ROOT / 'src/libziparchive/zip_archive.cc'
+    if not path.is_file():
+        raise RuntimeError('libziparchive zip_archive.cc not found: {}'.format(path))
+
+    text = path.read_text()
+    old = 'return {buf.first, ssize_t(buf.second)};'
+    new = 'return {buf.first, buf.second};'
+    if old in text:
+        text = text.replace(old, new, 1)
+        path.write_text(text)
+    elif new not in text:
+        raise RuntimeError('cannot locate bufferToSpan return expression in {}'.format(path))
+
+    verified = path.read_text()
+    if old in verified or new not in verified:
+        raise RuntimeError('failed to apply libziparchive std::span extent fix in {}'.format(path))
+    print('libziparchive: std::span extent uses size_t', flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -324,6 +345,7 @@ def patches():
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
     ensure_androidfw_theme_entry_definition()
+    ensure_libziparchive_span_compat()
 
 
 def main():
