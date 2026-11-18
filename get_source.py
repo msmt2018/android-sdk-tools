@@ -307,10 +307,10 @@ def ensure_adb_tls_function_include():
 
     text = path.read_text()
     if '#include <functional>' not in text:
-        match = re.search(r'(?m)^#include\\s+[<"]', text)
+        match = re.search(r'(?m)^#include\s+[<"]', text)
         if not match:
             raise RuntimeError('cannot locate include block in {}'.format(path))
-        text = text[:match.start()] + '#include <functional>\\n' + text[match.start():]
+        text = text[:match.start()] + '#include <functional>\n' + text[match.start():]
         path.write_text(text)
 
     verified = path.read_text()
