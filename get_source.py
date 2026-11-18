@@ -299,24 +299,29 @@ def ensure_adb_mdns_function_include():
 
 
 def ensure_libziparchive_span_compat():
-    """Use size_t for the std::span extent instead of narrowing it through ssize_t."""
+    """Avoid narrowing std::span extents while remaining compatible with older AOSP snapshots."""
     path = ROOT / 'src/libziparchive/zip_archive.cc'
     if not path.is_file():
         raise RuntimeError('libziparchive zip_archive.cc not found: {}'.format(path))
 
     text = path.read_text()
-    old = 'return {buf.first, ssize_t(buf.second)};'
-    new = 'return {buf.first, buf.second};'
-    if old in text:
-        text = text.replace(old, new, 1)
-        path.write_text(text)
-    elif new not in text:
-        raise RuntimeError('cannot locate bufferToSpan return expression in {}'.format(path))
+    narrowing = re.compile(
+        r'return\\s*\\{\\s*buf\\.first\\s*,\\s*'
+        r'(?:ssize_t\\s*\\(\\s*buf\\.second\\s*\\)|'
+        r'static_cast\\s*<\\s*ssize_t\\s*>\\s*\\(\\s*buf\\.second\\s*\\))'
+        r'\\s*\\}\\s*;'
+    )
+    fixed, count = narrowing.subn('return {buf.first, buf.second};', text, count=1)
+    if count:
+        path.write_text(fixed)
 
     verified = path.read_text()
-    if old in verified or new not in verified:
-        raise RuntimeError('failed to apply libziparchive std::span extent fix in {}'.format(path))
-    print('libziparchive: std::span extent uses size_t', flush=True)
+    if narrowing.search(verified):
+        raise RuntimeError('narrowing ssize_t span extent remains in {}'.format(path))
+    if count:
+        print('libziparchive: normalized std::span extent to size_t', flush=True)
+    else:
+        print('libziparchive: no ssize_t span narrowing in this AOSP snapshot', flush=True)
 
 
 def patches():
