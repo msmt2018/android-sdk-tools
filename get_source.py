@@ -487,34 +487,29 @@ def ensure_art_safe_map_invoke_result_compat():
 
 
 def ensure_art_string_view_cpp20_compat():
-    """Enable ART's C++20 string_view compatibility helpers under C++20."""
+    """Remove ART's obsolete C++20 #error while retaining its string_view wrappers."""
     path = ROOT / 'src/art/libartbase/base/string_view_cpp20.h'
     if not path.is_file():
         raise RuntimeError('ART string_view_cpp20.h not found: {}'.format(path))
 
     text = path.read_text()
-    lines = text.splitlines(keepends=True)
     expected_error = '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."'
-    starts = [i for i, line in enumerate(lines) if line.strip() == '#if __cplusplus >= 202000L']
-    if len(starts) == 1:
-        i = starts[0]
-        if i + 2 >= len(lines) or lines[i + 1].strip() != expected_error or lines[i + 2].strip() != '#endif':
-            raise RuntimeError('ART string_view C++20 guard has unexpected structure: {}'.format(path))
-        del lines[i:i + 3]
+    lines = text.splitlines(keepends=True)
+    matches = [i for i, line in enumerate(lines) if line.strip() == expected_error]
+    if len(matches) == 1:
+        del lines[matches[0]]
         path.write_text(''.join(lines))
-    elif len(starts) == 0:
-        if any(line.strip() == expected_error for line in lines):
-            raise RuntimeError('ART string_view C++20 error remains outside its expected guard: {}'.format(path))
-        print('ART string_view: C++20 guard already absent', flush=True)
-    else:
-        raise RuntimeError('expected one ART string_view C++20 guard, found {}'.format(len(starts)))
+    elif len(matches) > 1:
+        raise RuntimeError('multiple obsolete ART C++20 errors found in {}'.format(path))
 
     verified = path.read_text()
     if expected_error in verified:
-        raise RuntimeError('ART string_view C++20 guard remains in {}'.format(path))
-    if 'inline bool StartsWith(std::string_view sv' not in verified or 'inline bool EndsWith(std::string_view sv' not in verified:
-        raise RuntimeError('ART string_view compatibility helpers were unexpectedly modified')
-    print('ART string_view: C++20 guard removed; StartsWith/EndsWith compatibility helpers retained', flush=True)
+        raise RuntimeError('ART C++20 error remains in {}'.format(path))
+    if 'inline bool StartsWith(std::string_view sv' not in verified:
+        raise RuntimeError('ART StartsWith implementation missing in {}'.format(path))
+    if 'inline bool EndsWith(std::string_view sv' not in verified:
+        raise RuntimeError('ART EndsWith implementation missing in {}'.format(path))
+    print('ART string_view: obsolete C++20 #error removed; compatibility wrappers retained', flush=True)
 
 
 def patches():
