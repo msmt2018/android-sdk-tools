@@ -229,6 +229,36 @@ def ensure_art_hash_set_allocator_compat():
     if re.search(r'allocfn_\.(?:construct|destroy|address)\s*\(', verified):
         raise RuntimeError('C++20-incompatible allocator member remains in {}'.format(path))
 
+def ensure_androidfw_theme_entry_definition():
+    """Restore the Android 14 Theme::Entry definition omitted by some platform-tools snapshots."""
+    path = ROOT / 'src/base/libs/androidfw/AssetManager2.cpp'
+    if not path.is_file():
+        raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(path))
+
+    text = path.read_text()
+    if re.search(r'\\bstruct\\s+Theme::Entry\\s*\\{', text):
+        print('androidfw Theme::Entry: already defined', flush=True)
+        return
+
+    marker = 'AssetManager2::AssetManager2() {'
+    if marker not in text:
+        raise RuntimeError('cannot locate AssetManager2 constructor in {}'.format(path))
+
+    definition = (
+        'struct Theme::Entry {\\n'
+        '  ApkAssetsCookie cookie;\\n'
+        '  uint32_t type_spec_flags;\\n'
+        '  Res_value value;\\n'
+        '};\\n\\n'
+    )
+    text = text.replace(marker, definition + marker, 1)
+    path.write_text(text)
+
+    if not re.search(r'\\bstruct\\s+Theme::Entry\\s*\\{', path.read_text()):
+        raise RuntimeError('failed to restore Theme::Entry definition in {}'.format(path))
+    print('androidfw Theme::Entry: restored missing complete type definition', flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -276,6 +306,7 @@ def patches():
     ensure_openscreen_task_runner_compat()
     ensure_art_metrics_memory_order_compat()
     ensure_art_hash_set_allocator_compat()
+    ensure_androidfw_theme_entry_definition()
 
 
 def main():
