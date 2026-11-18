@@ -194,3 +194,8 @@ target_link_libraries(protoc
     liblog
     sdk_system_libs
     )
+
+# The API 33 protobuf snapshot is built as one combined static archive.
+# Expose the upstream CMake target names consumed by AAPT2 and ADB.
+add_library(protobuf::libprotobuf ALIAS libprotoc)
+add_library(protobuf::libprotoc ALIAS libprotoc)
