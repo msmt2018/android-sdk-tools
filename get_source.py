@@ -236,7 +236,7 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(path))
 
     text = path.read_text()
-    if re.search(r'\\bstruct\\s+Theme::Entry\\s*\\{', text):
+    if re.search(r'\bstruct\s+Theme::Entry\s*\{', text):
         print('androidfw Theme::Entry: already defined', flush=True)
         return
 
@@ -245,16 +245,16 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('cannot locate AssetManager2 constructor in {}'.format(path))
 
     definition = (
-        'struct Theme::Entry {\\n'
-        '  ApkAssetsCookie cookie;\\n'
-        '  uint32_t type_spec_flags;\\n'
-        '  Res_value value;\\n'
-        '};\\n\\n'
+        'struct Theme::Entry {\n'
+        '  ApkAssetsCookie cookie;\n'
+        '  uint32_t type_spec_flags;\n'
+        '  Res_value value;\n'
+        '};\n\n'
     )
     text = text.replace(marker, definition + marker, 1)
     path.write_text(text)
 
-    if not re.search(r'\\bstruct\\s+Theme::Entry\\s*\\{', path.read_text()):
+    if not re.search(r'\bstruct\s+Theme::Entry\s*\{', path.read_text()):
         raise RuntimeError('failed to restore Theme::Entry definition in {}'.format(path))
     print('androidfw Theme::Entry: restored missing complete type definition', flush=True)
 
