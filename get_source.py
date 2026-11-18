@@ -278,6 +278,26 @@ def ensure_androidfw_theme_entry_definition():
     print('androidfw Theme::Entry: defined complete nested type in public header', flush=True)
 
 
+def ensure_adb_mdns_function_include():
+    """Provide the std::function declaration used by adb_mdns.h."""
+    path = ROOT / 'src/adb/adb_mdns.h'
+    if not path.is_file():
+        raise RuntimeError('ADB mdns header not found: {}'.format(path))
+
+    text = path.read_text()
+    if '#include <functional>' not in text:
+        match = re.search(r'(?m)^#include\s+[<"]', text)
+        if not match:
+            raise RuntimeError('cannot locate include block in {}'.format(path))
+        text = text[:match.start()] + '#include <functional>\n' + text[match.start():]
+        path.write_text(text)
+
+    verified = path.read_text()
+    if '#include <functional>' not in verified:
+        raise RuntimeError('failed to add <functional> to {}'.format(path))
+    print('ADB mdns: added required <functional> include', flush=True)
+
+
 def ensure_libziparchive_span_compat():
     """Use size_t for the std::span extent instead of narrowing it through ssize_t."""
     path = ROOT / 'src/libziparchive/zip_archive.cc'
@@ -346,6 +366,7 @@ def patches():
     ensure_art_hash_set_allocator_compat()
     ensure_androidfw_theme_entry_definition()
     ensure_libziparchive_span_compat()
+    ensure_adb_mdns_function_include()
 
 
 def main():
