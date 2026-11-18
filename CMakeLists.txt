@@ -123,8 +123,6 @@ else()
     # API 33's pinned AOSP protobuf revision uses the legacy source layout.
     # Build that exact checkout with the project's maintained CMake source list.
     include(${CMAKE_CURRENT_SOURCE_DIR}/lib/libprotoc.cmake)
-    add_library(protobuf::libprotobuf ALIAS libprotoc)
-    add_library(protobuf::libprotoc ALIAS libprotoc)
 endif()
 # Protobuf's CMake project may already have added this exact AOSP checkout.
 if(NOT TARGET gtest)
