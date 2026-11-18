@@ -286,17 +286,16 @@ def ensure_fastboot_function_include():
 
     text = path.read_text()
     if '#include <functional>' not in text:
-        match = re.search(r'(?m)^#include\\s+[<"]', text)
+        match = re.search(r'(?m)^#include\s+[<"]', text)
         if not match:
             raise RuntimeError('cannot locate include block in {}'.format(path))
-        text = text[:match.start()] + '#include <functional>\\n' + text[match.start():]
+        text = text[:match.start()] + '#include <functional>\n' + text[match.start():]
         path.write_text(text)
 
     verified = path.read_text()
     if '#include <functional>' not in verified:
         raise RuntimeError('failed to add <functional> to {}'.format(path))
     print('fastboot: added required <functional> include', flush=True)
-
 
 def ensure_adb_mdns_function_include():
     """Provide the std::function declaration used by adb_mdns.h."""
