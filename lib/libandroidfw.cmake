@@ -29,6 +29,11 @@ if(EXISTS "${SRC}/base/libs/androidfw/BigBufferStream.cpp")
     list(APPEND LIBANDROIDFW_BIGBUFFER_STREAM_SRC ${SRC}/base/libs/androidfw/BigBufferStream.cpp)
 endif()
 
+set(LIBANDROIDFW_FILE_STREAM_SRC)
+if(EXISTS "${SRC}/base/libs/androidfw/FileStream.cpp")
+    list(APPEND LIBANDROIDFW_FILE_STREAM_SRC ${SRC}/base/libs/androidfw/FileStream.cpp)
+endif()
+
 add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/ApkAssets.cpp
     ${LIBANDROIDFW_APK_PARSING_SRC}
@@ -42,7 +47,7 @@ add_library(libandroidfw STATIC
     ${LIBANDROIDFW_BIGBUFFER_STREAM_SRC}
     ${SRC}/base/libs/androidfw/ChunkIterator.cpp
     ${SRC}/base/libs/androidfw/ConfigDescription.cpp
-    ${SRC}/base/libs/androidfw/FileStream.cpp
+    ${LIBANDROIDFW_FILE_STREAM_SRC}
     ${SRC}/base/libs/androidfw/Idmap.cpp
     ${SRC}/base/libs/androidfw/LoadedArsc.cpp
     ${SRC}/base/libs/androidfw/Locale.cpp
