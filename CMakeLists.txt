@@ -116,7 +116,16 @@ add_subdirectory(src/zstd/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/lz4/build/cmake EXCLUDE_FROM_ALL)
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
 add_subdirectory(src/abseil-cpp EXCLUDE_FROM_ALL)
-add_subdirectory(src/protobuf EXCLUDE_FROM_ALL)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/protobuf/CMakeLists.txt")
+    # Newer AOSP protobuf revisions provide their own CMake project.
+    add_subdirectory(src/protobuf EXCLUDE_FROM_ALL)
+else()
+    # API 33's pinned AOSP protobuf revision uses the legacy source layout.
+    # Build that exact checkout with the project's maintained CMake source list.
+    include(${CMAKE_CURRENT_SOURCE_DIR}/lib/libprotoc.cmake)
+    add_library(protobuf::libprotobuf ALIAS libprotoc)
+    add_library(protobuf::libprotoc ALIAS libprotoc)
+endif()
 # Protobuf's CMake project may already have added this exact AOSP checkout.
 if(NOT TARGET gtest)
     add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
