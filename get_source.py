@@ -254,6 +254,21 @@ def ensure_androidfw_theme_entry_definition():
     text = text.replace(declaration, definition, 1)
     path.write_text(text)
 
+    # The upstream implementation defines this nested type in the .cpp file.
+    # Once it is public in the header, remove that out-of-line definition.
+    cpp_path = ROOT / 'src/base/libs/androidfw/AssetManager2.cpp'
+    if not cpp_path.is_file():
+        raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(cpp_path))
+    cpp_text = cpp_path.read_text()
+    cpp_text, removed = re.subn(
+        r'\\nstruct\\s+Theme::Entry\\s*\\{[^}]*\\};\\s*',
+        '\\n',
+        cpp_text,
+        count=1,
+    )
+    if removed:
+        cpp_path.write_text(cpp_text)
+
     verified = path.read_text()
     if not re.search(r'\bstruct\s+Entry\s*\{', verified):
         raise RuntimeError('failed to define Theme::Entry in {}'.format(path))
