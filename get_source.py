@@ -273,7 +273,7 @@ def ensure_androidfw_theme_entry_definition():
         cpp_path.write_text(cpp_text)
 
     verified = path.read_text()
-    if newMarker not in verified:
+    if definition_marker not in verified:
         raise RuntimeError('failed to define Theme::Entry in {}'.format(path))
     print('androidfw Theme::Entry: defined complete nested type in public header', flush=True)
 
