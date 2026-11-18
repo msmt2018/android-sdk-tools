@@ -88,15 +88,28 @@ def main():
     # Google published Build Tools 34.0.0, but not 34.0.1/34.0.3/34.0.4/34.0.5.
     build_tools_version = args.build_tools_version
     if build_tools_version is None:
-        build_tools_version = "34.0.0" if args.version.startswith("34.0.") else args.version
+        if args.version.startswith("34.0."):
+            build_tools_version = "34.0.0"
+        elif args.version == "33.0.4":
+            # Google published Platform Tools 33.0.3 and Build Tools 33.0.3,
+            # but no 33.0.4 binary packages. Repack the latest official 33.0.3
+            # base while retaining this branch's native binaries and metadata.
+            build_tools_version = "33.0.3"
+        else:
+            build_tools_version = args.version
     args.output.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
         root = Path(temp)
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
+        # Platform Tools 33.0.4 is a source-branch version only; Google's
+        # last official binary package in this release line is 33.0.3.
+        platform_tools_archive_version = (
+            "33.0.3" if args.version == "33.0.4" else args.version
+        )
         download(
-            f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
+            f"https://dl.google.com/android/repository/platform-tools_r{platform_tools_archive_version}-linux.zip",
             pt_zip,
         )
         # Google omits the trailing .0.0 in the archive filename for
