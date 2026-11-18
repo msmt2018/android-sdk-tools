@@ -81,8 +81,12 @@ add_library(libext2_e2p STATIC
 target_include_directories(libext2_e2p PRIVATE ${INCLUDES})
 
 # libext2_quota
+set(E2FSPROGS_SUPPORT_DEVNAME_SOURCE)
+if(EXISTS "${SRC}/e2fsprogs/lib/support/devname.c")
+    list(APPEND E2FSPROGS_SUPPORT_DEVNAME_SOURCE ${SRC}/e2fsprogs/lib/support/devname.c)
+endif()
 add_library(libext2_quota STATIC
-    ${SRC}/e2fsprogs/lib/support/devname.c
+    ${E2FSPROGS_SUPPORT_DEVNAME_SOURCE}
     ${SRC}/e2fsprogs/lib/support/dict.c
     ${SRC}/e2fsprogs/lib/support/mkquota.c
     ${SRC}/e2fsprogs/lib/support/parse_qtype.c
