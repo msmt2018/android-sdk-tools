@@ -236,7 +236,7 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('Android framework AssetManager2.h not found: {}'.format(path))
 
     text = path.read_text()
-    if re.search(r'\\bstruct\\s+Entry\\s*\\{', text):
+    if re.search(r'\bstruct\s+Entry\s*\{', text):
         print('androidfw Theme::Entry: complete header definition already present', flush=True)
         return
 
@@ -245,17 +245,17 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('cannot locate Theme::Entry forward declaration in {}'.format(path))
 
     definition = (
-        '  struct Entry {\\n'
-        '    ApkAssetsCookie cookie;\\n'
-        '    uint32_t type_spec_flags;\\n'
-        '    Res_value value;\\n'
+        '  struct Entry {\n'
+        '    ApkAssetsCookie cookie;\n'
+        '    uint32_t type_spec_flags;\n'
+        '    Res_value value;\n'
         '  };'
     )
     text = text.replace(declaration, definition, 1)
     path.write_text(text)
 
     verified = path.read_text()
-    if not re.search(r'\\bstruct\\s+Entry\\s*\\{', verified):
+    if not re.search(r'\bstruct\s+Entry\s*\{', verified):
         raise RuntimeError('failed to define Theme::Entry in {}'.format(path))
     print('androidfw Theme::Entry: defined complete nested type in public header', flush=True)
 
