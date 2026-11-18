@@ -332,7 +332,7 @@ def ensure_boringssl_x509_name_print_compat():
 
     text = path.read_text()
     match = re.search(
-        r'int X509_NAME_print\(BIO \*bp, X509_NAME \*name, int obase\)\s*\{.*?\n\}',
+        r'int\s+X509_NAME_print\s*\(\s*BIO\s*\*\s*bp\s*,\s*(?:const\s+)?X509_NAME\s*\*\s*name\s*,\s*int\s+obase\s*\)\s*\{.*?\n\}',
         text,
         re.S,
     )
@@ -348,7 +348,7 @@ def ensure_boringssl_x509_name_print_compat():
         path.write_text(text)
 
     verified = re.search(
-        r'int X509_NAME_print\(BIO \*bp, X509_NAME \*name, int obase\)\s*\{.*?\n\}',
+        r'int\s+X509_NAME_print\s*\(\s*BIO\s*\*\s*bp\s*,\s*(?:const\s+)?X509_NAME\s*\*\s*name\s*,\s*int\s+obase\s*\)\s*\{.*?\n\}',
         path.read_text(),
         re.S,
     )
