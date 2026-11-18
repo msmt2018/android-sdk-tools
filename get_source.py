@@ -261,8 +261,8 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(cpp_path))
     cpp_text = cpp_path.read_text()
     cpp_text, removed = re.subn(
-        r'\\nstruct\\s+Theme::Entry\\s*\\{[^}]*\\};\\s*',
-        '\\n',
+        r'\nstruct\s+Theme::Entry\s*\{[^}]*\};\s*',
+        '\n',
         cpp_text,
         count=1,
     )
