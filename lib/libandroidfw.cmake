@@ -34,41 +34,36 @@ if(EXISTS "${SRC}/base/libs/androidfw/FileStream.cpp")
     list(APPEND LIBANDROIDFW_FILE_STREAM_SRC ${SRC}/base/libs/androidfw/FileStream.cpp)
 endif()
 
+set(LIBANDROIDFW_PATHUTILS_SRC)
+if(EXISTS "${SRC}/base/libs/androidfw/PathUtils.cpp")
+    list(APPEND LIBANDROIDFW_PATHUTILS_SRC ${SRC}/base/libs/androidfw/PathUtils.cpp)
+endif()
+
 add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/ApkAssets.cpp
-    ${LIBANDROIDFW_APK_PARSING_SRC}
     ${SRC}/base/libs/androidfw/Asset.cpp
     ${SRC}/base/libs/androidfw/AssetDir.cpp
     ${SRC}/base/libs/androidfw/AssetManager.cpp
     ${SRC}/base/libs/androidfw/AssetManager2.cpp
     ${SRC}/base/libs/androidfw/AssetsProvider.cpp
     ${SRC}/base/libs/androidfw/AttributeResolution.cpp
-    ${LIBANDROIDFW_BIGBUFFER_SRC}
-    ${LIBANDROIDFW_BIGBUFFER_STREAM_SRC}
     ${SRC}/base/libs/androidfw/ChunkIterator.cpp
     ${SRC}/base/libs/androidfw/ConfigDescription.cpp
-    ${LIBANDROIDFW_FILE_STREAM_SRC}
     ${SRC}/base/libs/androidfw/Idmap.cpp
     ${SRC}/base/libs/androidfw/LoadedArsc.cpp
     ${SRC}/base/libs/androidfw/Locale.cpp
     ${SRC}/base/libs/androidfw/LocaleData.cpp
     ${SRC}/base/libs/androidfw/misc.cpp
-    ${SRC}/base/libs/androidfw/NinePatch.cpp
     ${SRC}/base/libs/androidfw/ObbFile.cpp
     ${SRC}/base/libs/androidfw/PosixUtils.cpp
-    ${SRC}/base/libs/androidfw/Png.cpp
-    ${SRC}/base/libs/androidfw/PngChunkFilter.cpp
-    ${SRC}/base/libs/androidfw/PngCrunch.cpp
-    ${SRC}/base/libs/androidfw/ResourceTimer.cpp
     ${SRC}/base/libs/androidfw/ResourceTypes.cpp
     ${SRC}/base/libs/androidfw/ResourceUtils.cpp
     ${SRC}/base/libs/androidfw/StreamingZipInflater.cpp
-    ${SRC}/base/libs/androidfw/StringPool.cpp
     ${SRC}/base/libs/androidfw/TypeWrappers.cpp
     ${SRC}/base/libs/androidfw/Util.cpp
     ${SRC}/base/libs/androidfw/ZipFileRO.cpp
-    ${SRC}/base/libs/androidfw/ZipUtils.cpp  
-    ${SRC}/base/libs/androidfw/PathUtils.cpp     
+    ${SRC}/base/libs/androidfw/ZipUtils.cpp
+    ${LIBANDROIDFW_PATHUTILS_SRC}
     )
 
 target_compile_definitions(libandroidfw PRIVATE 
