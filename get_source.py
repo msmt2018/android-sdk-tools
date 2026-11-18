@@ -230,33 +230,34 @@ def ensure_art_hash_set_allocator_compat():
         raise RuntimeError('C++20-incompatible allocator member remains in {}'.format(path))
 
 def ensure_androidfw_theme_entry_definition():
-    """Restore the Android 14 Theme::Entry definition omitted by some platform-tools snapshots."""
-    path = ROOT / 'src/base/libs/androidfw/AssetManager2.cpp'
+    """Define Theme::Entry in the header so every translation unit sees a complete type."""
+    path = ROOT / 'src/base/libs/androidfw/include/androidfw/AssetManager2.h'
     if not path.is_file():
-        raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(path))
+        raise RuntimeError('Android framework AssetManager2.h not found: {}'.format(path))
 
     text = path.read_text()
-    if re.search(r'\bstruct\s+Theme::Entry\s*\{', text):
-        print('androidfw Theme::Entry: already defined', flush=True)
+    if re.search(r'\\bstruct\\s+Entry\\s*\\{', text):
+        print('androidfw Theme::Entry: complete header definition already present', flush=True)
         return
 
-    marker = 'AssetManager2::AssetManager2() {'
-    if marker not in text:
-        raise RuntimeError('cannot locate AssetManager2 constructor in {}'.format(path))
+    declaration = '  struct Entry;'
+    if declaration not in text:
+        raise RuntimeError('cannot locate Theme::Entry forward declaration in {}'.format(path))
 
     definition = (
-        'struct Theme::Entry {\n'
-        '  ApkAssetsCookie cookie;\n'
-        '  uint32_t type_spec_flags;\n'
-        '  Res_value value;\n'
-        '};\n\n'
+        '  struct Entry {\\n'
+        '    ApkAssetsCookie cookie;\\n'
+        '    uint32_t type_spec_flags;\\n'
+        '    Res_value value;\\n'
+        '  };'
     )
-    text = text.replace(marker, definition + marker, 1)
+    text = text.replace(declaration, definition, 1)
     path.write_text(text)
 
-    if not re.search(r'\bstruct\s+Theme::Entry\s*\{', path.read_text()):
-        raise RuntimeError('failed to restore Theme::Entry definition in {}'.format(path))
-    print('androidfw Theme::Entry: restored missing complete type definition', flush=True)
+    verified = path.read_text()
+    if not re.search(r'\\bstruct\\s+Entry\\s*\\{', verified):
+        raise RuntimeError('failed to define Theme::Entry in {}'.format(path))
+    print('androidfw Theme::Entry: defined complete nested type in public header', flush=True)
 
 
 def patches():
