@@ -445,6 +445,45 @@ def ensure_lru_cache_cxx17_compat():
     print('libutils LruCache: removed obsolete std::unary_function inheritance', flush=True)
 
 
+def ensure_art_safe_map_invoke_result_compat():
+    """Use C++17 invoke_result instead of result_of, which is removed in C++20."""
+    path = ROOT / 'src/art/libartbase/base/safe_map.h'
+    if not path.is_file():
+        raise RuntimeError('ART safe_map.h not found: {}'.format(path))
+
+    text = path.read_text()
+    if '#include <type_traits>' not in text:
+        include = re.search(r'(?m)^#include\\s+[<"]', text)
+        if include is None:
+            raise RuntimeError('cannot locate include block in {}'.format(path))
+        text = text[:include.start()] + '#include <type_traits>\\n' + text[include.start():]
+
+    replacements = (
+        (
+            r'typename\\s+std::result_of\\s*<\\s*CreateFn\\s*\\(\\s*\\)\\s*>\\s*::\\s*type',
+            'std::invoke_result_t<CreateFn>',
+        ),
+        (
+            r'std::result_of_t\\s*<\\s*CreateFn\\s*\\(\\s*\\)\\s*>',
+            'std::invoke_result_t<CreateFn>',
+        ),
+    )
+    total = 0
+    for pattern, replacement in replacements:
+        text, count = re.subn(pattern, replacement, text)
+        total += count
+
+    if total:
+        path.write_text(text)
+
+    verified = path.read_text()
+    if re.search(r'std::result_of(?:_t)?\\s*<', verified):
+        raise RuntimeError('C++20-incompatible std::result_of remains in {}'.format(path))
+    if 'std::invoke_result_t<CreateFn>' not in verified:
+        raise RuntimeError('ART safe_map invoke_result compatibility was not applied: {}'.format(path))
+    print('ART SafeMap: migrated result_of to invoke_result_t ({} replacement(s))'.format(total), flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -495,6 +534,7 @@ def patches():
     ensure_adb_mdns_function_include()
     ensure_sdk_sandbox_aid_compat()
     ensure_lru_cache_cxx17_compat()
+    ensure_art_safe_map_invoke_result_compat()
     ensure_boringssl_x509_name_print_compat()
     ensure_aapt2_protobuf_limit_compat()
 
