@@ -118,6 +118,13 @@ if(EXISTS "${SRC}/base/tools/aapt2/optimize/Obfuscator.cpp")
     list(APPEND AAPT2_OBFUSCATOR_SRC ${SRC}/base/tools/aapt2/optimize/Obfuscator.cpp)
 endif()
 
+set(AAPT2_PRODUCT_FILTER_SRC)
+if(EXISTS "${SRC}/base/tools/aapt2/process/ProductFilter.cpp")
+    list(APPEND AAPT2_PRODUCT_FILTER_SRC ${SRC}/base/tools/aapt2/process/ProductFilter.cpp)
+elseif(EXISTS "${SRC}/base/tools/aapt2/link/ProductFilter.cpp")
+    list(APPEND AAPT2_PRODUCT_FILTER_SRC ${SRC}/base/tools/aapt2/link/ProductFilter.cpp)
+endif()
+
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
     ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
@@ -158,7 +165,7 @@ add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/optimize/ResourceFilter.cpp
     ${AAPT2_OBFUSCATOR_SRC}
     ${SRC}/base/tools/aapt2/optimize/VersionCollapser.cpp
-    ${SRC}/base/tools/aapt2/process/ProductFilter.cpp
+    ${AAPT2_PRODUCT_FILTER_SRC}
     ${SRC}/base/tools/aapt2/process/SymbolTable.cpp
     ${SRC}/base/tools/aapt2/split/TableSplitter.cpp
     ${SRC}/base/tools/aapt2/text/Printer.cpp
