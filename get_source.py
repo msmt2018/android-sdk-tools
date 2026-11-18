@@ -484,6 +484,7 @@ def ensure_art_safe_map_invoke_result_compat():
     print('ART SafeMap: migrated result_of to invoke_result_t ({} replacement(s))'.format(total), flush=True)
 
 
+
 def ensure_art_string_view_cpp20_compat():
     """Enable ART's C++20 string_view compatibility helpers under C++20."""
     path = ROOT / 'src/art/libartbase/base/string_view_cpp20.h'
@@ -491,19 +492,21 @@ def ensure_art_string_view_cpp20_compat():
         raise RuntimeError('ART string_view_cpp20.h not found: {}'.format(path))
 
     text = path.read_text()
-    guard = re.compile(
-        r'(?m)^#if __cplusplus >= 202000L\\s*\\n'
-        r'#error ["']When upgrading to C\\+\\+20, remove this error and file a bug to remove this workaround\\.["']\\s*\\n'
-        r'#endif\\s*\\n?'
+    guard = (
+        '#if __cplusplus >= 202000L\\n'
+        '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."\\n'
+        '#endif\\n'
     )
-    updated, count = guard.subn('', text)
-    if count != 1:
-        if count == 0 and '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' not in text:
-            print('ART string_view: C++20 guard already absent', flush=True)
-        else:
-            raise RuntimeError('expected exactly one ART string_view C++20 guard, found {}'.format(count))
+    count = text.count(guard)
+    if count == 1:
+        text = text.replace(guard, '', 1)
+        path.write_text(text)
+    elif count == 0:
+        if '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' in text:
+            raise RuntimeError('ART string_view C++20 guard has unexpected formatting: {}'.format(path))
+        print('ART string_view: C++20 guard already absent', flush=True)
     else:
-        path.write_text(updated)
+        raise RuntimeError('expected one ART string_view C++20 guard, found {}'.format(count))
 
     verified = path.read_text()
     if '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' in verified:
