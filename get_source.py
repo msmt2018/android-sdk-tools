@@ -305,24 +305,23 @@ def ensure_libziparchive_span_compat():
         raise RuntimeError('libziparchive zip_archive.cc not found: {}'.format(path))
 
     text = path.read_text()
-    narrowing = re.compile(
-        r'return\\s*\\{\\s*buf\\.first\\s*,\\s*'
-        r'(?:ssize_t\\s*\\(\\s*buf\\.second\\s*\\)|'
-        r'static_cast\\s*<\\s*ssize_t\\s*>\\s*\\(\\s*buf\\.second\\s*\\))'
-        r'\\s*\\}\\s*;'
+    old_forms = (
+        'return {buf.first, ssize_t(buf.second)};',
+        'return {buf.first, static_cast<ssize_t>(buf.second)};',
     )
-    fixed, count = narrowing.subn('return {buf.first, buf.second};', text, count=1)
-    if count:
-        path.write_text(fixed)
+    for old in old_forms:
+        if old in text:
+            text = text.replace(old, 'return {buf.first, buf.second};', 1)
+            path.write_text(text)
+            break
 
     verified = path.read_text()
-    if narrowing.search(verified):
+    if 'ssize_t(buf.second)' in verified or 'static_cast<ssize_t>(buf.second)' in verified:
         raise RuntimeError('narrowing ssize_t span extent remains in {}'.format(path))
-    if count:
-        print('libziparchive: normalized std::span extent to size_t', flush=True)
+    if 'return {buf.first, buf.second};' in verified:
+        print('libziparchive: std::span extent uses size_t', flush=True)
     else:
         print('libziparchive: no ssize_t span narrowing in this AOSP snapshot', flush=True)
-
 
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
