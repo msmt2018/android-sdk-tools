@@ -484,6 +484,35 @@ def ensure_art_safe_map_invoke_result_compat():
     print('ART SafeMap: migrated result_of to invoke_result_t ({} replacement(s))'.format(total), flush=True)
 
 
+def ensure_art_string_view_cpp20_compat():
+    """Enable ART's C++20 string_view compatibility helpers under C++20."""
+    path = ROOT / 'src/art/libartbase/base/string_view_cpp20.h'
+    if not path.is_file():
+        raise RuntimeError('ART string_view_cpp20.h not found: {}'.format(path))
+
+    text = path.read_text()
+    guard = re.compile(
+        r'(?m)^#if __cplusplus >= 202000L\\s*\\n'
+        r'#error ["']When upgrading to C\\+\\+20, remove this error and file a bug to remove this workaround\\.["']\\s*\\n'
+        r'#endif\\s*\\n?'
+    )
+    updated, count = guard.subn('', text)
+    if count != 1:
+        if count == 0 and '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' not in text:
+            print('ART string_view: C++20 guard already absent', flush=True)
+        else:
+            raise RuntimeError('expected exactly one ART string_view C++20 guard, found {}'.format(count))
+    else:
+        path.write_text(updated)
+
+    verified = path.read_text()
+    if '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' in verified:
+        raise RuntimeError('ART string_view C++20 guard remains in {}'.format(path))
+    if 'inline bool StartsWith(std::string_view sv' not in verified or 'inline bool EndsWith(std::string_view sv' not in verified:
+        raise RuntimeError('ART string_view compatibility helpers were unexpectedly modified')
+    print('ART string_view: C++20 guard removed; StartsWith/EndsWith compatibility helpers retained', flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -535,6 +564,7 @@ def patches():
     ensure_sdk_sandbox_aid_compat()
     ensure_lru_cache_cxx17_compat()
     ensure_art_safe_map_invoke_result_compat()
+    ensure_art_string_view_cpp20_compat()
     ensure_boringssl_x509_name_print_compat()
     ensure_aapt2_protobuf_limit_compat()
 
