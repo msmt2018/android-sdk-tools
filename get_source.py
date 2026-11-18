@@ -332,7 +332,7 @@ def ensure_boringssl_x509_name_print_compat():
 
     text = path.read_text()
     match = re.search(
-        r'int X509_NAME_print\\(BIO \\*bp, X509_NAME \\*name, int obase\\)\\s*\\{.*?\\n\\}',
+        r'int X509_NAME_print\(BIO \*bp, X509_NAME \*name, int obase\)\s*\{.*?\n\}',
         text,
         re.S,
     )
@@ -340,19 +340,19 @@ def ensure_boringssl_x509_name_print_compat():
         raise RuntimeError('cannot locate X509_NAME_print in {}'.format(path))
 
     function = match.group(0)
-    fixed = re.sub(r'\\bint ret = 0, l, i;', 'int ret = 0, i;', function)
-    fixed = re.sub(r'(?m)^\\s*l = 80 - 2 - obase;\\s*\\n', '    (void)obase;\\n', fixed)
-    fixed = re.sub(r'(?m)^\\s*l--;\\s*\\n', '', fixed)
+    fixed = re.sub(r'\bint ret = 0, l, i;', 'int ret = 0, i;', function)
+    fixed = re.sub(r'(?m)^\s*l = 80 - 2 - obase;\s*\n', '    (void)obase;\n', fixed)
+    fixed = re.sub(r'(?m)^\s*l--;\s*\n', '', fixed)
     if fixed != function:
         text = text[:match.start()] + fixed + text[match.end():]
         path.write_text(text)
 
     verified = re.search(
-        r'int X509_NAME_print\\(BIO \\*bp, X509_NAME \\*name, int obase\\)\\s*\\{.*?\\n\\}',
+        r'int X509_NAME_print\(BIO \*bp, X509_NAME \*name, int obase\)\s*\{.*?\n\}',
         path.read_text(),
         re.S,
     )
-    if verified is None or re.search(r'\\bl\\b', verified.group(0)) or '(void)obase;' not in verified.group(0):
+    if verified is None or re.search(r'\bl\b', verified.group(0)) or '(void)obase;' not in verified.group(0):
         raise RuntimeError('BoringSSL X509_NAME_print compatibility fix failed: {}'.format(path))
     print('BoringSSL X509_NAME_print: removed unused line counter', flush=True)
 
@@ -366,7 +366,7 @@ def ensure_aapt2_protobuf_limit_compat():
     text = path.read_text()
     old = '''    coded_stream.SetTotalBytesLimit(std::numeric_limits<int32_t>::max(),
                                     coded_stream.BytesUntilTotalBytesLimit());'''
-    new = '''#if GOOGLE_PROTOBUF_VERSION >= 3002000
+    new = '''#if GOOGLE_PROTOBUF_VERSION >= 3021000
     coded_stream.SetTotalBytesLimit(std::numeric_limits<int32_t>::max());
 #else
     coded_stream.SetTotalBytesLimit(std::numeric_limits<int32_t>::max(),
