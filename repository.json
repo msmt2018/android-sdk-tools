@@ -9,8 +9,7 @@
     },
     {
         "path": "src/aidl",
-        "url": "https://android.googlesource.com/platform/system/tools/aidl",
-        "branch": "platform-tools-33.0.4"
+        "url": "https://android.googlesource.com/platform/system/tools/aidl"
     },
     {
         "path": "src/art",
@@ -50,8 +49,7 @@
     },
     {
         "path": "src/e2fsprogs",
-        "url": "https://android.googlesource.com/platform/external/e2fsprogs",
-        "branch": "platform-tools-33.0.4"
+        "url": "https://android.googlesource.com/platform/external/e2fsprogs"
     },
     {
         "path": "src/expat",
@@ -127,13 +125,11 @@
     },
     {
         "path": "src/protobuf",
-        "url": "https://android.googlesource.com/platform/external/protobuf",
-        "branch": "platform-tools-33.0.4"
+        "url": "https://android.googlesource.com/platform/external/protobuf"
     },
     {
         "path": "src/selinux",
-        "url": "https://android.googlesource.com/platform/external/selinux",
-        "branch": "platform-tools-33.0.4"
+        "url": "https://android.googlesource.com/platform/external/selinux"
     },
     {
         "path": "src/soong",
