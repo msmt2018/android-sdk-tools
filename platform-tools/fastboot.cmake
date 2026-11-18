@@ -20,27 +20,41 @@ add_library(libext4 STATIC
     ${SRC}/extras/ext4_utils/ext4_sb.cpp
     )
 target_include_directories(libext4 PRIVATE
-    ${SRC}/core/libsparse/include 
-    ${SRC}/core/include 
+    ${SRC}/core/libsparse/include
+    ${SRC}/core/include
     ${SRC}/selinux/libselinux/include
-    ${SRC}/extras/ext4_utils/include 
+    ${SRC}/extras/ext4_utils/include
     ${SRC}/libbase/include
     )
 
-add_library(libfsmgr STATIC
-    ${SRC}/core/fs_mgr/liblp/images.cpp
-    ${SRC}/core/fs_mgr/liblp/builder.cpp
-    ${SRC}/core/fs_mgr/liblp/super_layout_builder.cpp
-    ${SRC}/core/fs_mgr/liblp/property_fetcher.cpp
-    ${SRC}/core/fs_mgr/liblp/partition_opener.cpp
-    ${SRC}/core/fs_mgr/liblp/reader.cpp
-    ${SRC}/core/fs_mgr/liblp/utility.cpp
-    ${SRC}/core/fs_mgr/liblp/writer.cpp
+# The liblp source set differs between platform-tools snapshots. Keep every
+# source provided by the selected AOSP tag, without requiring files introduced
+# by a later release.
+set(LIBFSMGR_SRC)
+foreach(source
+    images.cpp
+    builder.cpp
+    super_layout_builder.cpp
+    property_fetcher.cpp
+    partition_opener.cpp
+    reader.cpp
+    utility.cpp
+    writer.cpp
     )
+    if(EXISTS "${SRC}/core/fs_mgr/liblp/${source}")
+        list(APPEND LIBFSMGR_SRC "${SRC}/core/fs_mgr/liblp/${source}")
+    endif()
+endforeach()
+
+if(NOT LIBFSMGR_SRC)
+    message(FATAL_ERROR "No liblp sources found in ${SRC}/core/fs_mgr/liblp")
+endif()
+
+add_library(libfsmgr STATIC ${LIBFSMGR_SRC})
 target_include_directories(libfsmgr PRIVATE
-    ${SRC}/core/fs_mgr/liblp/include 
+    ${SRC}/core/fs_mgr/liblp/include
     ${SRC}/libbase/include
-    ${SRC}/extras/ext4_utils/include 
+    ${SRC}/extras/ext4_utils/include
     ${SRC}/core/libsparse/include
     ${SRC}/boringssl/include
     ${SRC}/core/libcutils/include
@@ -62,13 +76,18 @@ if(EXISTS "${SRC}/core/fastboot/task.cpp")
     list(APPEND FASTBOOT_TASK_SRC ${SRC}/core/fastboot/task.cpp)
 endif()
 
+set(FASTBOOT_SUPER_FLASH_SRC)
+if(EXISTS "${SRC}/core/fastboot/super_flash_helper.cpp")
+    list(APPEND FASTBOOT_SUPER_FLASH_SRC ${SRC}/core/fastboot/super_flash_helper.cpp)
+endif()
+
 add_executable(fastboot
     ${SRC}/core/fastboot/bootimg_utils.cpp
     ${SRC}/core/fastboot/fastboot.cpp
     ${SRC}/core/fastboot/fastboot_driver.cpp
     ${SRC}/core/fastboot/fs.cpp
     ${FASTBOOT_FILESYSTEM_SRC}
-    ${SRC}/core/fastboot/super_flash_helper.cpp
+    ${FASTBOOT_SUPER_FLASH_SRC}
     ${SRC}/core/fastboot/main.cpp
     ${SRC}/core/fastboot/socket.cpp
     ${FASTBOOT_STORAGE_SRC}
@@ -82,15 +101,15 @@ add_executable(fastboot
 
 target_include_directories(fastboot PRIVATE
     ${SRC}/avb
-    ${SRC}/libbase/include 
-    ${SRC}/soong/cc/libbuildversion/include 
-    ${SRC}/core/include 
-    ${SRC}/core/adb 
+    ${SRC}/libbase/include
+    ${SRC}/soong/cc/libbuildversion/include
+    ${SRC}/core/include
+    ${SRC}/core/adb
     ${SRC}/core/libsparse/include
-    ${SRC}/core/fs_mgr/liblp/include 
-    ${SRC}/core/fs_mgr/libstorage_literals 
+    ${SRC}/core/fs_mgr/liblp/include
+    ${SRC}/core/fs_mgr/libstorage_literals
     ${SRC}/libziparchive/include
-    ${SRC}/extras/ext4_utils/include 
+    ${SRC}/extras/ext4_utils/include
     ${SRC}/extras/f2fs_utils
     ${SRC}/mkbootimg/include/bootimg
     ${SRC}/core/diagnose_usb/include
@@ -98,8 +117,8 @@ target_include_directories(fastboot PRIVATE
     )
 target_compile_definitions(fastboot PRIVATE
     -DANDROID_BASE_UNIQUE_FD_DISABLE_IMPLICIT_CONVERSION
-    -D_GNU_SOURCE 
-    -D_XOPEN_SOURCE=700 
+    -D_GNU_SOURCE
+    -D_XOPEN_SOURCE=700
     -DUSE_F2FS
     )
 target_link_libraries(fastboot
