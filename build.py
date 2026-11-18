@@ -109,27 +109,51 @@ def find_protoc(directory):
 
 
 def build_host_protoc(args):
-    """build protoc for the build machine, it generates the *.pb.cc of aapt2 and adb"""
+    """Build protoc with the host compiler from the version-matched AOSP source."""
     source = ROOT / 'src/protobuf'
     build_dir = (ROOT / args.host_build).resolve()
     protoc = find_protoc(build_dir)
     if protoc is not None:
         return protoc
-    if not (source / 'CMakeLists.txt').exists():
-        sys.exit('no protobuf source in {}, please run get_source.py first'.format(source))
 
     info('building host protoc ...')
-    # always use the compilers of the build machine, never the cross ones
-    env = {k: v for k, v in os.environ.items() if k not in ('CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS')}
-    run(['cmake', '-GNinja', '-S', source, '-B', build_dir,
-         '-DCMAKE_BUILD_TYPE=Release',
-         '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
-         '-Dprotobuf_BUILD_TESTS=OFF',
-         '-Dprotobuf_WITH_ZLIB=OFF'], env=env)
-    run(['cmake', '--build', build_dir, '--target', 'protoc', '-j', args.jobs], env=env)
-    protoc = find_protoc(build_dir)
+    # Always use the build machine compilers, never the Android cross compiler.
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('CC', 'CXX', 'CFLAGS', 'CXXFLAGS', 'LDFLAGS')}
+
+    cmake_file = source / 'CMakeLists.txt'
+    if cmake_file.is_file():
+        # Newer AOSP protobuf snapshots include their upstream CMake build.
+        run(['cmake', '-GNinja', '-S', source, '-B', build_dir,
+             '-DCMAKE_BUILD_TYPE=Release',
+             '-DCMAKE_POLICY_VERSION_MINIMUM=3.5',
+             '-Dprotobuf_BUILD_TESTS=OFF',
+             '-Dprotobuf_WITH_ZLIB=OFF'], env=env)
+        run(['cmake', '--build', build_dir, '--target', 'protoc', '-j', args.jobs], env=env)
+        protoc = find_protoc(build_dir)
+    elif ((source / 'autogen.sh').is_file()
+          and (source / 'configure.ac').is_file()
+          and (source / 'src/google/protobuf/compiler/main.cc').is_file()):
+        # API 33 AOSP protobuf predates the checked-in CMake build files.
+        # Build its own autotools project rather than borrowing a newer protobuf
+        # CMakeLists.txt or silently using a host-installed protoc.
+        autotools_build = build_dir / 'autotools'
+        autotools_build.mkdir(parents=True, exist_ok=True)
+        run([source / 'autogen.sh'], cwd=source, env=env)
+        run([source / 'configure', '--disable-shared', '--enable-static'],
+            cwd=autotools_build, env=env)
+        run(['make', '-j', str(args.jobs), 'protoc'],
+            cwd=autotools_build / 'src', env=env)
+        candidate = autotools_build / 'src/protoc'
+        protoc = candidate if candidate.is_file() and os.access(candidate, os.X_OK) else None
+    else:
+        sys.exit(
+            'protobuf source is incomplete in {}; expected CMakeLists.txt or '
+            'autogen.sh + configure.ac + src/google/protobuf/compiler/main.cc'.format(source)
+        )
+
     if protoc is None:
-        sys.exit('failed to find the host protoc in {}'.format(build_dir))
+        sys.exit('failed to build the host protoc from {}'.format(source))
     return protoc
 
 
