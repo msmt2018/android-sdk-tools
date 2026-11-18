@@ -485,6 +485,7 @@ def ensure_art_safe_map_invoke_result_compat():
 
 
 
+
 def ensure_art_string_view_cpp20_compat():
     """Enable ART's C++20 string_view compatibility helpers under C++20."""
     path = ROOT / 'src/art/libartbase/base/string_view_cpp20.h'
@@ -492,24 +493,24 @@ def ensure_art_string_view_cpp20_compat():
         raise RuntimeError('ART string_view_cpp20.h not found: {}'.format(path))
 
     text = path.read_text()
-    guard = (
-        '#if __cplusplus >= 202000L\\n'
-        '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."\\n'
-        '#endif\\n'
-    )
-    count = text.count(guard)
-    if count == 1:
-        text = text.replace(guard, '', 1)
-        path.write_text(text)
-    elif count == 0:
-        if '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' in text:
-            raise RuntimeError('ART string_view C++20 guard has unexpected formatting: {}'.format(path))
+    lines = text.splitlines(keepends=True)
+    expected_error = '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."'
+    starts = [i for i, line in enumerate(lines) if line.strip() == '#if __cplusplus >= 202000L']
+    if len(starts) == 1:
+        i = starts[0]
+        if i + 2 >= len(lines) or lines[i + 1].strip() != expected_error or lines[i + 2].strip() != '#endif':
+            raise RuntimeError('ART string_view C++20 guard has unexpected structure: {}'.format(path))
+        del lines[i:i + 3]
+        path.write_text(''.join(lines))
+    elif len(starts) == 0:
+        if any(line.strip() == expected_error for line in lines):
+            raise RuntimeError('ART string_view C++20 error remains outside its expected guard: {}'.format(path))
         print('ART string_view: C++20 guard already absent', flush=True)
     else:
-        raise RuntimeError('expected one ART string_view C++20 guard, found {}'.format(count))
+        raise RuntimeError('expected one ART string_view C++20 guard, found {}'.format(len(starts)))
 
     verified = path.read_text()
-    if '#error "When upgrading to C++20, remove this error and file a bug to remove this workaround."' in verified:
+    if expected_error in verified:
         raise RuntimeError('ART string_view C++20 guard remains in {}'.format(path))
     if 'inline bool StartsWith(std::string_view sv' not in verified or 'inline bool EndsWith(std::string_view sv' not in verified:
         raise RuntimeError('ART string_view compatibility helpers were unexpectedly modified')
