@@ -325,7 +325,7 @@ def ensure_libziparchive_span_compat():
 
 
 def ensure_boringssl_x509_name_print_compat():
-    """Remove the obsolete line counter that is written but never read."""
+    """Remove the obsolete line counter only when this snapshot still has it."""
     path = ROOT / 'src/boringssl/src/crypto/x509/t_x509.c'
     if not path.is_file():
         raise RuntimeError('BoringSSL X509 source not found: {}'.format(path))
@@ -337,12 +337,21 @@ def ensure_boringssl_x509_name_print_compat():
         re.S,
     )
     if match is None:
-        raise RuntimeError('cannot locate X509_NAME_print in {}'.format(path))
+        # Some platform-tools snapshots no longer contain this legacy function.
+        print('BoringSSL X509_NAME_print: no legacy function in this snapshot', flush=True)
+        return
 
     function = match.group(0)
-    fixed = re.sub(r'\bint ret = 0, l, i;', 'int ret = 0, i;', function)
-    fixed = re.sub(r'(?m)^\s*l = 80 - 2 - obase;\s*\n', '    (void)obase;\n', fixed)
-    fixed = re.sub(r'(?m)^\s*l--;\s*\n', '', fixed)
+    fixed = function
+    if re.search(r'\bint\s+ret\s*=\s*0\s*,\s*l\s*,\s*i\s*;', fixed):
+        fixed = re.sub(r'\bint\s+ret\s*=\s*0\s*,\s*l\s*,\s*i\s*;', 'int ret = 0, i;', fixed, count=1)
+    fixed = re.sub(r'(?m)^\s*l\s*=\s*80\s*-\s*2\s*-\s*obase\s*;\s*\n', '', fixed)
+    fixed = re.sub(r'(?m)^\s*l--\s*;\s*\n', '', fixed)
+
+    # obase is only unused after removing the obsolete line counter.
+    if '(void)obase;' not in fixed and len(re.findall(r'\bobase\b', fixed)) == 1:
+        fixed = re.sub(r'\{', '{\n    (void)obase;', fixed, count=1)
+
     if fixed != function:
         text = text[:match.start()] + fixed + text[match.end():]
         path.write_text(text)
@@ -352,9 +361,9 @@ def ensure_boringssl_x509_name_print_compat():
         path.read_text(),
         re.S,
     )
-    if verified is None or re.search(r'\bl\b', verified.group(0)) or '(void)obase;' not in verified.group(0):
-        raise RuntimeError('BoringSSL X509_NAME_print compatibility fix failed: {}'.format(path))
-    print('BoringSSL X509_NAME_print: removed unused line counter', flush=True)
+    if verified is not None and re.search(r'\bl\b', verified.group(0)):
+        raise RuntimeError('BoringSSL X509_NAME_print still references obsolete line counter: {}'.format(path))
+    print('BoringSSL X509_NAME_print: legacy line-counter compatibility verified', flush=True)
 
 
 def ensure_aapt2_protobuf_limit_compat():
@@ -380,6 +389,60 @@ def ensure_aapt2_protobuf_limit_compat():
     if new not in verified:
         raise RuntimeError('AAPT2 Protobuf SetTotalBytesLimit compatibility fix failed: {}'.format(path))
     print('AAPT2: selected Protobuf SetTotalBytesLimit overload by version', flush=True)
+
+
+def ensure_sdk_sandbox_aid_compat():
+    """Keep the SELinux 33.0.4 snapshot compatible with the Android 13 core AID header."""
+    path = ROOT / 'src/core/libcutils/include/private/android_filesystem_config.h'
+    if not path.is_file():
+        raise RuntimeError('Android filesystem AID header not found: {}'.format(path))
+
+    text = path.read_text()
+    definitions = (
+        '#ifndef AID_SDK_SANDBOX_PROCESS_START\n'
+        '#define AID_SDK_SANDBOX_PROCESS_START 20000 /* start of uids allocated to sdk sandbox processes */\n'
+        '#endif\n'
+        '#ifndef AID_SDK_SANDBOX_PROCESS_END\n'
+        '#define AID_SDK_SANDBOX_PROCESS_END 29999 /* end of uids allocated to sdk sandbox processes */\n'
+        '#endif\n'
+    )
+    if 'AID_SDK_SANDBOX_PROCESS_START' not in text:
+        marker = '#define AID_APP_END 19999'
+        if marker in text:
+            text = text.replace(marker, marker + '\n\n' + definitions.rstrip(), 1)
+        else:
+            marker = '#define AID_APP_START 10000'
+            if marker not in text:
+                raise RuntimeError('cannot locate Android app UID range in {}'.format(path))
+            text = text.replace(marker, definitions + '\n' + marker, 1)
+        path.write_text(text)
+
+    verified = path.read_text()
+    if not re.search(r'(?m)^#\s*define\s+AID_SDK_SANDBOX_PROCESS_START\s+20000\b', verified):
+        raise RuntimeError('SDK sandbox start AID compatibility definition missing: {}'.format(path))
+    if not re.search(r'(?m)^#\s*define\s+AID_SDK_SANDBOX_PROCESS_END\s+29999\b', verified):
+        raise RuntimeError('SDK sandbox end AID compatibility definition missing: {}'.format(path))
+    print('Android core AIDs: added SDK sandbox UID range 20000-29999 when absent', flush=True)
+
+
+def ensure_lru_cache_cxx17_compat():
+    """Remove obsolete std::unary_function base classes (removed from C++17)."""
+    path = ROOT / 'src/core/libutils/include/utils/LruCache.h'
+    if not path.is_file():
+        raise RuntimeError('libutils LruCache.h not found: {}'.format(path))
+
+    text = path.read_text()
+    text = re.sub(
+        r'\s*:\s*public\s+std::unary_function\s*<\s*KeyedEntry\s*\*\s*,\s*hash_t\s*>',
+        '',
+        text,
+    )
+    path.write_text(text)
+
+    verified = path.read_text()
+    if 'std::unary_function' in verified:
+        raise RuntimeError('obsolete std::unary_function remains in {}'.format(path))
+    print('libutils LruCache: removed obsolete std::unary_function inheritance', flush=True)
 
 
 def patches():
@@ -430,6 +493,8 @@ def patches():
     ensure_androidfw_theme_entry_definition()
     ensure_libziparchive_span_compat()
     ensure_adb_mdns_function_include()
+    ensure_sdk_sandbox_aid_compat()
+    ensure_lru_cache_cxx17_compat()
     ensure_boringssl_x509_name_print_compat()
     ensure_aapt2_protobuf_limit_compat()
 
