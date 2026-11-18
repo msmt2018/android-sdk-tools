@@ -298,6 +298,30 @@ def ensure_adb_mdns_function_include():
     print('ADB mdns: added required <functional> include', flush=True)
 
 
+
+def ensure_adb_tls_function_include():
+    """Provide std::function for the TLS callback aliases in tls_connection.h."""
+    path = ROOT / 'src/adb/tls/include/adb/tls/tls_connection.h'
+    if not path.is_file():
+        raise RuntimeError('ADB TLS connection header not found: {}'.format(path))
+
+    text = path.read_text()
+    if '#include <functional>' not in text:
+        match = re.search(r'(?m)^#include\\s+[<"]', text)
+        if not match:
+            raise RuntimeError('cannot locate include block in {}'.format(path))
+        text = text[:match.start()] + '#include <functional>\\n' + text[match.start():]
+        path.write_text(text)
+
+    verified = path.read_text()
+    if '#include <functional>' not in verified:
+        raise RuntimeError('failed to add <functional> to {}'.format(path))
+    if 'using CertVerifyCb = std::function<int(X509_STORE_CTX*)>;' not in verified:
+        raise RuntimeError('ADB TLS CertVerifyCb alias missing from {}'.format(path))
+    if 'using SetCertCb = std::function<int(SSL*)>;' not in verified:
+        raise RuntimeError('ADB TLS SetCertCb alias missing from {}'.format(path))
+    print('ADB TLS: added required <functional> include for callback aliases', flush=True)
+
 def ensure_libziparchive_span_compat():
     """Avoid narrowing std::span extents while remaining compatible with older AOSP snapshots."""
     path = ROOT / 'src/libziparchive/zip_archive.cc'
@@ -560,6 +584,7 @@ def patches():
     ensure_androidfw_theme_entry_definition()
     ensure_libziparchive_span_compat()
     ensure_adb_mdns_function_include()
+    ensure_adb_tls_function_include()
     ensure_sdk_sandbox_aid_compat()
     ensure_lru_cache_cxx17_compat()
     ensure_art_safe_map_invoke_result_compat()
