@@ -236,7 +236,7 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('Android framework AssetManager2.h not found: {}'.format(path))
 
     text = path.read_text()
-    definition_marker = '  struct Entry {\n    ApkAssetsCookie cookie;'
+    definition_marker = '  struct Entry {\n    uint32_t attr_res_id;\n    ApkAssetsCookie cookie;'
     if definition_marker not in text:
         declaration = '  struct Entry;'
         if declaration not in text:
@@ -244,6 +244,7 @@ def ensure_androidfw_theme_entry_definition():
 
         definition = (
             '  struct Entry {\n'
+            '    uint32_t attr_res_id;\n'
             '    ApkAssetsCookie cookie;\n'
             '    uint32_t type_spec_flags;\n'
             '    Res_value value;\n'
@@ -272,7 +273,7 @@ def ensure_androidfw_theme_entry_definition():
         cpp_path.write_text(cpp_text)
 
     verified = path.read_text()
-    if not re.search(r'\bstruct\s+Entry\s*\{', verified):
+    if newMarker not in verified:
         raise RuntimeError('failed to define Theme::Entry in {}'.format(path))
     print('androidfw Theme::Entry: defined complete nested type in public header', flush=True)
 
