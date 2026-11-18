@@ -323,6 +323,65 @@ def ensure_libziparchive_span_compat():
     else:
         print('libziparchive: no ssize_t span narrowing in this AOSP snapshot', flush=True)
 
+
+def ensure_boringssl_x509_name_print_compat():
+    """Remove the obsolete line counter that is written but never read."""
+    path = ROOT / 'src/boringssl/src/crypto/x509/t_x509.c'
+    if not path.is_file():
+        raise RuntimeError('BoringSSL X509 source not found: {}'.format(path))
+
+    text = path.read_text()
+    match = re.search(
+        r'int X509_NAME_print\\(BIO \\*bp, X509_NAME \\*name, int obase\\)\\s*\\{.*?\\n\\}',
+        text,
+        re.S,
+    )
+    if match is None:
+        raise RuntimeError('cannot locate X509_NAME_print in {}'.format(path))
+
+    function = match.group(0)
+    fixed = re.sub(r'\\bint ret = 0, l, i;', 'int ret = 0, i;', function)
+    fixed = re.sub(r'(?m)^\\s*l = 80 - 2 - obase;\\s*\\n', '    (void)obase;\\n', fixed)
+    fixed = re.sub(r'(?m)^\\s*l--;\\s*\\n', '', fixed)
+    if fixed != function:
+        text = text[:match.start()] + fixed + text[match.end():]
+        path.write_text(text)
+
+    verified = re.search(
+        r'int X509_NAME_print\\(BIO \\*bp, X509_NAME \\*name, int obase\\)\\s*\\{.*?\\n\\}',
+        path.read_text(),
+        re.S,
+    )
+    if verified is None or re.search(r'\\bl\\b', verified.group(0)) or '(void)obase;' not in verified.group(0):
+        raise RuntimeError('BoringSSL X509_NAME_print compatibility fix failed: {}'.format(path))
+    print('BoringSSL X509_NAME_print: removed unused line counter', flush=True)
+
+
+def ensure_aapt2_protobuf_limit_compat():
+    """Support both the legacy and modern Protobuf SetTotalBytesLimit signatures."""
+    path = ROOT / 'src/base/tools/aapt2/io/Util.h'
+    if not path.is_file():
+        raise RuntimeError('AAPT2 Util.h not found: {}'.format(path))
+
+    text = path.read_text()
+    old = '''    coded_stream.SetTotalBytesLimit(std::numeric_limits<int32_t>::max(),
+                                    coded_stream.BytesUntilTotalBytesLimit());'''
+    new = '''#if GOOGLE_PROTOBUF_VERSION >= 3002000
+    coded_stream.SetTotalBytesLimit(std::numeric_limits<int32_t>::max());
+#else
+    coded_stream.SetTotalBytesLimit(std::numeric_limits<int32_t>::max(),
+                                    coded_stream.BytesUntilTotalBytesLimit());
+#endif'''
+    if old in text:
+        text = text.replace(old, new, 1)
+        path.write_text(text)
+
+    verified = path.read_text()
+    if new not in verified:
+        raise RuntimeError('AAPT2 Protobuf SetTotalBytesLimit compatibility fix failed: {}'.format(path))
+    print('AAPT2: selected Protobuf SetTotalBytesLimit overload by version', flush=True)
+
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -371,6 +430,8 @@ def patches():
     ensure_androidfw_theme_entry_definition()
     ensure_libziparchive_span_compat()
     ensure_adb_mdns_function_include()
+    ensure_boringssl_x509_name_print_compat()
+    ensure_aapt2_protobuf_limit_compat()
 
 
 def main():
