@@ -139,8 +139,20 @@ endif()
 add_subdirectory(src/libpng EXCLUDE_FROM_ALL)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/zopfli/CMakeLists.txt")
     add_subdirectory(src/zopfli EXCLUDE_FROM_ALL)
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/zopfli/src/zopfli/zopfli_lib.c")
+    # Older pinned AOSP Zopfli snapshots have no CMakeLists.txt. Build the
+    # upstream library sources directly instead of passing -llibzopfli to ld.
+    file(GLOB ZOPFLI_LIBRARY_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/zopfli/src/zopfli/*.c")
+    add_library(libzopfli STATIC ${ZOPFLI_LIBRARY_SOURCES})
+    set_target_properties(libzopfli PROPERTIES OUTPUT_NAME zopfli)
+    target_include_directories(libzopfli PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/zopfli/src/zopfli")
+    if(UNIX)
+        target_link_libraries(libzopfli PUBLIC m)
+    endif()
 else()
-    message(STATUS "Zopfli: no standalone CMake project in this AOSP tag; skipping")
+    message(FATAL_ERROR "Pinned Zopfli source has neither CMakeLists.txt nor zopfli_lib.c")
 endif()
 add_subdirectory(src/jsoncpp EXCLUDE_FROM_ALL)
 # This AOSP Expat snapshot uses BUILD_shared (not EXPAT_SHARED_LIBS).
