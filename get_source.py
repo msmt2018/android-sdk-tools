@@ -703,6 +703,67 @@ def patches():
     ensure_libziparchive_span_compat()
     ensure_aidl_flex_parser_types()
     ensure_aidl_permission_grammar_types()
+    # AIDL 32.0.0 permission lexer uses a legacy PERMSTYPE alias that recent
+    # Bison no longer defines. Match the semantic type declared by grammar.yy.
+    permission_lexer = ROOT / 'src/aidl/permission/lexer.ll'
+    if permission_lexer.is_file():
+        lexer_text = permission_lexer.read_text()
+        lexer_text, changed = re.subn(
+            r'(?m)^#define YYSTYPE PERMSTYPE    ensure_adb_mdns_function_include()
+    ensure_adb_tls_function_include()
+    ensure_sdk_sandbox_aid_compat()
+    ensure_lru_cache_cxx17_compat()
+    ensure_art_safe_map_invoke_result_compat()
+    ensure_art_string_view_cpp20_compat()
+    ensure_boringssl_x509_name_print_compat()
+    ensure_aapt2_protobuf_limit_compat()
+
+
+def main():
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    args = parser.parse_args()
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources: {}'.format(args.tags))
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    if not args.skip_patch:
+        patches()
+
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+,
+            '#define YYSTYPE perm::parser::semantic_type',
+            lexer_text,
+        )
+        if changed:
+            permission_lexer.write_text(lexer_text)
+            print('AIDL permission lexer: migrated PERMSTYPE to perm::parser::semantic_type', flush=True)
+        elif '#define YYSTYPE PERMSTYPE' in lexer_text:
+            raise RuntimeError('AIDL permission lexer semantic type fix did not apply')
     ensure_adb_mdns_function_include()
     ensure_adb_tls_function_include()
     ensure_sdk_sandbox_aid_compat()
