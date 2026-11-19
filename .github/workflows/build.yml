@@ -19,6 +19,12 @@ on:
         type: boolean
         default: true
 
+# Keep only the newest build for each version branch. This prevents rapid
+# patch iterations from leaving stale, queued matrix builds consuming runners.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
