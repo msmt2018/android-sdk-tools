@@ -428,6 +428,52 @@ def ensure_boringssl_x509_name_print_compat():
     print('BoringSSL X509_NAME_print: legacy line-counter compatibility verified', flush=True)
 
 
+def ensure_boringssl_bn_comba8_decl_compat():
+    """Match the BoringSSL declaration to the 8-limb implementation."""
+    path = ROOT / 'src/boringssl/src/crypto/fipsmodule/bn/internal.h'
+    if not path.is_file():
+        raise RuntimeError('BoringSSL bn internal.h not found: {}'.format(path))
+
+    text = path.read_text()
+    pattern = re.compile(
+        r'(bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s+a\s*)\[\s*4\s*\](?=\s*\)\s*;)',
+        re.S,
+    )
+    fixed, count = pattern.subn(r'\1[8]', text, count=1)
+    if count:
+        path.write_text(fixed)
+
+    verified = path.read_text()
+    if pattern.search(verified):
+        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration still has a 4-limb bound')
+    if 'bn_sqr_comba8' in verified and not re.search(
+        r'bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s+a\s*\[\s*8\s*\]\s*\)\s*;',
+        verified,
+        re.S,
+    ):
+        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration was found but not recognized')
+    print('BoringSSL BN: bn_sqr_comba8 declaration verified for 8 limbs', flush=True)
+
+
+def ensure_libbase_fmt_format_string_compat():
+    """Use the fmt string-view conversion supported by the release-pinned fmtlib."""
+    path = ROOT / 'src/libbase/include/android-base/result.h'
+    if not path.is_file():
+        raise RuntimeError('libbase result.h not found: {}'.format(path))
+
+    text = path.read_text()
+    old = 'fmt::vformat(fmt.get(),'
+    new = 'fmt::vformat(fmt,'
+    if old in text:
+        text = text.replace(old, new)
+        path.write_text(text)
+        print('libbase: adapted fmt::vformat to the tag-pinned fmt format_string API', flush=True)
+
+    verified = path.read_text()
+    if old in verified:
+        raise RuntimeError('libbase result.h still calls format_string::get(): {}'.format(path))
+
+
 def ensure_aapt2_protobuf_limit_compat():
     """Support both the legacy and modern Protobuf SetTotalBytesLimit signatures."""
     path = ROOT / 'src/base/tools/aapt2/io/Util.h'
@@ -634,6 +680,8 @@ def patches():
     ensure_art_safe_map_invoke_result_compat()
     ensure_art_string_view_cpp20_compat()
     ensure_boringssl_x509_name_print_compat()
+    ensure_boringssl_bn_comba8_decl_compat()
+    ensure_libbase_fmt_format_string_compat()
     ensure_aapt2_protobuf_limit_compat()
 
 
