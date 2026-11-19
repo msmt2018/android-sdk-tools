@@ -14,6 +14,20 @@
 # limitations under the License.
 #
 
+# Append only source files that exist in the manifest-pinned AOSP revision.
+# Platform-tools 28/29 predate several modern ADB subsystems (pairing, TLS,
+# fastdeploy and Incremental FS); do not compile later-release paths against
+# those historical source trees.
+function(append_existing_sources output)
+    set(_existing)
+    foreach(_source IN LISTS ARGN)
+        if(EXISTS "${_source}")
+            list(APPEND _existing "${_source}")
+        endif()
+    endforeach()
+    set(${output} "${_existing}" PARENT_SCOPE)
+endfunction()
+
 # ========================= adb proto ============================
 set(ADB_PROTO_SRC)  # adb proto source files
 set(ADB_PROTO_HDRS) # adb proto head files
@@ -57,43 +71,34 @@ endif()
 # ========================= adb proto ============================
 
 
-# ========================= fastdeploy proto ============================
-# ApkEntry.proto
-set(FASTDEPLOY_PROTO_SRC)  # adb proto source files
-set(FASTDEPLOY_PROTO_HDRS) # adb proto head files
+# ========================= optional fastdeploy proto ============================
+set(FASTDEPLOY_PROTO_SRC)
+set(FASTDEPLOY_PROTO_HDRS)
 set(FASTDEPLOY_PROTO_DIR ${CMAKE_SOURCE_DIR}/src/adb/fastdeploy/proto)
-
-if(DEFINED PROTOC_PATH)
-    # execute the protoc command to generate the proto targets for host arch
-    execute_process(
-        COMMAND ${PROTOC_COMPILER} ${FASTDEPLOY_PROTO_DIR}/ApkEntry.proto
-        --proto_path=${FASTDEPLOY_PROTO_DIR}
-        --cpp_out=${FASTDEPLOY_PROTO_DIR}
-        COMMAND_ECHO STDOUT
-        RESULT_VARIABLE RESULT
-        WORKING_DIRECTORY ${FASTDEPLOY_PROTO_DIR}
-    )
-    
-    # check command result
-    if(RESULT EQUAL 0)
-        message(STATUS "generate cpp file ${TARGET_CPP_FILE}")
-        message(STATUS "generate head file ${TARGET_HEAD_FILE}")
+if(EXISTS "${FASTDEPLOY_PROTO_DIR}/ApkEntry.proto")
+    if(DEFINED PROTOC_PATH)
+        execute_process(
+            COMMAND ${PROTOC_COMPILER} ${FASTDEPLOY_PROTO_DIR}/ApkEntry.proto
+            --proto_path=${FASTDEPLOY_PROTO_DIR}
+            --cpp_out=${FASTDEPLOY_PROTO_DIR}
+            RESULT_VARIABLE RESULT
+            WORKING_DIRECTORY ${FASTDEPLOY_PROTO_DIR}
+        )
+        if(NOT RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to generate fastdeploy protobuf sources")
+        endif()
+    endif()
+    set(TARGET_CPP_FILE "${FASTDEPLOY_PROTO_DIR}/ApkEntry.pb.cc")
+    set(TARGET_HEAD_FILE "${FASTDEPLOY_PROTO_DIR}/ApkEntry.pb.h")
+    if(EXISTS "${TARGET_CPP_FILE}" AND EXISTS "${TARGET_HEAD_FILE}")
+        list(APPEND FASTDEPLOY_PROTO_SRC "${TARGET_CPP_FILE}")
+        list(APPEND FASTDEPLOY_PROTO_HDRS "${TARGET_HEAD_FILE}")
+    endif()
+    if(DEFINED PROTOC_PATH)
+        set_source_files_properties(${FASTDEPLOY_PROTO_SRC} ${FASTDEPLOY_PROTO_HDRS} PROPERTIES GENERATED TRUE)
     endif()
 endif()
-
-set(TARGET_CPP_FILE "${FASTDEPLOY_PROTO_DIR}/ApkEntry.pb.cc")
-set(TARGET_HEAD_FILE "${FASTDEPLOY_PROTO_DIR}/ApkEntry.pb.h")
-    
-if(EXISTS ${TARGET_CPP_FILE} AND EXISTS ${TARGET_HEAD_FILE})
-    list(APPEND FASTDEPLOY_PROTO_SRC ${TARGET_CPP_FILE})
-    list(APPEND FASTDEPLOY_PROTO_HDRS ${TARGET_HEAD_FILE})
-endif()
-
-if(DEFINED PROTOC_PATH)
-    set_source_files_properties(${FASTDEPLOY_PROTO_SRC} PROPERTIES GENERATED TRUE)
-    set_source_files_properties(${FASTDEPLOY_PROTO_HDRS} PROPERTIES GENERATED TRUE)
-endif()
-# ========================= fastdeploy proto ============================
+# ========================= optional fastdeploy proto ============================
 
 
 set(ADB_MDNS_SOURCE)
@@ -131,11 +136,10 @@ if(EXISTS "${SRC}/adb/client/mdnsresponder_client.cpp")
     list(APPEND ADB_MDNS_CLIENT_SOURCE "${SRC}/adb/client/mdnsresponder_client.cpp")
 endif()
 
-add_library(libadb STATIC
+append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
     ${SRC}/adb/adb_listeners.cpp
-    ${ADB_MDNS_SOURCE}
     ${SRC}/adb/adb_trace.cpp
     ${SRC}/adb/adb_unique_fd.cpp
     ${SRC}/adb/adb_utils.cpp
@@ -148,17 +152,10 @@ add_library(libadb STATIC
     ${SRC}/adb/transport.cpp
     ${SRC}/adb/transport_fd.cpp
     ${SRC}/adb/types.cpp
-    ${ADB_MDNS_SERVICE_INFO_SOURCE}
-    ${ADB_MDNS_SERVICE_WATCHER_SOURCE}
-    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
-    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
-    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
-    ${ADB_USB_DISPATCH_SOURCE}
     ${SRC}/adb/client/transport_local.cpp
-    ${ADB_MDNS_CLIENT_SOURCE}
     ${SRC}/adb/client/mdns_utils.cpp
     ${SRC}/adb/client/transport_mdns.cpp
     ${SRC}/adb/client/transport_usb.cpp
@@ -167,8 +164,17 @@ add_library(libadb STATIC
     ${SRC}/adb/fdevent/fdevent_epoll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
+)
+add_library(libadb STATIC
+    ${ADB_CORE_SOURCES}
+    ${ADB_MDNS_SOURCE}
+    ${ADB_MDNS_SERVICE_INFO_SOURCE}
+    ${ADB_MDNS_SERVICE_WATCHER_SOURCE}
+    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
+    ${ADB_USB_DISPATCH_SOURCE}
+    ${ADB_MDNS_CLIENT_SOURCE}
     ${ADB_PROTO_SRC} ${ADB_PROTO_HDRS}
-    )
+)
 target_compile_definitions(libadb PRIVATE 
     -D_GNU_SOURCE
     -DADB_HOST=1
@@ -202,12 +208,12 @@ target_include_directories(libadb PRIVATE
     ${SRC}/incremental_delivery/incfs/util/include 
     )
 
-add_library(libadb_crypto STATIC
+append_existing_sources(ADB_CRYPTO_SOURCES
     ${SRC}/adb/crypto/key.cpp
     ${SRC}/adb/crypto/rsa_2048_key.cpp
     ${SRC}/adb/crypto/x509_generator.cpp
-    ${ADB_PROTO_HDRS}
-    )
+)
+add_library(libadb_crypto STATIC ${ADB_CRYPTO_SOURCES} ${ADB_PROTO_HDRS})
 target_include_directories(libadb_crypto PRIVATE
     ${SRC}/adb
     ${SRC}/adb/crypto/include
@@ -218,40 +224,33 @@ target_include_directories(libadb_crypto PRIVATE
     ${SRC}/protobuf/src
     )
 
-add_library(libadb_tls_connection STATIC
-    ${SRC}/adb/tls/adb_ca_list.cpp
-    ${SRC}/adb/tls/tls_connection.cpp
-    )
-target_include_directories(libadb_tls_connection PRIVATE
-    ${SRC}/adb
-    ${SRC}/adb/tls/include
-    ${SRC}/boringssl/include
-    ${SRC}/libbase/include
-    )
-    
-add_library(libadb_pairing_connection STATIC
-    ${SRC}/adb/pairing_connection/pairing_connection.cpp
-    )
-target_include_directories(libadb_pairing_connection PRIVATE
-    ${SRC}/adb/proto
-    ${SRC}/adb/pairing_connection/include
-    ${SRC}/adb/pairing_auth/include
-    ${SRC}/adb/tls/include
-    ${SRC}/libbase/include
-    ${SRC}/boringssl/include
-    ${SRC}/protobuf/src
-    )
+if(EXISTS "${SRC}/adb/tls/tls_connection.cpp")
+    add_library(libadb_tls_connection STATIC
+        ${SRC}/adb/tls/adb_ca_list.cpp
+        ${SRC}/adb/tls/tls_connection.cpp)
+    target_include_directories(libadb_tls_connection PRIVATE
+        ${SRC}/adb ${SRC}/adb/tls/include
+        ${SRC}/boringssl/include ${SRC}/libbase/include)
+endif()
 
-add_library(libadb_pairing_auth STATIC
-    ${SRC}/adb/pairing_auth/aes_128_gcm.cpp
-    ${SRC}/adb/pairing_auth/pairing_auth.cpp
-    )
-target_include_directories(libadb_pairing_auth PRIVATE
-    ${SRC}/adb/pairing_auth/include
-    ${SRC}/libbase/include
-    ${SRC}/boringssl/include
-    ${SRC}/protobuf/src
-    )
+if(EXISTS "${SRC}/adb/pairing_connection/pairing_connection.cpp")
+    add_library(libadb_pairing_connection STATIC
+        ${SRC}/adb/pairing_connection/pairing_connection.cpp)
+    target_include_directories(libadb_pairing_connection PRIVATE
+        ${SRC}/adb/proto ${SRC}/adb/pairing_connection/include
+        ${SRC}/adb/pairing_auth/include ${SRC}/adb/tls/include
+        ${SRC}/libbase/include ${SRC}/boringssl/include
+        ${SRC}/protobuf/src)
+endif()
+
+if(EXISTS "${SRC}/adb/pairing_auth/pairing_auth.cpp")
+    add_library(libadb_pairing_auth STATIC
+        ${SRC}/adb/pairing_auth/aes_128_gcm.cpp
+        ${SRC}/adb/pairing_auth/pairing_auth.cpp)
+    target_include_directories(libadb_pairing_auth PRIVATE
+        ${SRC}/adb/pairing_auth/include ${SRC}/libbase/include
+        ${SRC}/boringssl/include ${SRC}/protobuf/src)
+endif()
 
 add_library(libadb_sysdeps STATIC
     ${SRC}/adb/sysdeps/env.cpp
@@ -261,20 +260,17 @@ target_include_directories(libadb_sysdeps PRIVATE
     ${SRC}/adb
     )
 
-add_library(libfastdeploy STATIC
-    ${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp
-    ${SRC}/adb/fastdeploy/deploypatchgenerator/deploy_patch_generator.cpp
-    ${SRC}/adb/fastdeploy/deploypatchgenerator/patch_utils.cpp
-    ${SRC}/adb/fastdeploy/proto/ApkEntry.proto
-    ${FASTDEPLOY_PROTO_SRC} ${FASTDEPLOY_PROTO_HDRS}
-    )
-target_include_directories(libfastdeploy PRIVATE
-    ${SRC}/adb
-    ${SRC}/core/libcutils/include
-    ${SRC}/libbase/include
-    ${SRC}/protobuf/src
-    ${SRC}/boringssl/include
-    )
+if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
+    add_library(libfastdeploy STATIC
+        ${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp
+        ${SRC}/adb/fastdeploy/deploypatchgenerator/deploy_patch_generator.cpp
+        ${SRC}/adb/fastdeploy/deploypatchgenerator/patch_utils.cpp
+        ${FASTDEPLOY_PROTO_SRC} ${FASTDEPLOY_PROTO_HDRS})
+    target_include_directories(libfastdeploy PRIVATE
+        ${SRC}/adb ${SRC}/core/libcutils/include
+        ${SRC}/libbase/include ${SRC}/protobuf/src
+        ${SRC}/boringssl/include)
+endif()
 
 add_library(libcrypto STATIC
     ${SRC}/core/libcrypto_utils/android_pubkey.cpp
@@ -284,7 +280,7 @@ target_include_directories(libcrypto PRIVATE
     ${SRC}/boringssl/include
     )
 
-add_executable(adb
+append_existing_sources(ADB_EXECUTABLE_SOURCES
     ${SRC}/adb/client/adb_client.cpp
     ${SRC}/adb/client/bugreport.cpp
     ${SRC}/adb/client/commandline.cpp
@@ -299,8 +295,8 @@ add_executable(adb
     ${SRC}/adb/client/incremental_server.cpp
     ${SRC}/adb/client/incremental_utils.cpp
     ${SRC}/adb/shell_service_protocol.cpp
-    ${ADB_PROTO_HDRS}
-    )
+)
+add_executable(adb ${ADB_EXECUTABLE_SOURCES} ${ADB_PROTO_HDRS})
 target_include_directories(adb PRIVATE
     ${SRC}/adb
     ${SRC}/adb/proto
@@ -318,41 +314,26 @@ target_compile_definitions(adb PRIVATE
     -D_GNU_SOURCE
     -DADB_HOST=1
     )
-target_link_libraries(adb
-    libadb
-    libadb_crypto
-    libadb_tls_connection
-    libadb_pairing_connection
-    libadb_pairing_auth
-    libcrypto
-    libadb_sysdeps
-    libfastdeploy
-    libselinux
-    libsepol
-    libincfs
-    libpackagelistparser
-    libbase
-    libutils
-    libcutils
-    libdiagnoseusb
-    libandroidfw
-    libbuildversion
-    libziparchive
-    libmdnssd
-    libopenscreen
-    libusb
-    liblog
-    pcre2-8
-    crypto
-    ssl
-    protobuf::libprotoc
-    protobuf::libprotobuf
-    absl::base
-    absl::strings
-    brotlicommon-static
-    brotlidec-static
-    brotlienc-static
-    libzstd_static
-    lz4_static
-    sdk_system_libs
-    )
+set(ADB_LINK_LIBRARIES
+    libadb libadb_crypto libcrypto libadb_sysdeps
+    libselinux libsepol libbase libutils libcutils
+    libdiagnoseusb libandroidfw libbuildversion libziparchive
+    libusb liblog pcre2-8 crypto ssl
+    protobuf::libprotoc protobuf::libprotobuf
+    brotlicommon-static brotlidec-static brotlienc-static
+    lz4_static sdk_system_libs
+)
+foreach(_optional_target
+    libadb_tls_connection libadb_pairing_connection libadb_pairing_auth
+    libfastdeploy libincfs libpackagelistparser libmdnssd libopenscreen
+    libzstd_static)
+    if(TARGET ${_optional_target})
+        list(APPEND ADB_LINK_LIBRARIES ${_optional_target})
+    endif()
+endforeach()
+foreach(_optional_target absl::base absl::strings)
+    if(TARGET ${_optional_target})
+        list(APPEND ADB_LINK_LIBRARIES ${_optional_target})
+    endif()
+endforeach()
+target_link_libraries(adb ${ADB_LINK_LIBRARIES})
