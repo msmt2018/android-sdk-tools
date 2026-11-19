@@ -454,7 +454,12 @@ def ensure_aapt2_protobuf_limit_compat():
 
 
 def ensure_sdk_sandbox_aid_compat():
-    """Keep the SELinux 33.0.4 snapshot compatible with the Android 13 core AID header."""
+    """Keep Android 13+ SDK sandbox AIDs compatible with the selected AOSP snapshot."""
+    version = tuple(int(part) for part in tools_version().split('.'))
+    if version < (33, 0, 0):
+        print('Android core AIDs: SDK sandbox UID range is not part of this pre-Android-13 release; skipping', flush=True)
+        return
+
     path = ROOT / 'src/core/libcutils/include/private/android_filesystem_config.h'
     if not path.is_file():
         raise RuntimeError('Android filesystem AID header not found: {}'.format(path))
