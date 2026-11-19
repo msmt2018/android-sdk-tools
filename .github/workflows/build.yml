@@ -74,8 +74,18 @@ jobs:
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ninja-build bison flex autoconf automake libtool pkg-config patch autoconf automake libtool pkg-config
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if sudo apt-get update -o Acquire::Retries=3 &&
+               sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ninja-build bison flex autoconf automake libtool pkg-config patch; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Unable to install source-build dependencies after 5 attempts"
+              exit 1
+            fi
+            sleep "$((attempt * 15))"
+          done
 
       - name: Setup Go
         if: steps.cache.outputs.cache-hit != 'true'
@@ -119,8 +129,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ninja-build bison flex
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if sudo apt-get update -o Acquire::Retries=3 &&
+               sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ninja-build bison flex; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Unable to install ABI-build dependencies after 5 attempts"
+              exit 1
+            fi
+            sleep "$((attempt * 15))"
+          done
 
       - name: Setup Go
         uses: actions/setup-go@v5
