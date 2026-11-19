@@ -179,10 +179,12 @@ add_library(libprotoc STATIC
     )
 
 target_compile_definitions(libprotoc PRIVATE -DHAVE_ZLIB=1)
-target_include_directories(libprotoc PRIVATE 
-    ${SRC}/protobuf/android
+target_include_directories(libprotoc PUBLIC
     ${SRC}/protobuf/src
-    )
+)
+target_include_directories(libprotoc PRIVATE
+    ${SRC}/protobuf/android
+)
     
 # The host protoc is built by build.py before target configuration.
 # Do not add a second protoc executable to the Android cross-build.
