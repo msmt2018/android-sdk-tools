@@ -48,6 +48,11 @@ if(EXISTS "${SRC}/aidl/aidl_to_common.cpp")
     list(APPEND AIDL_TO_COMMON_SRC ${SRC}/aidl/aidl_to_common.cpp)
 endif()
 
+set(AIDL_PERMISSION_SOURCE)
+if(EXISTS "${SRC}/aidl/permission.cpp")
+    list(APPEND AIDL_PERMISSION_SOURCE ${SRC}/aidl/permission.cpp)
+endif()
+
 set(AIDL_CPP_ANALYZER_SOURCE)
 if(EXISTS "${SRC}/aidl/generate_cpp_analyzer.cpp")
     list(APPEND AIDL_CPP_ANALYZER_SOURCE ${SRC}/aidl/generate_cpp_analyzer.cpp)
@@ -86,7 +91,7 @@ add_executable(aidl
     ${SRC}/aidl/logging.cpp
     ${SRC}/aidl/options.cpp
     ${SRC}/aidl/parser.cpp
-    ${SRC}/aidl/permission.cpp
+    ${AIDL_PERMISSION_SOURCE}
     ${SRC}/aidl/preprocess.cpp
     ${SRC}/aidl/main.cpp
     ${BISON_LangParser_OUTPUTS}
