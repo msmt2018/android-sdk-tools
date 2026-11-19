@@ -879,14 +879,16 @@ def create_legacy_source_aliases():
     # source tree through symlinks; do not substitute a newer library revision.
     aliases = {
         'src/adb': 'src/core/adb',
-        'src/libbase': 'src/core/libbase',
+        'src/libbase': 'src/core/base',
         'src/libziparchive': 'src/core/libziparchive',
-        'src/logging': 'src/core/logging',
+        'src/unwinding/libbacktrace': 'src/core/libbacktrace',
+        'src/logging/liblog': 'src/core/liblog',
     }
     for destination, source in aliases.items():
         dst = ROOT / destination
         src = ROOT / source
         if not dst.exists() and src.is_dir():
+            dst.parent.mkdir(parents=True, exist_ok=True)
             dst.symlink_to(src, target_is_directory=True)
             print('legacy AOSP layout: {} -> {}'.format(destination, source), flush=True)
 
