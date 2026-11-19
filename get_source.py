@@ -316,6 +316,34 @@ def ensure_aidl_flex_parser_types():
             raise RuntimeError('AIDL Flex parser alias missing {} in {}'.format(token, path))
     print('AIDL Flex: parser header and semantic/location aliases verified', flush=True)
 
+def ensure_fastboot_unique_fd_compat():
+    """Pass raw descriptors to POSIX APIs when unique_fd implicit conversion is disabled."""
+    path = ROOT / 'src/core/fastboot/fastboot.cpp'
+    if not path.is_file():
+        print('fastboot unique_fd: fastboot.cpp is not part of this source snapshot; skipping', flush=True)
+        return
+    text = path.read_text()
+    replacements = (
+        ('get_file_size(fd)', 'get_file_size(fd.get())'),
+        ('ExtractEntryToFile(zip, &zip_entry, fd)', 'ExtractEntryToFile(zip, &zip_entry, fd.get())'),
+        ('lseek(fd, 0, SEEK_SET)', 'lseek(fd.get(), 0, SEEK_SET)'),
+        ('fstat(fd, &s)', 'fstat(fd.get(), &s)'),
+    )
+    changed = 0
+    for old, new in replacements:
+        count = text.count(old)
+        if count:
+            text = text.replace(old, new)
+            changed += count
+    if changed:
+        path.write_text(text)
+    verified = path.read_text()
+    for old, _ in replacements:
+        if old in verified:
+            raise RuntimeError('fastboot unique_fd conversion incomplete: {}'.format(old))
+    print('fastboot unique_fd: verified {} descriptor conversion(s)'.format(changed), flush=True)
+
+
 def ensure_adb_mdns_function_include():
     """Provide the std::function declaration used by adb_mdns.h."""
     path = ROOT / 'src/adb/adb_mdns.h'
@@ -763,6 +791,7 @@ def patches():
     ensure_androidfw_theme_entry_definition()
     ensure_libziparchive_span_compat()
     ensure_aidl_flex_parser_types()
+    ensure_fastboot_unique_fd_compat()
     ensure_adb_mdns_function_include()
     ensure_adb_tls_function_include()
     ensure_sdk_sandbox_aid_compat()
