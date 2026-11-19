@@ -601,13 +601,20 @@ using result_of_t = typename type_traits_internal::result_of<T>::type;'''
 
 
 def ensure_aidl_permission_grammar_types():
-    """Expose permission AST/parser declarations to the generated Bison header."""
+    """Expose permission parser declarations only in snapshots that contain that parser layout."""
     grammar = ROOT / 'src/aidl/permission/grammar.yy'
     permission_header = ROOT / 'src/aidl/permission/permission.h'
     parser_header = ROOT / 'src/aidl/permission/parser.h'
-    for path in (grammar, permission_header, parser_header):
-        if not path.is_file():
-            raise RuntimeError('AIDL permission parser source missing: {}'.format(path))
+
+    # Platform Tools 32.0.0 uses an older AIDL permission grammar layout.
+    if not grammar.is_file():
+        print('AIDL permission grammar: not present in this AOSP snapshot; skipping', flush=True)
+        return
+    if not permission_header.is_file() and not parser_header.is_file():
+        print('AIDL permission grammar: legacy parser layout has no permission.h/parser.h; skipping', flush=True)
+        return
+    if not permission_header.is_file() or not parser_header.is_file():
+        raise RuntimeError('AIDL permission parser layout is incomplete: expected both permission.h and parser.h')
 
     text = grammar.read_text()
     includes = ('#include "permission.h"', '#include "parser.h"')
@@ -642,6 +649,7 @@ def ensure_aidl_permission_grammar_types():
         if header not in body:
             raise RuntimeError('AIDL permission grammar missing {} in %code requires'.format(header))
     print('AIDL permission Bison header: permission.h and parser.h declarations exported', flush=True)
+
 
 
 def patches():
