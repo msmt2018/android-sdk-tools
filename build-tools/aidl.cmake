@@ -52,6 +52,13 @@ set(AIDL_PERMISSION_SOURCE)
 if(EXISTS "${SRC}/aidl/permission.cpp")
     list(APPEND AIDL_PERMISSION_SOURCE ${SRC}/aidl/permission.cpp)
 endif()
+# Platform Tools 32's AIDL permission implementation is split into the
+# permission/ subdirectory. The top-level permission.cpp references these
+# concrete parser/AST implementations, so compile the release's actual
+# implementation sources rather than relying on unresolved declarations.
+file(GLOB_RECURSE AIDL_PERMISSION_IMPL_SOURCES CONFIGURE_DEPENDS
+    "${SRC}/aidl/permission/*.cpp")
+list(APPEND AIDL_PERMISSION_SOURCE ${AIDL_PERMISSION_IMPL_SOURCES})
 
 set(AIDL_CPP_ANALYZER_SOURCE)
 if(EXISTS "${SRC}/aidl/generate_cpp_analyzer.cpp")
