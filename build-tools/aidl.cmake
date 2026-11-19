@@ -48,6 +48,11 @@ if(EXISTS "${SRC}/aidl/aidl_to_common.cpp")
     list(APPEND AIDL_TO_COMMON_SRC ${SRC}/aidl/aidl_to_common.cpp)
 endif()
 
+set(AIDL_CPP_AST_SOURCE)
+if(EXISTS "${SRC}/aidl/ast_cpp.cpp")
+    list(APPEND AIDL_CPP_AST_SOURCE ${SRC}/aidl/ast_cpp.cpp)
+endif()
+
 set(AIDL_CPP_ANALYZER_SOURCE)
 if(EXISTS "${SRC}/aidl/generate_cpp_analyzer.cpp")
     list(APPEND AIDL_CPP_ANALYZER_SOURCE ${SRC}/aidl/generate_cpp_analyzer.cpp)
@@ -84,6 +89,7 @@ add_executable(aidl
     ${SRC}/aidl/aidl_typenames.cpp
     ${SRC}/aidl/aidl.cpp
     ${SRC}/aidl/ast_java.cpp
+    ${AIDL_CPP_AST_SOURCE}
     ${AIDL_CHECK_VALID_SOURCE}
     ${SRC}/aidl/code_writer.cpp
     ${SRC}/aidl/comments.cpp
