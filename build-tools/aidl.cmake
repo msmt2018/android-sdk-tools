@@ -56,10 +56,9 @@ if(EXISTS "${SRC}/aidl/permission/parser.cpp")
         ${SRC}/aidl/permission/lexer.cpp
     )
     add_flex_bison_dependency(PermissionLexer PermissionParser)
-    # Pass the generated parser header to the C++ compiler, not Flex itself.
-    set_source_files_properties(${FLEX_PermissionLexer_OUTPUTS} PROPERTIES
-        COMPILE_OPTIONS "-include;${SRC}/aidl/permission/grammar.h"
-    )
+    # lexer.ll includes parser.h before grammar.h itself. Do not force-include
+    # grammar.h ahead of that prologue: the generated header needs parser.h
+    # declarations from the Bison %code requires block.
     list(APPEND AIDL_PERMISSION_GRAMMAR_SOURCE
         ${BISON_PermissionParser_OUTPUTS}
         ${FLEX_PermissionLexer_OUTPUTS}
@@ -79,13 +78,12 @@ set(AIDL_PERMISSION_SOURCE)
 if(EXISTS "${SRC}/aidl/permission.cpp")
     list(APPEND AIDL_PERMISSION_SOURCE ${SRC}/aidl/permission.cpp)
 endif()
-# Platform Tools 32's AIDL permission implementation is split into the
-# permission/ subdirectory. The top-level permission.cpp references these
-# concrete parser/AST implementations, so compile the release's actual
-# implementation sources rather than relying on unresolved declarations.
-file(GLOB_RECURSE AIDL_PERMISSION_IMPL_SOURCES CONFIGURE_DEPENDS
-    "${SRC}/aidl/permission/*.cpp")
-list(APPEND AIDL_PERMISSION_SOURCE ${AIDL_PERMISSION_IMPL_SOURCES})
+# Platform Tools 32's permission/ directory contains production parser.cpp
+# and parser_unittest.cpp. Android.bp builds only parser.cpp into libaidl-common;
+# keep test sources out of the shipped aidl executable.
+if(EXISTS "${SRC}/aidl/permission/parser.cpp")
+    list(APPEND AIDL_PERMISSION_SOURCE ${SRC}/aidl/permission/parser.cpp)
+endif()
 
 set(AIDL_CPP_ANALYZER_SOURCE)
 if(EXISTS "${SRC}/aidl/generate_cpp_analyzer.cpp")
