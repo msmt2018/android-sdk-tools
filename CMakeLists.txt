@@ -153,6 +153,14 @@ else()
     message(FATAL_ERROR "Pinned Zopfli source has neither CMakeLists.txt nor zopfli_lib.c")
 endif()
 add_subdirectory(src/jsoncpp EXCLUDE_FROM_ALL)
+# AOSP's vendored JsonCpp CMake revisions expose jsoncpp_lib rather than the
+# legacy jsoncpp_static target consumed by build-tools/aapt.cmake.
+if(NOT TARGET jsoncpp_static AND TARGET jsoncpp_lib)
+    add_library(jsoncpp_static ALIAS jsoncpp_lib)
+endif()
+if(NOT TARGET jsoncpp_static)
+    message(FATAL_ERROR "JsonCpp was added but did not define jsoncpp_static or jsoncpp_lib")
+endif()
 # This AOSP Expat snapshot uses BUILD_shared (not EXPAT_SHARED_LIBS).
 # Force its actual CMake option to STATIC so AAPT can be linked fully static.
 set(BUILD_shared OFF CACHE BOOL "Build a static Expat library" FORCE)
@@ -177,6 +185,25 @@ elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/lz4/CMakeLists.txt")
     add_subdirectory(src/lz4 EXCLUDE_FROM_ALL)
 else()
     message(STATUS "LZ4: no standalone CMake project in this AOSP tag; skipping")
+endif()
+# The pinned LZ4 revisions do not consistently export the legacy target name
+# referenced by sload_f2fs. Supply a static implementation from the same source
+# checkout when the upstream CMake project omits it.
+if(NOT TARGET lz4_static AND TARGET lz4)
+    get_target_property(_lz4_type lz4 TYPE)
+    if(_lz4_type STREQUAL "STATIC_LIBRARY")
+        add_library(lz4_static ALIAS lz4)
+    endif()
+endif()
+if(NOT TARGET lz4_static AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/lz4/lib/lz4.c")
+    file(GLOB LZ4_STATIC_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/lz4/lib/*.c")
+    add_library(lz4_static STATIC ${LZ4_STATIC_SOURCES})
+    target_include_directories(lz4_static PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/lz4/lib")
+endif()
+if(NOT TARGET lz4_static)
+    message(FATAL_ERROR "Pinned LZ4 source did not provide a static lz4_static target")
 endif()
 add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
 # Abseil's standalone CMake project validates that a gtest target already
