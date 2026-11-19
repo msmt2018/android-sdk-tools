@@ -25,7 +25,6 @@ if(EXISTS "${SRC}/libbase/posix_strerror_r.cpp")
 endif()
 
 add_library(libbase STATIC
-    ${CMAKE_CURRENT_LIST_DIR}/libbase_result_compat.cpp
     ${SRC}/libbase/abi_compatibility.cpp
     ${SRC}/libbase/chrono_utils.cpp
     ${SRC}/libbase/cmsg.cpp
