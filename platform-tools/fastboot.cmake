@@ -116,7 +116,6 @@ target_include_directories(fastboot PRIVATE
     ${SRC}/googletest/googletest/include
     )
 target_compile_definitions(fastboot PRIVATE
-    -DANDROID_BASE_UNIQUE_FD_DISABLE_IMPLICIT_CONVERSION
     -D_GNU_SOURCE
     -D_XOPEN_SOURCE=700
     -DUSE_F2FS
