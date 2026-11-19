@@ -54,6 +54,7 @@ if(EXISTS "${SRC}/aidl/permission/parser.cpp")
         PermissionLexer
         ${SRC}/aidl/permission/lexer.ll
         ${SRC}/aidl/permission/lexer.cpp
+        COMPILE_FLAGS "-include ${SRC}/aidl/permission/grammar.h"
     )
     add_flex_bison_dependency(PermissionLexer PermissionParser)
     list(APPEND AIDL_PERMISSION_GRAMMAR_SOURCE
