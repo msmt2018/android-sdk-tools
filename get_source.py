@@ -579,6 +579,25 @@ def ensure_art_string_view_cpp20_compat():
     print('ART string_view: obsolete C++20 #error removed; compatibility wrappers retained', flush=True)
 
 
+def ensure_boringssl_bn_comba8_decl_compat():
+    """Correct the stale 4-limb declaration for the 8-limb Comba squaring routine."""
+    path = ROOT / 'src/boringssl/src/crypto/fipsmodule/bn/internal.h'
+    if not path.is_file():
+        print('BoringSSL bn internal.h missing; skip Comba declaration normalization', flush=True)
+        return
+    text = path.read_text()
+    pattern = r'(bn_sqr_comba8\\s*\\(\\s*BN_ULONG\\s+r\\s*\\[\\s*16\\s*\\]\\s*,\\s*const\\s+BN_ULONG\\s+a\\s*)\\[\\s*4\\s*\\]'
+    fixed, count = re.subn(pattern, r'\\1[8]', text)
+    if count:
+        path.write_text(fixed)
+        print('BoringSSL BN: corrected bn_sqr_comba8 input bound to 8 limbs', flush=True)
+    verified = path.read_text()
+    if re.search(pattern, verified):
+        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration still has 4-limb bound')
+    if 'bn_sqr_comba8' not in verified:
+        # Other snapshots may already use a different signature.
+        print('BoringSSL BN: declaration not present in this snapshot; skipped', flush=True)
+
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
@@ -634,6 +653,7 @@ def patches():
     ensure_art_safe_map_invoke_result_compat()
     ensure_art_string_view_cpp20_compat()
     ensure_boringssl_x509_name_print_compat()
+    ensure_boringssl_bn_comba8_decl_compat()
     ensure_aapt2_protobuf_limit_compat()
 
 
