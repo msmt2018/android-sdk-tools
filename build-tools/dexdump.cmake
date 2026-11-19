@@ -25,6 +25,16 @@ set(INCLUDES
     ${SRC}/libziparchive/include
     )
 
+set(ART_COMPILER_FILTER_SOURCE)
+if(EXISTS "${ART_COMPILER_FILTER_SOURCE}")
+    list(APPEND ART_COMPILER_FILTER_SOURCE "${SRC}/art/libartbase/base/compiler_filter.cc")
+endif()
+
+set(ART_FLAGS_SOURCE)
+if(EXISTS "${ART_FLAGS_SOURCE}")
+    list(APPEND ART_FLAGS_SOURCE "${SRC}/art/libartbase/base/flags.cc")
+endif()
+
 add_library(libartbase STATIC
     ${SRC}/art/libartbase/arch/instruction_set.cc
     ${SRC}/art/libartbase/base/allocator.cc

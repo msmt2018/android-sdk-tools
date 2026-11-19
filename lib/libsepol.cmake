@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+set(LIBSEPOL_POLICYDB_VALIDATE_SOURCE)
+if(EXISTS "${LIBSEPOL_POLICYDB_VALIDATE_SOURCE}")
+    list(APPEND LIBSEPOL_POLICYDB_VALIDATE_SOURCE "${SRC}/selinux/libsepol/src/policydb_validate.c")
+endif()
+
 add_library(libsepol STATIC
     ${SRC}/selinux/libsepol/src/assertion.c
     ${SRC}/selinux/libsepol/src/avrule_block.c
