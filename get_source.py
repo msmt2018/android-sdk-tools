@@ -243,7 +243,16 @@ def ensure_androidfw_theme_entry_definition():
     if definition_marker not in text:
         declaration = '  struct Entry;'
         if declaration not in text:
-            raise RuntimeError('cannot locate Theme::Entry forward declaration in {}'.format(path))
+            # Older androidfw snapshots may not use the incomplete nested
+            # Theme::Entry layout that triggers this standalone-build fix.
+            cpp_path = ROOT / 'src/base/libs/androidfw/AssetManager2.cpp'
+            if not cpp_path.is_file():
+                raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(cpp_path))
+            cpp_text = cpp_path.read_text()
+            if re.search(r'\\nstruct\\s+Theme::Entry\\s*\\{', cpp_text):
+                raise RuntimeError('Theme::Entry has an out-of-line definition but no header declaration in {}'.format(path))
+            print('androidfw Theme::Entry: legacy source layout; no incomplete nested type to expose, skipping', flush=True)
+            return
 
         definition = (
             '  struct Entry {\n'
