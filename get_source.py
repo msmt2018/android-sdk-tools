@@ -580,24 +580,49 @@ def ensure_art_string_view_cpp20_compat():
 
 
 def ensure_boringssl_bn_comba8_decl_compat():
-    """Correct the stale 4-limb declaration for the 8-limb Comba squaring routine."""
+    """Match the BoringSSL declaration to the 8-limb implementation."""
     path = ROOT / 'src/boringssl/src/crypto/fipsmodule/bn/internal.h'
     if not path.is_file():
-        print('BoringSSL bn internal.h missing; skip Comba declaration normalization', flush=True)
-        return
+        raise RuntimeError('BoringSSL bn internal.h not found: {}'.format(path))
+
     text = path.read_text()
-    pattern = r'(bn_sqr_comba8\\s*\\(\\s*BN_ULONG\\s+r\\s*\\[\\s*16\\s*\\]\\s*,\\s*const\\s+BN_ULONG\\s+a\\s*)\\[\\s*4\\s*\\]'
-    fixed, count = re.subn(pattern, r'\\1[8]', text)
+    pattern = re.compile(
+        r'(bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s+a\s*)\[\s*4\s*\](?=\s*\)\s*;)',
+        re.S,
+    )
+    fixed, count = pattern.subn(r'\1[8]', text, count=1)
     if count:
         path.write_text(fixed)
-        print('BoringSSL BN: corrected bn_sqr_comba8 input bound to 8 limbs', flush=True)
-    verified = path.read_text()
-    if re.search(pattern, verified):
-        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration still has 4-limb bound')
-    if 'bn_sqr_comba8' not in verified:
-        # Other snapshots may already use a different signature.
-        print('BoringSSL BN: declaration not present in this snapshot; skipped', flush=True)
 
+    verified = path.read_text()
+    if pattern.search(verified):
+        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration still has a 4-limb bound')
+    if 'bn_sqr_comba8' in verified and not re.search(
+        r'bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s+a\s*\[\s*8\s*\]\s*\)\s*;',
+        verified,
+        re.S,
+    ):
+        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration was found but not recognized')
+    print('BoringSSL BN: bn_sqr_comba8 declaration verified for 8 limbs', flush=True)
+
+
+def ensure_libbase_fmt_format_string_compat():
+    """Use the fmt string-view conversion supported by the release-pinned fmtlib."""
+    path = ROOT / 'src/libbase/include/android-base/result.h'
+    if not path.is_file():
+        raise RuntimeError('libbase result.h not found: {}'.format(path))
+
+    text = path.read_text()
+    old = 'fmt::vformat(fmt.get(),'
+    new = 'fmt::vformat(fmt,'
+    if old in text:
+        text = text.replace(old, new)
+        path.write_text(text)
+        print('libbase: adapted fmt::vformat to the tag-pinned fmt format_string API', flush=True)
+
+    verified = path.read_text()
+    if old in verified:
+        raise RuntimeError('libbase result.h still calls format_string::get(): {}'.format(path))
 def patches():
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
