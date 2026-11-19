@@ -54,9 +54,12 @@ if(EXISTS "${SRC}/aidl/permission/parser.cpp")
         PermissionLexer
         ${SRC}/aidl/permission/lexer.ll
         ${SRC}/aidl/permission/lexer.cpp
-        COMPILE_FLAGS "-include ${SRC}/aidl/permission/grammar.h"
     )
     add_flex_bison_dependency(PermissionLexer PermissionParser)
+    # Pass the generated parser header to the C++ compiler, not Flex itself.
+    set_source_files_properties(${FLEX_PermissionLexer_OUTPUTS} PROPERTIES
+        COMPILE_OPTIONS "-include;${SRC}/aidl/permission/grammar.h"
+    )
     list(APPEND AIDL_PERMISSION_GRAMMAR_SOURCE
         ${BISON_PermissionParser_OUTPUTS}
         ${FLEX_PermissionLexer_OUTPUTS}
