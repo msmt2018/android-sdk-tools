@@ -601,31 +601,34 @@ using result_of_t = typename type_traits_internal::result_of<T>::type;'''
 
 
 def ensure_aidl_permission_grammar_types():
-    """Expose permission parser declarations only in snapshots that contain that parser layout."""
+    """Expose the AIDL permission parser declarations to Bison's generated header."""
     grammar = ROOT / 'src/aidl/permission/grammar.yy'
-    permission_header = ROOT / 'src/aidl/permission/permission.h'
     parser_header = ROOT / 'src/aidl/permission/parser.h'
+    permission_header = ROOT / 'src/aidl/permission/permission.h'
 
-    # Platform Tools 32.0.0 uses an older AIDL permission grammar layout.
     if not grammar.is_file():
-        print('AIDL permission grammar: not present in this AOSP snapshot; skipping', flush=True)
+        print('AIDL permission grammar: not present in this AOSP snapshot', flush=True)
         return
-    if not permission_header.is_file() and not parser_header.is_file():
-        print('AIDL permission grammar: legacy parser layout has no permission.h/parser.h; skipping', flush=True)
-        return
-    if not permission_header.is_file() or not parser_header.is_file():
-        raise RuntimeError('AIDL permission parser layout is incomplete: expected both permission.h and parser.h')
+    if not parser_header.is_file():
+        raise RuntimeError('AIDL permission parser header missing: {}'.format(parser_header))
+
+    # The Platform Tools 32.0.0 AOSP layout defines Expression,
+    # Predicate, AndQuantifier and OrQuantifier in parser.h. It has no
+    # permission/permission.h; newer snapshots may provide that additional
+    # header, so include it only when the pinned checkout actually contains it.
+    includes = ['#include "parser.h"']
+    if permission_header.is_file():
+        includes.insert(0, '#include "permission.h"')
 
     text = grammar.read_text()
-    includes = ('#include "permission.h"', '#include "parser.h"')
     marker = '%code requires'
     start = text.find(marker)
     if start < 0:
-        prologue_end = text.find('\n%}')
+        prologue_end = text.find('\\n%}')
         if prologue_end < 0:
             raise RuntimeError('cannot locate AIDL permission grammar prologue in {}'.format(grammar))
-        insert_at = prologue_end + len('\n%}')
-        code = '\n\n%code requires {\n' + '\n'.join(includes) + '\n}\n'
+        insert_at = prologue_end + len('\\n%}')
+        code = '\\n\\n%code requires {\\n' + '\\n'.join(includes) + '\\n}\\n'
         text = text[:insert_at] + code + text[insert_at:]
     else:
         open_brace = text.find('{', start + len(marker))
@@ -635,7 +638,7 @@ def ensure_aidl_permission_grammar_types():
         body = text[open_brace + 1:close_brace]
         missing = [header for header in includes if header not in body]
         if missing:
-            text = text[:open_brace + 1] + '\n' + '\n'.join(missing) + text[open_brace + 1:]
+            text = text[:open_brace + 1] + '\\n' + '\\n'.join(missing) + text[open_brace + 1:]
 
     grammar.write_text(text)
     verified = grammar.read_text()
@@ -648,9 +651,7 @@ def ensure_aidl_permission_grammar_types():
     for header in includes:
         if header not in body:
             raise RuntimeError('AIDL permission grammar missing {} in %code requires'.format(header))
-    print('AIDL permission Bison header: permission.h and parser.h declarations exported', flush=True)
-
-
+    print('AIDL permission Bison header: parser declarations exported', flush=True)
 
 def patches():
     ensure_abseil_result_of_cxx20_compat()
