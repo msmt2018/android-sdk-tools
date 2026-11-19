@@ -88,7 +88,11 @@ def main():
     # Google published Build Tools 34.0.0, but not 34.0.1/34.0.3/34.0.4/34.0.5.
     build_tools_version = args.build_tools_version
     if build_tools_version is None:
-        if args.version.startswith("34.0."):
+        if args.version.startswith("31.0."):
+            # Platform Tools 31.0.0-31.0.3 share the single official
+            # Android SDK Build Tools 31.0.0 package.
+            build_tools_version = "31.0.0"
+        elif args.version.startswith("34.0."):
             build_tools_version = "34.0.0"
         elif args.version == "33.0.4":
             # Google published Platform Tools 33.0.3 and Build Tools 33.0.3,
