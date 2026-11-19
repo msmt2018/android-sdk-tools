@@ -624,11 +624,11 @@ def ensure_aidl_permission_grammar_types():
     marker = '%code requires'
     start = text.find(marker)
     if start < 0:
-        prologue_end = text.find('\\n%}')
+        prologue_end = text.find('\n%}')
         if prologue_end < 0:
             raise RuntimeError('cannot locate AIDL permission grammar prologue in {}'.format(grammar))
-        insert_at = prologue_end + len('\\n%}')
-        code = '\\n\\n%code requires {\\n' + '\\n'.join(includes) + '\\n}\\n'
+        insert_at = prologue_end + len('\n%}')
+        code = '\n\n%code requires {\n' + '\n'.join(includes) + '\n}\n'
         text = text[:insert_at] + code + text[insert_at:]
     else:
         open_brace = text.find('{', start + len(marker))
@@ -638,7 +638,7 @@ def ensure_aidl_permission_grammar_types():
         body = text[open_brace + 1:close_brace]
         missing = [header for header in includes if header not in body]
         if missing:
-            text = text[:open_brace + 1] + '\\n' + '\\n'.join(missing) + text[open_brace + 1:]
+            text = text[:open_brace + 1] + '\n' + '\n'.join(missing) + text[open_brace + 1:]
 
     grammar.write_text(text)
     verified = grammar.read_text()
