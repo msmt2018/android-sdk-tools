@@ -139,6 +139,12 @@ def build_host_protoc(args):
         # CMakeLists.txt or silently using a host-installed protoc.
         autotools_build = build_dir / 'autotools'
         autotools_build.mkdir(parents=True, exist_ok=True)
+        # Old AOSP protobuf autogen.sh downloads gmock-1.7.0 from the retired
+        # googlecode.com URL whenever this directory is absent. gmock is only
+        # needed by protobuf's unit tests, which are not built for host protoc.
+        # An empty marker directory lets autoreconf proceed without fetching
+        # an unrelated, obsolete test dependency.
+        (source / 'gmock').mkdir(exist_ok=True)
         run([source / 'autogen.sh'], cwd=source, env=env)
         run([source / 'configure', '--disable-shared', '--enable-static'],
             cwd=autotools_build, env=env)
