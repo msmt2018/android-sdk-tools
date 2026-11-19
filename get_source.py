@@ -693,6 +693,7 @@ def patches():
     ensure_androidfw_theme_entry_definition()
     ensure_libziparchive_span_compat()
     ensure_aidl_flex_parser_types()
+    ensure_aidl_permission_grammar_types()
     ensure_adb_mdns_function_include()
     ensure_adb_tls_function_include()
     ensure_sdk_sandbox_aid_compat()
