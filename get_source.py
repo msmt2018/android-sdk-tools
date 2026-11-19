@@ -562,7 +562,47 @@ def ensure_art_string_view_cpp20_compat():
     print('ART string_view: obsolete C++20 #error removed; compatibility wrappers retained', flush=True)
 
 
+def ensure_abseil_result_of_cxx20_compat():
+    """Use invoke_result when C++20 removes std::result_of, retaining old-STL fallback."""
+    path = ROOT / 'src/abseil-cpp/absl/meta/type_traits.h'
+    if not path.is_file():
+        raise RuntimeError('Abseil type_traits.h not found: {}'.format(path))
+
+    text = path.read_text()
+    old = 'using result_of_t = typename std::result_of<T>::type;'
+    new = '''namespace type_traits_internal {
+#if (defined(__cpp_lib_is_invocable) && __cpp_lib_is_invocable >= 201703L) || \\
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+template <typename>
+struct result_of;
+template <typename F, typename... Args>
+struct result_of<F(Args...)> : std::invoke_result<F, Args...> {};
+#else
+template <typename F>
+using result_of = std::result_of<F>;
+#endif
+}  // namespace type_traits_internal
+
+template <typename T>
+using result_of_t = typename type_traits_internal::result_of<T>::type;'''
+    if old in text:
+        text = text.replace(old, new, 1)
+        path.write_text(text)
+        print('Abseil: replaced removed C++20 std::result_of alias with invoke_result compatibility wrapper', flush=True)
+
+    verified = path.read_text()
+    if old in verified:
+        raise RuntimeError('Abseil type_traits.h still uses removed std::result_of alias')
+    if 'using result_of_t = typename type_traits_internal::result_of<T>::type;' not in verified:
+        if 'using result_of_t =' in verified and 'std::result_of<T>' in verified:
+            raise RuntimeError('Abseil result_of alias has an unrecognized incompatible form')
+        print('Abseil: no incompatible result_of alias in this AOSP tag', flush=True)
+    else:
+        print('Abseil: C++20 result_of compatibility verified', flush=True)
+
+
 def patches():
+    ensure_abseil_result_of_cxx20_compat()
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
