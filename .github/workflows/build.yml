@@ -1,5 +1,7 @@
 name: build
 
+# Keep release-tag-specific CMake source compatibility in the branch itself.
+
 on:
   push:
     branches: [ master, main, platform-tools-35.0.2, platform-tools-34.0.0, platform-tools-34.0.1, platform-tools-34.0.3, platform-tools-34.0.4, platform-tools-34.0.5, platform-tools-33.0.0, platform-tools-33.0.1, platform-tools-33.0.2, platform-tools-33.0.3, platform-tools-32.0.0 ]
