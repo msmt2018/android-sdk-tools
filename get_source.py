@@ -249,7 +249,7 @@ def ensure_androidfw_theme_entry_definition():
             if not cpp_path.is_file():
                 raise RuntimeError('Android framework AssetManager2.cpp not found: {}'.format(cpp_path))
             cpp_text = cpp_path.read_text()
-            if re.search(r'\\nstruct\\s+Theme::Entry\\s*\\{', cpp_text):
+            if 'struct Theme::Entry' in cpp_text:
                 raise RuntimeError('Theme::Entry has an out-of-line definition but no header declaration in {}'.format(path))
             print('androidfw Theme::Entry: legacy source layout; no incomplete nested type to expose, skipping', flush=True)
             return
