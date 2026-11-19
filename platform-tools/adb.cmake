@@ -111,6 +111,13 @@ if(EXISTS "${SRC}/adb/client/openscreen/mdns_service_watcher.cpp")
     list(APPEND ADB_MDNS_SERVICE_WATCHER_SOURCE "${SRC}/adb/client/openscreen/mdns_service_watcher.cpp")
 endif()
 
+set(ADB_OPENSCREEN_PLATFORM_SOURCES)
+foreach(openscreen_platform_source logging.cpp task_runner.cpp udp_socket.cpp)
+    if(EXISTS "${SRC}/adb/client/openscreen/platform/${openscreen_platform_source}")
+        list(APPEND ADB_OPENSCREEN_PLATFORM_SOURCES "${SRC}/adb/client/openscreen/platform/${openscreen_platform_source}")
+    endif()
+endforeach()
+
 add_library(libadb STATIC
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
@@ -130,9 +137,9 @@ add_library(libadb STATIC
     ${SRC}/adb/types.cpp
     ${ADB_MDNS_SERVICE_INFO_SOURCE}
     ${ADB_MDNS_SERVICE_WATCHER_SOURCE}
-    ${SRC}/adb/client/openscreen/platform/logging.cpp
-    ${SRC}/adb/client/openscreen/platform/task_runner.cpp
-    ${SRC}/adb/client/openscreen/platform/udp_socket.cpp
+    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
+    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
+    ${ADB_OPENSCREEN_PLATFORM_SOURCES}
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
