@@ -69,6 +69,14 @@ endif()
 message(STATUS ${FLEX_LangScanner_OUTPUTS})          
 message(STATUS ${BISON_LangParser_OUTPUTS})
 
+# Some AOSP revisions retain io_delegate.cpp's LineReader calls but omit
+# line_reader.cpp from the upstream Soong source list. Include its implementation
+# when present to avoid an unresolved LineReader::ReadFromFile symbol.
+set(AIDL_LINE_READER_SOURCE)
+if(EXISTS "${SRC}/aidl/line_reader.cpp")
+    list(APPEND AIDL_LINE_READER_SOURCE "${SRC}/aidl/line_reader.cpp")
+endif()
+
 set(AIDL_TO_COMMON_SRC)
 if(EXISTS "${SRC}/aidl/aidl_to_common.cpp")
     list(APPEND AIDL_TO_COMMON_SRC ${SRC}/aidl/aidl_to_common.cpp)
@@ -119,6 +127,7 @@ add_executable(aidl
     ${SRC}/aidl/generate_rust.cpp
     ${SRC}/aidl/import_resolver.cpp
     ${SRC}/aidl/io_delegate.cpp
+    ${AIDL_LINE_READER_SOURCE}
     ${SRC}/aidl/location.cpp
     ${SRC}/aidl/logging.cpp
     ${SRC}/aidl/options.cpp
