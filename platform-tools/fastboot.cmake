@@ -59,7 +59,9 @@ target_include_directories(libfsmgr PRIVATE
     ${SRC}/boringssl/include
     ${SRC}/core/libcutils/include
     )
-target_link_libraries(libfsmgr PUBLIC fmt::fmt)
+if(TARGET fmt::fmt)
+    target_link_libraries(libfsmgr PUBLIC fmt::fmt)
+endif()
 
 set(FASTBOOT_FILESYSTEM_SRC)
 if(EXISTS "${SRC}/core/fastboot/filesystem.cpp")
