@@ -87,6 +87,14 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/stringrep.c
     )
 
+# Android platform file-labeling implementation. In Android 13 snapshots,
+# selinux_android_file_context_handle() is defined here rather than android.c.
+if(EXISTS "${SRC}/selinux/libselinux/src/android/android_platform.c")
+    target_sources(libselinux PRIVATE
+        ${SRC}/selinux/libselinux/src/android/android_platform.c
+    )
+endif()
+
 # android_device.c is an Android-only addition in newer SELinux snapshots.
 # Older platform-tools-33 source tags do not contain it.
 if(EXISTS "${SRC}/selinux/libselinux/src/android/android_device.c")
