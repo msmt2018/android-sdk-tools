@@ -465,10 +465,14 @@ def ensure_adb_mdns_function_include():
         raise RuntimeError('ADB mdns header not found: {}'.format(path))
 
     text = path.read_text()
+    if 'std::function' not in text:
+        print('ADB mdns: no std::function callback in this AOSP snapshot; skipping', flush=True)
+        return
     if '#include <functional>' not in text:
         match = re.search(r'(?m)^#include\s+[<"]', text)
         if not match:
-            raise RuntimeError('cannot locate include block in {}'.format(path))
+            print('ADB mdns: no include block in this legacy header; skipping', flush=True)
+            return
         text = text[:match.start()] + '#include <functional>\n' + text[match.start():]
         path.write_text(text)
 
@@ -486,10 +490,14 @@ def ensure_adb_tls_function_include():
         raise RuntimeError('ADB TLS connection header not found: {}'.format(path))
 
     text = path.read_text()
+    if 'std::function' not in text:
+        print('ADB TLS: no std::function callback in this AOSP snapshot; skipping', flush=True)
+        return
     if '#include <functional>' not in text:
         match = re.search(r'(?m)^#include\s+[<"]', text)
         if not match:
-            raise RuntimeError('cannot locate include block in {}'.format(path))
+            print('ADB TLS: no include block in this legacy header; skipping', flush=True)
+            return
         text = text[:match.start()] + '#include <functional>\n' + text[match.start():]
         path.write_text(text)
 
