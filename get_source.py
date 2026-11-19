@@ -280,31 +280,29 @@ def ensure_androidfw_theme_entry_definition():
 
 
 def ensure_aidl_flex_parser_types():
-    """Include generated Bison parser types before Flex declares YYSTYPE/YYLTYPE."""
+    """Insert Flex/Bison semantic and location aliases even if the parser header is already included."""
     path = ROOT / 'src/aidl/aidl_language_l.ll'
     if not path.is_file():
         raise RuntimeError('AIDL Flex source not found: {}'.format(path))
-
     text = path.read_text()
-    required = (
-        '#include "aidl_language_y.h"\n'
+    header = '#include "aidl_language_y.h"'
+    aliases = (
         '#ifndef YYSTYPE\n#define YYSTYPE yy::parser::semantic_type\n#endif\n'
         '#ifndef YYLTYPE\n#define YYLTYPE yy::parser::location_type\n#endif\n'
     )
-    if '#include "aidl_language_y.h"' not in text:
-        marker = '%{\n'
-        if marker not in text:
+    if header not in text:
+        prologue = '%{\n'
+        if prologue not in text:
             raise RuntimeError('cannot locate Flex prologue in {}'.format(path))
-        text = text.replace(marker, marker + required, 1)
-        path.write_text(text)
-
+        text = text.replace(prologue, prologue + header + '\n' + aliases, 1)
+    elif '#define YYSTYPE yy::parser::semantic_type' not in text or '#define YYLTYPE yy::parser::location_type' not in text:
+        text = text.replace(header, header + '\n' + aliases, 1)
+    path.write_text(text)
     verified = path.read_text()
-    for token in ('#include "aidl_language_y.h"',
-                  '#define YYSTYPE yy::parser::semantic_type',
-                  '#define YYLTYPE yy::parser::location_type'):
+    for token in (header, '#define YYSTYPE yy::parser::semantic_type', '#define YYLTYPE yy::parser::location_type'):
         if token not in verified:
-            raise RuntimeError('AIDL Flex parser type compatibility missing {} in {}'.format(token, path))
-    print('AIDL Flex: parser header and semantic/location type aliases verified', flush=True)
+            raise RuntimeError('AIDL Flex parser alias missing {} in {}'.format(token, path))
+    print('AIDL Flex: parser header and semantic/location aliases verified', flush=True)
 
 def ensure_adb_mdns_function_include():
     """Provide the std::function declaration used by adb_mdns.h."""
