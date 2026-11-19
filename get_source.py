@@ -327,7 +327,7 @@ def ensure_fastboot_unique_fd_compat():
     # Platform-tools 31.0.x declares these descriptors as int. Some carried
     # patches were written for newer unique_fd snapshots and incorrectly add
     # .get(); undo only those known POSIX/file helper call forms.
-    if re.search(r'\\bint\\s+fd\\b', text):
+    if re.search(r'\bint\s+fd\b', text):
         replacements = (
             ('get_file_size(fd.get())', 'get_file_size(fd)'),
             ('ExtractEntryToFile(zip, &zip_entry, fd.get())', 'ExtractEntryToFile(zip, &zip_entry, fd)'),
@@ -348,7 +348,7 @@ def ensure_fastboot_unique_fd_compat():
         print('fastboot descriptor compatibility: restored {} raw-int call(s)'.format(changed), flush=True)
         return
 
-    if not re.search(r'\\bunique_fd\\s+fd\\b', text):
+    if not re.search(r'\bunique_fd\s+fd\b', text):
         print('fastboot descriptor compatibility: no fd declaration requiring conversion', flush=True)
         return
     replacements = (
