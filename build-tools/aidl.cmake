@@ -40,20 +40,26 @@ flex_target(
 # add dependency
 add_flex_bison_dependency(LangScanner LangParser)
 
-# Platform Tools 32 moved the permission-expression parser into its own
-# Bison grammar. Generate grammar.h before compiling permission/parser.cpp.
+# The permission-expression parser has its own Bison grammar and Flex lexer.
+# Generate both translation units and grammar.h before compiling parser.cpp.
 set(AIDL_PERMISSION_GRAMMAR_SOURCE)
 if(EXISTS "${SRC}/aidl/permission/parser.cpp")
-    if(NOT EXISTS "${SRC}/aidl/permission/grammar.y")
-        message(FATAL_ERROR "AIDL permission parser exists but permission/grammar.y is missing")
-    endif()
     bison_target(
         PermissionParser
-        ${SRC}/aidl/permission/grammar.y
+        ${SRC}/aidl/permission/grammar.yy
         ${SRC}/aidl/permission/grammar.cpp
         DEFINES_FILE ${SRC}/aidl/permission/grammar.h
     )
-    list(APPEND AIDL_PERMISSION_GRAMMAR_SOURCE ${BISON_PermissionParser_OUTPUTS})
+    flex_target(
+        PermissionLexer
+        ${SRC}/aidl/permission/lexer.ll
+        ${SRC}/aidl/permission/lexer.cpp
+    )
+    add_flex_bison_dependency(PermissionLexer PermissionParser)
+    list(APPEND AIDL_PERMISSION_GRAMMAR_SOURCE
+        ${BISON_PermissionParser_OUTPUTS}
+        ${FLEX_PermissionLexer_OUTPUTS}
+    )
 endif()
 
 
