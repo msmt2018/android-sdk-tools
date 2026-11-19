@@ -304,7 +304,13 @@ def main():
 
     ndk = parser.add_argument_group('ndk')
     ndk.add_argument('--ndk', help='the ndk path, default from $ANDROID_NDK_HOME / $ANDROID_NDK_ROOT')
-    ndk.add_argument('--api', default=30, help='android platform level, min api is 30')
+    # Termux officially targets Android 7.0+ (API 24). Keep historical
+    # Platform Tools builds runnable on that baseline; newer source snapshots
+    # retain the API 30 baseline used by the current build.
+    version_parts = tuple(int(part) for part in tools_version().split('.'))
+    default_api = 24 if version_parts < (31, 0, 0) else 30
+    ndk.add_argument('--api', type=int, default=default_api,
+                     help='minimum Android API level (default: {})'.format(default_api))
 
     zig = parser.add_argument_group('zig')
     zig.add_argument('--zig', help='the zig executable, default is zig in PATH')
