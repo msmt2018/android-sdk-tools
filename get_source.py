@@ -943,7 +943,16 @@ def main():
             except RuntimeError as e:
                 errors.append(str(e))
     if errors:
-        sys.exit('\n'.join(errors))
+        sys.exit('\\n'.join(errors))
+
+    # Before adb became a standalone packages/modules project, its sources
+    # lived in system/core/adb. Preserve the CMake source layout without
+    # copying or forking the historical AOSP source.
+    adb_path = ROOT / 'src/adb'
+    legacy_adb_path = ROOT / 'src/core/adb'
+    if not adb_path.exists() and legacy_adb_path.is_dir():
+        adb_path.symlink_to(legacy_adb_path, target_is_directory=True)
+        print('ADB source layout: linked src/adb to the manifest-pinned system/core/adb', flush=True)
 
     if not args.skip_patch:
         patches()
