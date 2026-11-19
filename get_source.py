@@ -632,8 +632,7 @@ def ensure_abseil_result_of_cxx20_compat():
     text = path.read_text()
     old = 'using result_of_t = typename std::result_of<T>::type;'
     new = '''namespace type_traits_internal {
-#if (defined(__cpp_lib_is_invocable) && __cpp_lib_is_invocable >= 201703L) || \\
-    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+#if (defined(__cpp_lib_is_invocable) && __cpp_lib_is_invocable >= 201703L) || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
 template <typename>
 struct result_of;
 template <typename F, typename... Args>
