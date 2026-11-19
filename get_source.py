@@ -902,8 +902,8 @@ def patches():
         shutil.copy2(ROOT / 'patches/misc/deployagentscript.inc', deployagent)
 
     soong_include = ROOT / 'src/soong/cc/libbuildversion/include'
-    if soong_include.is_dir():
-        shutil.copy2(VERSION_HEADER, soong_include)
+    soong_include.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(VERSION_HEADER, soong_include)
 
     aapt2 = 'src/base/tools/aapt2/'
     replace_in_file(aapt2 + 'ApkInfo.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
@@ -986,14 +986,7 @@ def main():
     if errors:
         sys.exit('\\n'.join(errors))
 
-    # Before adb became a standalone packages/modules project, its sources
-    # lived in system/core/adb. Preserve the CMake source layout without
-    # copying or forking the historical AOSP source.
-    adb_path = ROOT / 'src/adb'
-    legacy_adb_path = ROOT / 'src/core/adb'
-    if not adb_path.exists() and legacy_adb_path.is_dir():
-        adb_path.symlink_to(legacy_adb_path, target_is_directory=True)
-        print('ADB source layout: linked src/adb to the manifest-pinned system/core/adb', flush=True)
+    create_legacy_source_aliases()
 
     if not args.skip_patch:
         patches()
