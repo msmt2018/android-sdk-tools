@@ -126,7 +126,7 @@ elseif(EXISTS "${SRC}/base/tools/aapt2/link/ProductFilter.cpp")
 endif()
 
 set(AAPT2_VALUE_TRANSFORMER_SOURCE)
-if(EXISTS "${AAPT2_VALUE_TRANSFORMER_SOURCE}")
+if(EXISTS "${SRC}/base/tools/aapt2/ValueTransformer.cpp")
     list(APPEND AAPT2_VALUE_TRANSFORMER_SOURCE "${SRC}/base/tools/aapt2/ValueTransformer.cpp")
 endif()
 
@@ -203,7 +203,7 @@ add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/xml/XmlDom.cpp
     ${SRC}/base/tools/aapt2/xml/XmlPullParser.cpp
     ${SRC}/base/tools/aapt2/xml/XmlUtil.cpp
-    ${SRC}/base/tools/aapt2/ValueTransformer.cpp
+    ${AAPT2_VALUE_TRANSFORMER_SOURCE}
     ${AAPT2_PROTO_SRC}
     )
 target_include_directories(libaapt2 PRIVATE ${INCLUDES})

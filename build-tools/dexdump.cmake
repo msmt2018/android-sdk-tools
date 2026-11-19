@@ -26,12 +26,12 @@ set(INCLUDES
     )
 
 set(ART_COMPILER_FILTER_SOURCE)
-if(EXISTS "${ART_COMPILER_FILTER_SOURCE}")
+if(EXISTS "${SRC}/art/libartbase/base/compiler_filter.cc")
     list(APPEND ART_COMPILER_FILTER_SOURCE "${SRC}/art/libartbase/base/compiler_filter.cc")
 endif()
 
 set(ART_FLAGS_SOURCE)
-if(EXISTS "${ART_FLAGS_SOURCE}")
+if(EXISTS "${SRC}/art/libartbase/base/flags.cc")
     list(APPEND ART_FLAGS_SOURCE "${SRC}/art/libartbase/base/flags.cc")
 endif()
 
@@ -41,10 +41,10 @@ add_library(libartbase STATIC
     ${SRC}/art/libartbase/base/arena_allocator.cc
     ${SRC}/art/libartbase/base/arena_bit_vector.cc
     ${SRC}/art/libartbase/base/bit_vector.cc
-    ${SRC}/art/libartbase/base/compiler_filter.cc
+    ${ART_COMPILER_FILTER_SOURCE}
     ${SRC}/art/libartbase/base/file_magic.cc
     ${SRC}/art/libartbase/base/file_utils.cc
-    ${SRC}/art/libartbase/base/flags.cc
+    ${ART_FLAGS_SOURCE}
     ${SRC}/art/libartbase/base/hex_dump.cc
     ${SRC}/art/libartbase/base/logging.cc
     ${SRC}/art/libartbase/base/malloc_arena_pool.cc

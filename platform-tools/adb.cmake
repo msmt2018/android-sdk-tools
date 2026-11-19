@@ -97,7 +97,7 @@ endif()
 
 
 set(ADB_MDNS_SOURCE)
-if(EXISTS "${ADB_MDNS_SOURCE}")
+if(EXISTS "${SRC}/adb/adb_mdns.cpp")
     list(APPEND ADB_MDNS_SOURCE "${SRC}/adb/adb_mdns.cpp")
 endif()
 
@@ -105,7 +105,7 @@ add_library(libadb STATIC
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
     ${SRC}/adb/adb_listeners.cpp
-    ${SRC}/adb/adb_mdns.cpp
+    ${ADB_MDNS_SOURCE}
     ${SRC}/adb/adb_trace.cpp
     ${SRC}/adb/adb_unique_fd.cpp
     ${SRC}/adb/adb_utils.cpp
