@@ -992,7 +992,7 @@ def main():
             except RuntimeError as e:
                 errors.append(str(e))
     if errors:
-        sys.exit('\\n'.join(errors))
+        sys.exit('\n'.join(errors))
 
     create_legacy_source_aliases()
 
