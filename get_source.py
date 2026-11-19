@@ -172,8 +172,11 @@ def ensure_openscreen_task_runner_compat():
 def ensure_art_metrics_memory_order_compat():
     """Normalize malformed ART memory_order enum qualification for libc++."""
     path = ROOT / 'src/art/libartbase/base/metrics/metrics.h'
-    if not path.exists():
-        raise RuntimeError('ART metrics.h not found: {}'.format(path))
+    if not path.is_file():
+        # Older Platform Tools releases predate this ART metrics header.
+        # There is no corresponding source to normalize in those snapshots.
+        print('ART metrics: metrics.h is not part of this AOSP snapshot; skipping', flush=True)
+        return
 
     text = path.read_text()
     fixed = re.sub(
