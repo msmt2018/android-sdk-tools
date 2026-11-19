@@ -317,20 +317,40 @@ def ensure_aidl_flex_parser_types():
     print('AIDL Flex: parser header and semantic/location aliases verified', flush=True)
 
 def ensure_fastboot_unique_fd_compat():
-    """Convert descriptors only when this AOSP source declares fd as unique_fd."""
+    """Match fastboot descriptor calls to the descriptor type in this AOSP tag."""
     path = ROOT / 'src/core/fastboot/fastboot.cpp'
     if not path.is_file():
-        print('fastboot unique_fd: fastboot.cpp is not part of this source snapshot; skipping', flush=True)
+        print('fastboot descriptor compatibility: source absent, skipping', flush=True)
         return
 
     text = path.read_text()
-    # platform-tools 31.0.x fastboot uses plain int file descriptors. Calling
-    # fd.get() on those descriptors is invalid; newer snapshots that actually
-    # declare unique_fd fd still need the conversion below.
-    if not re.search(r'\bunique_fd\s+fd\b', text):
-        print('fastboot unique_fd: source uses raw descriptors; no conversion needed', flush=True)
+    # Platform-tools 31.0.x declares these descriptors as int. Some carried
+    # patches were written for newer unique_fd snapshots and incorrectly add
+    # .get(); undo only those known POSIX/file helper call forms.
+    if re.search(r'\\bint\\s+fd\\b', text):
+        replacements = (
+            ('get_file_size(fd.get())', 'get_file_size(fd)'),
+            ('ExtractEntryToFile(zip, &zip_entry, fd.get())', 'ExtractEntryToFile(zip, &zip_entry, fd)'),
+            ('lseek(fd.get(), 0, SEEK_SET)', 'lseek(fd, 0, SEEK_SET)'),
+            ('fstat(fd.get(), &s)', 'fstat(fd, &s)'),
+        )
+        changed = 0
+        for old, new in replacements:
+            count = text.count(old)
+            if count:
+                text = text.replace(old, new)
+                changed += count
+        if changed:
+            path.write_text(text)
+        verified = path.read_text()
+        if any(old in verified for old, _ in replacements):
+            raise RuntimeError('raw int fastboot descriptor still uses unique_fd .get()')
+        print('fastboot descriptor compatibility: restored {} raw-int call(s)'.format(changed), flush=True)
         return
 
+    if not re.search(r'\\bunique_fd\\s+fd\\b', text):
+        print('fastboot descriptor compatibility: no fd declaration requiring conversion', flush=True)
+        return
     replacements = (
         ('get_file_size(fd)', 'get_file_size(fd.get())'),
         ('ExtractEntryToFile(zip, &zip_entry, fd)', 'ExtractEntryToFile(zip, &zip_entry, fd.get())'),
@@ -345,12 +365,10 @@ def ensure_fastboot_unique_fd_compat():
             changed += count
     if changed:
         path.write_text(text)
-        print('fastboot unique_fd: converted {} POSIX descriptor call(s) to fd.get()'.format(changed), flush=True)
-
     verified = path.read_text()
-    for old, _ in replacements:
-        if old in verified:
-            raise RuntimeError('fastboot unique_fd conversion incomplete: {}'.format(old))
+    if any(old in verified for old, _ in replacements):
+        raise RuntimeError('unique_fd fastboot descriptor conversion incomplete')
+    print('fastboot descriptor compatibility: converted {} unique_fd call(s)'.format(changed), flush=True)
 
 def ensure_adb_mdns_function_include():
     """Provide the std::function declaration used by adb_mdns.h."""
