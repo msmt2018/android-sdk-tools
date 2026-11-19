@@ -663,8 +663,59 @@ using result_of_t = typename type_traits_internal::result_of<T>::type;'''
         print('Abseil: C++20 result_of compatibility verified', flush=True)
 
 
+def ensure_libziparchive_cxx20_aggregate_compat():
+    """Keep ZIP record default construction valid under the C++20 aggregate rules."""
+    path = ROOT / 'src/libziparchive/zip_archive_common.h'
+    if not path.is_file():
+        raise RuntimeError('libziparchive common header not found: {}'.format(path))
+
+    text = path.read_text()
+    record_types = (
+        'EocdRecord',
+        'CentralDirectoryRecord',
+        'LocalFileHeader',
+        'DataDescriptor',
+        'Zip64EocdLocator',
+        'Zip64EocdRecord',
+        'Zip64ExtendedInfo',
+    )
+    changed = []
+    for name in record_types:
+        pattern = re.compile(
+            r'(?m)^(?P<indent>[ \t]*)private:[ \t]*\n'
+            r'(?P<ctor_indent>[ \t]*)' + re.escape(name) +
+            r'\(\)\s*=\s*default;'
+        )
+        def expose_default_constructor(match):
+            return (
+                match.group('ctor_indent') + name + '() = default;\n\n' +
+                match.group('indent') + 'private:'
+            )
+        text, count = pattern.subn(expose_default_constructor, text, count=1)
+        if count:
+            changed.append(name)
+
+    if changed:
+        path.write_text(text)
+        print('libziparchive C++20 compatibility: public default constructors for ' +
+              ', '.join(changed), flush=True)
+    else:
+        print('libziparchive C++20 compatibility: record constructors already public', flush=True)
+
+    for name in record_types:
+        pattern = re.compile(
+            r'struct\s+' + re.escape(name) +
+            r'\s*\{.*?private:\s*\n\s*' +
+            re.escape(name) + r'\(\)\s*=\s*default;',
+            re.S
+        )
+        if pattern.search(text):
+            raise RuntimeError('libziparchive {} default constructor remains private'.format(name))
+
+
 def patches():
     ensure_abseil_result_of_cxx20_compat()
+    ensure_libziparchive_cxx20_aggregate_compat()
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
     inc.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
