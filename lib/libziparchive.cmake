@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+set(LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE)
+if(EXISTS "${LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE}")
+    list(APPEND LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE "${SRC}/libziparchive/incfs_support/signal_handling.cpp")
+endif()
+
 add_library(libziparchive STATIC
     ${SRC}/libziparchive/zip_archive.cc
     ${SRC}/libziparchive/zip_archive_stream_entry.cc

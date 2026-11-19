@@ -96,6 +96,11 @@ endif()
 # ========================= fastdeploy proto ============================
 
 
+set(ADB_MDNS_SOURCE)
+if(EXISTS "${ADB_MDNS_SOURCE}")
+    list(APPEND ADB_MDNS_SOURCE "${SRC}/adb/adb_mdns.cpp")
+endif()
+
 add_library(libadb STATIC
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp

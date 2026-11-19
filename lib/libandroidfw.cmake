@@ -39,6 +39,11 @@ if(EXISTS "${SRC}/base/libs/androidfw/PathUtils.cpp")
     list(APPEND LIBANDROIDFW_PATHUTILS_SRC ${SRC}/base/libs/androidfw/PathUtils.cpp)
 endif()
 
+set(LIBANDROIDFW_ASSETS_PROVIDER_SOURCE)
+if(EXISTS "${LIBANDROIDFW_ASSETS_PROVIDER_SOURCE}")
+    list(APPEND LIBANDROIDFW_ASSETS_PROVIDER_SOURCE "${SRC}/base/libs/androidfw/AssetsProvider.cpp")
+endif()
+
 add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/ApkAssets.cpp
     ${SRC}/base/libs/androidfw/Asset.cpp
