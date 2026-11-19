@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-add_library(libbase STATIC
+set(LIBBASE_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/libbase_result_compat.cpp
     ${SRC}/libbase/abi_compatibility.cpp
     ${SRC}/libbase/chrono_utils.cpp
@@ -33,7 +33,21 @@ add_library(libbase STATIC
     ${SRC}/libbase/threads.cpp
     ${SRC}/libbase/test_utils.cpp
     ${SRC}/libbase/errors_unix.cpp
-    )
+)
+
+# Platform-tools source files vary between release tags. Keep the shared
+# libbase implementation portable by compiling only files present in the
+# checked-out AOSP release; do not fabricate compatibility source files.
+set(LIBBASE_EXISTING_SOURCES)
+foreach(source IN LISTS LIBBASE_SOURCES)
+    if(EXISTS "${source}")
+        list(APPEND LIBBASE_EXISTING_SOURCES "${source}")
+    else()
+        message(STATUS "libbase: source not present in this AOSP tag, skipping ${source}")
+    endif()
+endforeach()
+
+add_library(libbase STATIC ${LIBBASE_EXISTING_SOURCES})
 
 target_include_directories(libbase PRIVATE
     ${SRC}/libbase/include
