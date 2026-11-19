@@ -118,6 +118,14 @@ foreach(openscreen_platform_source logging.cpp task_runner.cpp udp_socket.cpp)
     endif()
 endforeach()
 
+# AOSP's USB dispatcher owns the public usb_init()/usb_cleanup() entry points.
+# The backend files alone do not provide these symbols; compile the dispatcher
+# when it exists in this platform-tools source revision.
+set(ADB_USB_DISPATCH_SOURCE)
+if(EXISTS "${SRC}/adb/client/usb_dispatch.cpp")
+    list(APPEND ADB_USB_DISPATCH_SOURCE "${SRC}/adb/client/usb_dispatch.cpp")
+endif()
+
 set(ADB_MDNS_CLIENT_SOURCE)
 if(EXISTS "${SRC}/adb/client/mdnsresponder_client.cpp")
     list(APPEND ADB_MDNS_CLIENT_SOURCE "${SRC}/adb/client/mdnsresponder_client.cpp")
@@ -148,6 +156,7 @@ add_library(libadb STATIC
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
+    ${ADB_USB_DISPATCH_SOURCE}
     ${SRC}/adb/client/transport_local.cpp
     ${ADB_MDNS_CLIENT_SOURCE}
     ${SRC}/adb/client/mdns_utils.cpp
