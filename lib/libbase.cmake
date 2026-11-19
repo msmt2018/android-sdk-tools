@@ -19,6 +19,11 @@ if(EXISTS "${SRC}/libbase/hex.cpp")
     list(APPEND LIBBASE_HEX_SOURCE "${SRC}/libbase/hex.cpp")
 endif()
 
+set(LIBBASE_POSIX_STRERROR_SOURCE)
+if(EXISTS "${SRC}/libbase/posix_strerror_r.cpp")
+    list(APPEND LIBBASE_POSIX_STRERROR_SOURCE "${SRC}/libbase/posix_strerror_r.cpp")
+endif()
+
 add_library(libbase STATIC
     ${CMAKE_CURRENT_LIST_DIR}/libbase_result_compat.cpp
     ${SRC}/libbase/abi_compatibility.cpp
@@ -30,7 +35,7 @@ add_library(libbase STATIC
     ${SRC}/libbase/mapped_file.cpp
     ${SRC}/libbase/parsebool.cpp
     ${SRC}/libbase/parsenetaddress.cpp
-    ${SRC}/libbase/posix_strerror_r.cpp
+    ${LIBBASE_POSIX_STRERROR_SOURCE}
     ${SRC}/libbase/process.cpp
     ${SRC}/libbase/properties.cpp
     ${SRC}/libbase/stringprintf.cpp

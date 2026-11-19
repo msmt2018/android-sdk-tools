@@ -96,7 +96,7 @@ add_executable(aidl
     ${SRC}/aidl/logging.cpp
     ${SRC}/aidl/options.cpp
     ${SRC}/aidl/parser.cpp
-    ${SRC}/aidl/permission.cpp
+    ${AIDL_PERMISSION_SOURCE}
     ${SRC}/aidl/preprocess.cpp
     ${SRC}/aidl/main.cpp
     ${BISON_LangParser_OUTPUTS}

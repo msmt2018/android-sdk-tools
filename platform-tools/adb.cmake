@@ -101,6 +101,11 @@ if(EXISTS "${SRC}/adb/adb_mdns.cpp")
     list(APPEND ADB_MDNS_SOURCE "${SRC}/adb/adb_mdns.cpp")
 endif()
 
+set(ADB_MDNS_SERVICE_INFO_SOURCE)
+if(EXISTS "${SRC}/adb/client/openscreen/mdns_service_info.cpp")
+    list(APPEND ADB_MDNS_SERVICE_INFO_SOURCE "${SRC}/adb/client/openscreen/mdns_service_info.cpp")
+endif()
+
 add_library(libadb STATIC
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
@@ -118,7 +123,7 @@ add_library(libadb STATIC
     ${SRC}/adb/transport.cpp
     ${SRC}/adb/transport_fd.cpp
     ${SRC}/adb/types.cpp
-    ${SRC}/adb/client/openscreen/mdns_service_info.cpp
+    ${ADB_MDNS_SERVICE_INFO_SOURCE}
     ${SRC}/adb/client/openscreen/mdns_service_watcher.cpp
     ${SRC}/adb/client/openscreen/platform/logging.cpp
     ${SRC}/adb/client/openscreen/platform/task_runner.cpp
