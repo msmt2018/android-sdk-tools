@@ -63,6 +63,11 @@ if(EXISTS "${SRC}/aidl/check_valid.cpp")
     list(APPEND AIDL_CHECK_VALID_SOURCE "${SRC}/aidl/check_valid.cpp")
 endif()
 
+set(AIDL_PREPROCESS_SOURCE)
+if(EXISTS "${SRC}/aidl/preprocess.cpp")
+    list(APPEND AIDL_PREPROCESS_SOURCE "${SRC}/aidl/preprocess.cpp")
+endif()
+
 add_executable(aidl
     ${SRC}/aidl/aidl_checkapi.cpp
     ${SRC}/aidl/aidl_const_expressions.cpp
@@ -97,7 +102,7 @@ add_executable(aidl
     ${SRC}/aidl/options.cpp
     ${SRC}/aidl/parser.cpp
     ${AIDL_PERMISSION_SOURCE}
-    ${SRC}/aidl/preprocess.cpp
+    ${AIDL_PREPROCESS_SOURCE}
     ${SRC}/aidl/main.cpp
     ${BISON_LangParser_OUTPUTS}
     ${FLEX_LangScanner_OUTPUTS}
