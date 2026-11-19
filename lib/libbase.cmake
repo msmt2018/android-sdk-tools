@@ -15,7 +15,7 @@
 #
 
 set(LIBBASE_HEX_SOURCE)
-if(EXISTS "${LIBBASE_HEX_SOURCE}")
+if(EXISTS "${SRC}/libbase/hex.cpp")
     list(APPEND LIBBASE_HEX_SOURCE "${SRC}/libbase/hex.cpp")
 endif()
 
@@ -25,7 +25,7 @@ add_library(libbase STATIC
     ${SRC}/libbase/chrono_utils.cpp
     ${SRC}/libbase/cmsg.cpp
     ${SRC}/libbase/file.cpp
-    ${SRC}/libbase/hex.cpp
+    ${LIBBASE_HEX_SOURCE}
     ${SRC}/libbase/logging.cpp
     ${SRC}/libbase/mapped_file.cpp
     ${SRC}/libbase/parsebool.cpp

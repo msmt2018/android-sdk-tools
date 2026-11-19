@@ -15,7 +15,7 @@
 #
 
 set(LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE)
-if(EXISTS "${LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE}")
+if(EXISTS "${SRC}/libziparchive/incfs_support/signal_handling.cpp")
     list(APPEND LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE "${SRC}/libziparchive/incfs_support/signal_handling.cpp")
 endif()
 
@@ -25,7 +25,7 @@ add_library(libziparchive STATIC
     ${SRC}/libziparchive/zip_cd_entry_map.cc
     ${SRC}/libziparchive/zip_writer.cc
     ${SRC}/libziparchive/zip_error.cpp
-    ${SRC}/libziparchive/incfs_support/signal_handling.cpp
+    ${LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE}
     )
 
 target_compile_definitions(libziparchive PRIVATE 
