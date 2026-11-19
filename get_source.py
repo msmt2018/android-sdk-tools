@@ -600,6 +600,136 @@ using result_of_t = typename type_traits_internal::result_of<T>::type;'''
         print('Abseil: C++20 result_of compatibility verified', flush=True)
 
 
+def ensure_aidl_permission_grammar_types():
+    """Expose permission AST/parser declarations to the generated Bison header."""
+    grammar = ROOT / 'src/aidl/permission/grammar.yy'
+    permission_header = ROOT / 'src/aidl/permission/permission.h'
+    parser_header = ROOT / 'src/aidl/permission/parser.h'
+    for path in (grammar, permission_header, parser_header):
+        if not path.is_file():
+            raise RuntimeError('AIDL permission parser source missing: {}'.format(path))
+
+    text = grammar.read_text()
+    includes = ('#include "permission.h"', '#include "parser.h"')
+    block = re.search(r'%code\s+requires\s*\{(?P<body>.*?)\}', text, re.S)
+    if block is None:
+        prologue_end = re.search(r'(?m)^%\}\s*    ensure_abseil_result_of_cxx20_compat()
+    inc = ROOT / 'src/incremental_delivery/sysprop/include'
+    inc.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
+    shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.cpp', inc.parent)
+
+    shutil.copy2(ROOT / 'patches/misc/deployagent.inc', ROOT / 'src/adb/fastdeploy/deployagent')
+    shutil.copy2(ROOT / 'patches/misc/deployagentscript.inc', ROOT / 'src/adb/fastdeploy/deployagent')
+
+    shutil.copy2(VERSION_HEADER, ROOT / 'src/soong/cc/libbuildversion/include')
+
+    aapt2 = 'src/base/tools/aapt2/'
+    replace_in_file(aapt2 + 'ApkInfo.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
+    replace_in_file(aapt2 + 'Resources.proto', 'frameworks/base/tools/aapt2/Configuration.proto', 'Configuration.proto')
+    replace_in_file(aapt2 + 'ResourcesInternal.proto', 'frameworks/base/tools/aapt2/Configuration.proto', 'Configuration.proto')
+    replace_in_file(aapt2 + 'ResourcesInternal.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
+
+    replace_in_file('src/abseil-cpp/CMakeLists.txt', '/usr/src/googletest', '${CMAKE_SOURCE_DIR}/src/googletest')
+
+    # BoringSSL snapshots use two GoogleTest layouts; follow its own CMake.
+    boringssl_cmake = ROOT / 'src/boringssl/src/CMakeLists.txt'
+    if boringssl_cmake.is_file():
+        cmake_text = boringssl_cmake.read_text()
+        dest = ROOT / 'src/boringssl/src/third_party/googletest'
+        if 'third_party/googletest/src/gtest-all.cc' in cmake_text:
+            googletest_target = ROOT / 'src/googletest/googletest'
+        else:
+            googletest_target = ROOT / 'src/googletest'
+        if dest.is_symlink():
+            try:
+                if dest.resolve() != googletest_target.resolve():
+                    dest.unlink()
+            except FileNotFoundError:
+                dest.unlink()
+        if dest.parent.exists() and not dest.exists():
+            dest.symlink_to(googletest_target)
+
+    # the source patches only apply to specific versions, apply them when possible
+    for patch in sorted((ROOT / 'patches').rglob('*.patch')):
+        print('patch {}: {}'.format(patch.relative_to(ROOT), apply_patch(patch)))
+
+    ensure_art_build_defines()
+    ensure_openscreen_task_runner_compat()
+    ensure_art_metrics_memory_order_compat()
+    ensure_art_hash_set_allocator_compat()
+    ensure_androidfw_theme_entry_definition()
+    ensure_libziparchive_span_compat()
+    ensure_aidl_flex_parser_types()
+    ensure_aidl_permission_grammar_types()
+    ensure_adb_mdns_function_include()
+    ensure_adb_tls_function_include()
+    ensure_sdk_sandbox_aid_compat()
+    ensure_lru_cache_cxx17_compat()
+    ensure_art_safe_map_invoke_result_compat()
+    ensure_art_string_view_cpp20_compat()
+    ensure_boringssl_x509_name_print_compat()
+    ensure_aapt2_protobuf_limit_compat()
+
+
+def main():
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    args = parser.parse_args()
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources: {}'.format(args.tags))
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    if not args.skip_patch:
+        patches()
+
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+, text)
+        if prologue_end is None:
+            raise RuntimeError('cannot locate AIDL permission grammar prologue in {}'.format(grammar))
+        code = '%code requires {\n' + '\n'.join(includes) + '\n}\n\n'
+        text = text[:prologue_end.end()] + '\n\n' + code + text[prologue_end.end():]
+    else:
+        missing = [header for header in includes if header not in block.group('body')]
+        if missing:
+            insert_at = block.start('body')
+            text = text[:insert_at] + '\n'.join(missing) + '\n' + text[insert_at:]
+
+    grammar.write_text(text)
+    verified = grammar.read_text()
+    block = re.search(r'%code\s+requires\s*\{(?P<body>.*?)\}', verified, re.S)
+    if block is None:
+        raise RuntimeError('AIDL permission grammar lacks %code requires block')
+    for header in includes:
+        if header not in block.group('body'):
+            raise RuntimeError('AIDL permission grammar missing {} in %code requires'.format(header))
+    print('AIDL permission Bison header: permission.h and parser.h declarations exported', flush=True)
+
+
 def patches():
     ensure_abseil_result_of_cxx20_compat()
     inc = ROOT / 'src/incremental_delivery/sysprop/include'
