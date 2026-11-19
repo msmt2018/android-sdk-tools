@@ -82,7 +82,7 @@ if(EXISTS "${SRC}/core/fastboot/super_flash_helper.cpp")
 endif()
 
 set(FASTBOOT_VENDOR_BOOT_IMG_SOURCE)
-if(EXISTS "${FASTBOOT_VENDOR_BOOT_IMG_SOURCE}")
+if(EXISTS "${SRC}/core/fastboot/vendor_boot_img_utils.cpp")
     list(APPEND FASTBOOT_VENDOR_BOOT_IMG_SOURCE "${SRC}/core/fastboot/vendor_boot_img_utils.cpp")
 endif()
 
@@ -100,7 +100,7 @@ add_executable(fastboot
     ${SRC}/core/fastboot/tcp.cpp
     ${SRC}/core/fastboot/udp.cpp
     ${SRC}/core/fastboot/usb_linux.cpp
-    ${SRC}/core/fastboot/vendor_boot_img_utils.cpp
+    ${FASTBOOT_VENDOR_BOOT_IMG_SOURCE}
     ${SRC}/core/fastboot/util.cpp
     )
 

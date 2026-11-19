@@ -15,7 +15,7 @@
 #
 
 set(LIBSEPOL_POLICYDB_VALIDATE_SOURCE)
-if(EXISTS "${LIBSEPOL_POLICYDB_VALIDATE_SOURCE}")
+if(EXISTS "${SRC}/selinux/libsepol/src/policydb_validate.c")
     list(APPEND LIBSEPOL_POLICYDB_VALIDATE_SOURCE "${SRC}/selinux/libsepol/src/policydb_validate.c")
 endif()
 
@@ -51,7 +51,7 @@ add_library(libsepol STATIC
     ${SRC}/selinux/libsepol/src/policydb.c
     ${SRC}/selinux/libsepol/src/policydb_convert.c
     ${SRC}/selinux/libsepol/src/policydb_public.c
-    ${SRC}/selinux/libsepol/src/policydb_validate.c
+    ${LIBSEPOL_POLICYDB_VALIDATE_SOURCE}
     ${SRC}/selinux/libsepol/src/port_record.c
     ${SRC}/selinux/libsepol/src/ports.c
     ${SRC}/selinux/libsepol/src/services.c

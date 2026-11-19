@@ -40,7 +40,7 @@ if(EXISTS "${SRC}/base/libs/androidfw/PathUtils.cpp")
 endif()
 
 set(LIBANDROIDFW_ASSETS_PROVIDER_SOURCE)
-if(EXISTS "${LIBANDROIDFW_ASSETS_PROVIDER_SOURCE}")
+if(EXISTS "${SRC}/base/libs/androidfw/AssetsProvider.cpp")
     list(APPEND LIBANDROIDFW_ASSETS_PROVIDER_SOURCE "${SRC}/base/libs/androidfw/AssetsProvider.cpp")
 endif()
 
@@ -50,7 +50,7 @@ add_library(libandroidfw STATIC
     ${SRC}/base/libs/androidfw/AssetDir.cpp
     ${SRC}/base/libs/androidfw/AssetManager.cpp
     ${SRC}/base/libs/androidfw/AssetManager2.cpp
-    ${SRC}/base/libs/androidfw/AssetsProvider.cpp
+    ${LIBANDROIDFW_ASSETS_PROVIDER_SOURCE}
     ${SRC}/base/libs/androidfw/AttributeResolution.cpp
     ${SRC}/base/libs/androidfw/ChunkIterator.cpp
     ${SRC}/base/libs/androidfw/ConfigDescription.cpp

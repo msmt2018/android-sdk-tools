@@ -54,19 +54,19 @@ if(EXISTS "${SRC}/aidl/generate_cpp_analyzer.cpp")
 endif()
 
 set(AIDL_DUMPAPI_SOURCE)
-if(EXISTS "${AIDL_DUMPAPI_SOURCE}")
+if(EXISTS "${SRC}/aidl/aidl_dumpapi.cpp")
     list(APPEND AIDL_DUMPAPI_SOURCE "${SRC}/aidl/aidl_dumpapi.cpp")
 endif()
 
 set(AIDL_CHECK_VALID_SOURCE)
-if(EXISTS "${AIDL_CHECK_VALID_SOURCE}")
+if(EXISTS "${SRC}/aidl/check_valid.cpp")
     list(APPEND AIDL_CHECK_VALID_SOURCE "${SRC}/aidl/check_valid.cpp")
 endif()
 
 add_executable(aidl
     ${SRC}/aidl/aidl_checkapi.cpp
     ${SRC}/aidl/aidl_const_expressions.cpp
-    ${SRC}/aidl/aidl_dumpapi.cpp
+    ${AIDL_DUMPAPI_SOURCE}
     ${SRC}/aidl/aidl_language_l.ll
     ${SRC}/aidl/aidl_language_y.yy
     ${SRC}/aidl/aidl_language.cpp
@@ -79,7 +79,7 @@ add_executable(aidl
     ${SRC}/aidl/aidl_typenames.cpp
     ${SRC}/aidl/aidl.cpp
     ${SRC}/aidl/ast_java.cpp
-    ${SRC}/aidl/check_valid.cpp
+    ${AIDL_CHECK_VALID_SOURCE}
     ${SRC}/aidl/code_writer.cpp
     ${SRC}/aidl/comments.cpp
     ${SRC}/aidl/diagnostics.cpp
