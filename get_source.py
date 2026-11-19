@@ -598,9 +598,12 @@ def ensure_aapt2_protobuf_limit_compat():
         path.write_text(text)
 
     verified = path.read_text()
-    if new not in verified:
+    if new in verified:
+        print('AAPT2: selected Protobuf SetTotalBytesLimit overload by version', flush=True)
+    elif old not in verified:
+        print('AAPT2: this historical source uses a different SetTotalBytesLimit form; leaving upstream call unchanged', flush=True)
+    else:
         raise RuntimeError('AAPT2 Protobuf SetTotalBytesLimit compatibility fix failed: {}'.format(path))
-    print('AAPT2: selected Protobuf SetTotalBytesLimit overload by version', flush=True)
 
 
 def ensure_sdk_sandbox_aid_compat():
