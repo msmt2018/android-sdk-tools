@@ -53,6 +53,16 @@ if(EXISTS "${SRC}/aidl/generate_cpp_analyzer.cpp")
     list(APPEND AIDL_CPP_ANALYZER_SOURCE ${SRC}/aidl/generate_cpp_analyzer.cpp)
 endif()
 
+set(AIDL_DUMPAPI_SOURCE)
+if(EXISTS "${AIDL_DUMPAPI_SOURCE}")
+    list(APPEND AIDL_DUMPAPI_SOURCE "${SRC}/aidl/aidl_dumpapi.cpp")
+endif()
+
+set(AIDL_CHECK_VALID_SOURCE)
+if(EXISTS "${AIDL_CHECK_VALID_SOURCE}")
+    list(APPEND AIDL_CHECK_VALID_SOURCE "${SRC}/aidl/check_valid.cpp")
+endif()
+
 add_executable(aidl
     ${SRC}/aidl/aidl_checkapi.cpp
     ${SRC}/aidl/aidl_const_expressions.cpp
