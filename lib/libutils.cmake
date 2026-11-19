@@ -44,14 +44,14 @@ set(LIBUTILS_BINDER_SRC
 
 
 set(LIBUTILS_LIGHT_REF_BASE_SOURCE)
-if(EXISTS "${LIBUTILS_LIGHT_REF_BASE_SOURCE}")
+if(EXISTS "${SRC}/core/libutils/LightRefBase.cpp")
     list(APPEND LIBUTILS_LIGHT_REF_BASE_SOURCE "${SRC}/core/libutils/LightRefBase.cpp")
 endif()
 
 add_library(libutils STATIC
     ${SRC}/core/libutils/FileMap.cpp
     ${SRC}/core/libutils/JenkinsHash.cpp
-    ${SRC}/core/libutils/LightRefBase.cpp
+    ${LIBUTILS_LIGHT_REF_BASE_SOURCE}
     ${SRC}/core/libutils/NativeHandle.cpp
     ${SRC}/core/libutils/Printer.cpp
     ${SRC}/core/libutils/StopWatch.cpp
