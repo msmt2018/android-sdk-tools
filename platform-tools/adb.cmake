@@ -118,6 +118,11 @@ foreach(openscreen_platform_source logging.cpp task_runner.cpp udp_socket.cpp)
     endif()
 endforeach()
 
+set(ADB_MDNS_CLIENT_SOURCE)
+if(EXISTS "${ADB_MDNS_CLIENT_SOURCE}")
+    list(APPEND ADB_MDNS_CLIENT_SOURCE "${SRC}/adb/client/mdnsresponder_client.cpp")
+endif()
+
 add_library(libadb STATIC
     ${SRC}/adb/adb.cpp
     ${SRC}/adb/adb_io.cpp
