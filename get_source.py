@@ -678,6 +678,7 @@ def patches():
     ensure_art_safe_map_invoke_result_compat()
     ensure_art_string_view_cpp20_compat()
     ensure_boringssl_x509_name_print_compat()
+    ensure_libbase_fmt_format_string_compat()
     ensure_boringssl_bn_comba8_decl_compat()
     ensure_aapt2_protobuf_limit_compat()
 
