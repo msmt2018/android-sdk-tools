@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+set(LIBBASE_HEX_SOURCE)
+if(EXISTS "${LIBBASE_HEX_SOURCE}")
+    list(APPEND LIBBASE_HEX_SOURCE "${SRC}/libbase/hex.cpp")
+endif()
+
 add_library(libbase STATIC
     ${CMAKE_CURRENT_LIST_DIR}/libbase_result_compat.cpp
     ${SRC}/libbase/abi_compatibility.cpp

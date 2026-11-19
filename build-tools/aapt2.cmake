@@ -125,6 +125,11 @@ elseif(EXISTS "${SRC}/base/tools/aapt2/link/ProductFilter.cpp")
     list(APPEND AAPT2_PRODUCT_FILTER_SRC ${SRC}/base/tools/aapt2/link/ProductFilter.cpp)
 endif()
 
+set(AAPT2_VALUE_TRANSFORMER_SOURCE)
+if(EXISTS "${AAPT2_VALUE_TRANSFORMER_SOURCE}")
+    list(APPEND AAPT2_VALUE_TRANSFORMER_SOURCE "${SRC}/base/tools/aapt2/ValueTransformer.cpp")
+endif()
+
 add_library(libaapt2 STATIC
     ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
     ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
