@@ -680,13 +680,13 @@ def ensure_libziparchive_cxx20_aggregate_compat():
     changed = []
     for name in record_types:
         pattern = re.compile(
-            r'(?m)^(?P<indent>[ \\t]*)private:[ \\t]*\\n'
-            r'(?P<ctor_indent>[ \\t]*)' + re.escape(name) +
-            r'\\(\\)\\s*=\\s*default;'
+            r'(?m)^(?P<indent>[ \t]*)private:[ \t]*\n'
+            r'(?P<ctor_indent>[ \t]*)' + re.escape(name) +
+            r'\(\)\s*=\s*default;'
         )
         def expose_default_constructor(match):
             return (
-                match.group('ctor_indent') + name + '() = default;\\n\\n' +
+                match.group('ctor_indent') + name + '() = default;\n\n' +
                 match.group('indent') + 'private:'
             )
         text, count = pattern.subn(expose_default_constructor, text, count=1)
@@ -702,9 +702,9 @@ def ensure_libziparchive_cxx20_aggregate_compat():
 
     for name in record_types:
         pattern = re.compile(
-            r'struct\\s+' + re.escape(name) +
-            r'\\s*\\{.*?private:\\s*\\n\\s*' +
-            re.escape(name) + r'\\(\\)\\s*=\\s*default;',
+            r'struct\s+' + re.escape(name) +
+            r'\s*\{.*?private:\s*\n\s*' +
+            re.escape(name) + r'\(\)\s*=\s*default;',
             re.S
         )
         if pattern.search(text):
