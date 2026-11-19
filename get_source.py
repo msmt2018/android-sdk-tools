@@ -327,7 +327,7 @@ def ensure_fastboot_unique_fd_compat():
     # platform-tools 31.0.x fastboot uses plain int file descriptors. Calling
     # fd.get() on those descriptors is invalid; newer snapshots that actually
     # declare unique_fd fd still need the conversion below.
-    if not re.search(r'\\bunique_fd\\s+fd\\b', text):
+    if not re.search(r'\bunique_fd\s+fd\b', text):
         print('fastboot unique_fd: source uses raw descriptors; no conversion needed', flush=True)
         return
 
