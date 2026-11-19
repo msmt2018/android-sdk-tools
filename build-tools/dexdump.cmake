@@ -35,6 +35,11 @@ if(EXISTS "${SRC}/art/libartbase/base/flags.cc")
     list(APPEND ART_FLAGS_SOURCE "${SRC}/art/libartbase/base/flags.cc")
 endif()
 
+set(ART_METRICS_COMMON_SOURCE)
+if(EXISTS "${SRC}/art/libartbase/base/metrics/metrics_common.cc")
+    list(APPEND ART_METRICS_COMMON_SOURCE "${SRC}/art/libartbase/base/metrics/metrics_common.cc")
+endif()
+
 add_library(libartbase STATIC
     ${SRC}/art/libartbase/arch/instruction_set.cc
     ${SRC}/art/libartbase/base/allocator.cc
@@ -52,7 +57,7 @@ add_library(libartbase STATIC
     ${SRC}/art/libartbase/base/memfd.cc
     ${SRC}/art/libartbase/base/memory_region.cc
     ${SRC}/art/libartbase/base/mem_map.cc
-    ${SRC}/art/libartbase/base/metrics/metrics_common.cc
+    ${ART_METRICS_COMMON_SOURCE}
     ${SRC}/art/libartbase/base/os_linux.cc
     ${SRC}/art/libartbase/base/runtime_debug.cc
     ${SRC}/art/libartbase/base/scoped_arena_allocator.cc
