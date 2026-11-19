@@ -853,18 +853,57 @@ def ensure_libziparchive_cxx20_aggregate_compat():
             raise RuntimeError('libziparchive {} default constructor remains private'.format(name))
 
 
+def run_compat_if_present(relative_path, function):
+    path = ROOT / relative_path
+    if path.is_file():
+        function()
+    else:
+        print('{}: source is absent in this Google snapshot; skipping compatibility patch'.format(
+            relative_path), flush=True)
+
+
+def create_legacy_source_aliases():
+    # Android 9/10 kept several libraries inside system/core. Later releases
+    # split them into independent AOSP projects. Reuse the exact manifest-pinned
+    # source tree through symlinks; do not substitute a newer library revision.
+    aliases = {
+        'src/adb': 'src/core/adb',
+        'src/libbase': 'src/core/libbase',
+        'src/libziparchive': 'src/core/libziparchive',
+        'src/logging': 'src/core/logging',
+    }
+    for destination, source in aliases.items():
+        dst = ROOT / destination
+        src = ROOT / source
+        if not dst.exists() and src.is_dir():
+            dst.symlink_to(src, target_is_directory=True)
+            print('legacy AOSP layout: {} -> {}'.format(destination, source), flush=True)
+
+
 def patches():
-    ensure_abseil_result_of_cxx20_compat()
-    ensure_libziparchive_cxx20_aggregate_compat()
-    inc = ROOT / 'src/incremental_delivery/sysprop/include'
-    inc.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
-    shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.cpp', inc.parent)
+    run_compat_if_present(
+        'src/abseil-cpp/absl/meta/type_traits.h',
+        ensure_abseil_result_of_cxx20_compat)
+    run_compat_if_present(
+        'src/libziparchive/zip_archive_common.h',
+        ensure_libziparchive_cxx20_aggregate_compat)
 
-    shutil.copy2(ROOT / 'patches/misc/deployagent.inc', ROOT / 'src/adb/fastdeploy/deployagent')
-    shutil.copy2(ROOT / 'patches/misc/deployagentscript.inc', ROOT / 'src/adb/fastdeploy/deployagent')
+    # These files only exist in snapshots that include Incremental FS and
+    # fastdeploy. Do not manufacture partial source trees for older releases.
+    inc_source = ROOT / 'src/incremental_delivery'
+    if inc_source.is_dir():
+        inc = inc_source / 'sysprop/include'
+        inc.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
+        shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.cpp', inc_source / 'sysprop')
+    deployagent = ROOT / 'src/adb/fastdeploy/deployagent'
+    if deployagent.is_dir():
+        shutil.copy2(ROOT / 'patches/misc/deployagent.inc', deployagent)
+        shutil.copy2(ROOT / 'patches/misc/deployagentscript.inc', deployagent)
 
-    shutil.copy2(VERSION_HEADER, ROOT / 'src/soong/cc/libbuildversion/include')
+    soong_include = ROOT / 'src/soong/cc/libbuildversion/include'
+    if soong_include.is_dir():
+        shutil.copy2(VERSION_HEADER, soong_include)
 
     aapt2 = 'src/base/tools/aapt2/'
     replace_in_file(aapt2 + 'ApkInfo.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
@@ -883,37 +922,39 @@ def patches():
             googletest_target = ROOT / 'src/googletest/googletest'
         else:
             googletest_target = ROOT / 'src/googletest'
-        if dest.is_symlink():
-            try:
-                if dest.resolve() != googletest_target.resolve():
+        if googletest_target.is_dir():
+            if dest.is_symlink():
+                try:
+                    if dest.resolve() != googletest_target.resolve():
+                        dest.unlink()
+                except FileNotFoundError:
                     dest.unlink()
-            except FileNotFoundError:
-                dest.unlink()
-        if dest.parent.exists() and not dest.exists():
-            dest.symlink_to(googletest_target)
+            if dest.parent.exists() and not dest.exists():
+                dest.symlink_to(googletest_target)
 
-    # the source patches only apply to specific versions, apply them when possible
+    # The source patches only apply to specific versions. Apply only when the
+    # corresponding source file exists in the pinned release snapshot.
     for patch in sorted((ROOT / 'patches').rglob('*.patch')):
         print('patch {}: {}'.format(patch.relative_to(ROOT), apply_patch(patch)))
 
-    ensure_art_build_defines()
-    ensure_openscreen_task_runner_compat()
-    ensure_art_metrics_memory_order_compat()
-    ensure_art_hash_set_allocator_compat()
-    ensure_androidfw_theme_entry_definition()
-    ensure_libziparchive_span_compat()
-    ensure_aidl_flex_parser_types()
-    ensure_fastboot_unique_fd_compat()
-    ensure_adb_mdns_function_include()
-    ensure_adb_tls_function_include()
+    run_compat_if_present('src/art/libartbase/arch/instruction_set.h', ensure_art_build_defines)
+    run_compat_if_present('src/openscreen/platform/api/task_runner.h', ensure_openscreen_task_runner_compat)
+    run_compat_if_present('src/art/libartbase/base/metrics/metrics.h', ensure_art_metrics_memory_order_compat)
+    run_compat_if_present('src/art/libartbase/base/hash_set.h', ensure_art_hash_set_allocator_compat)
+    run_compat_if_present('src/base/libs/androidfw/include/androidfw/AssetManager2.h', ensure_androidfw_theme_entry_definition)
+    run_compat_if_present('src/libziparchive/zip_archive.cc', ensure_libziparchive_span_compat)
+    run_compat_if_present('src/aidl/aidl_language_l.ll', ensure_aidl_flex_parser_types)
+    run_compat_if_present('src/core/fastboot/fastboot.cpp', ensure_fastboot_unique_fd_compat)
+    run_compat_if_present('src/adb/adb_mdns.h', ensure_adb_mdns_function_include)
+    run_compat_if_present('src/adb/tls/include/adb/tls/tls_connection.h', ensure_adb_tls_function_include)
     ensure_sdk_sandbox_aid_compat()
-    ensure_lru_cache_cxx17_compat()
-    ensure_art_safe_map_invoke_result_compat()
-    ensure_art_string_view_cpp20_compat()
-    ensure_boringssl_x509_name_print_compat()
-    ensure_libbase_fmt_format_string_compat()
-    ensure_boringssl_bn_comba8_decl_compat()
-    ensure_aapt2_protobuf_limit_compat()
+    run_compat_if_present('src/core/libutils/include/utils/LruCache.h', ensure_lru_cache_cxx17_compat)
+    run_compat_if_present('src/art/libartbase/base/safe_map.h', ensure_art_safe_map_invoke_result_compat)
+    run_compat_if_present('src/art/libartbase/base/string_view_cpp20.h', ensure_art_string_view_cpp20_compat)
+    run_compat_if_present('src/boringssl/src/crypto/x509/t_x509.c', ensure_boringssl_x509_name_print_compat)
+    run_compat_if_present('src/libbase/include/android-base/result.h', ensure_libbase_fmt_format_string_compat)
+    run_compat_if_present('src/boringssl/src/crypto/fipsmodule/bn/internal.h', ensure_boringssl_bn_comba8_decl_compat)
+    run_compat_if_present('src/base/tools/aapt2/io/Util.h', ensure_aapt2_protobuf_limit_compat)
 
 
 def main():
