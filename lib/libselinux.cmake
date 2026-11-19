@@ -33,8 +33,8 @@ if(EXISTS "${SRC}/selinux/libselinux/src/hashtab.c")
 endif()
 
 set(LIBSELINUX_ANDROID_COMPAT_SOURCE)
-if(EXISTS "${SRC}/selinux/libselinux/src/android.c")
-    list(APPEND LIBSELINUX_ANDROID_COMPAT_SOURCE ${SRC}/selinux/libselinux/src/android.c)
+if(EXISTS "${SRC}/selinux/src/android.c")
+    list(APPEND LIBSELINUX_ANDROID_COMPAT_SOURCE ${SRC}/selinux/src/android.c)
 endif()
 
 add_library(libselinux STATIC
