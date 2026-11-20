@@ -1028,6 +1028,7 @@ def normalize_optional_release_sources():
         ],
         'lib/libprotoc.cmake': [
             ('${SRC}/protobuf/src/google/protobuf/generated_message_table_driven_lite.cc', 'PROTOBUF_GENERATED_MESSAGE_TABLE_DRIVEN_LITE_SOURCE'),
+            ('${SRC}/protobuf/src/google/protobuf/implicit_weak_message.cc', 'PROTOBUF_IMPLICIT_WEAK_MESSAGE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/generated_enum_util.cc', 'PROTOBUF_GENERATED_ENUM_UTIL_SOURCE'),
         ],
