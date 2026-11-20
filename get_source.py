@@ -1184,6 +1184,7 @@ def main():
     args = parser.parse_args()
 
     if args.normalize_optional_sources_only:
+        create_legacy_source_aliases()
         normalize_optional_release_sources()
         return
 
