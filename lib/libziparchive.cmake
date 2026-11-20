@@ -19,12 +19,12 @@ if(EXISTS "${SRC}/libziparchive/incfs_support/signal_handling.cpp")
     list(APPEND LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE "${SRC}/libziparchive/incfs_support/signal_handling.cpp")
 endif()
 
-add_library(libziparchive STATIC
 set(LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE)
 if(EXISTS "${SRC}/libziparchive/zip_cd_entry_map.cc")
     list(APPEND LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE "${SRC}/libziparchive/zip_cd_entry_map.cc")
 endif()
 
+add_library(libziparchive STATIC
     ${SRC}/libziparchive/zip_archive.cc
     ${SRC}/libziparchive/zip_archive_stream_entry.cc
     ${LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE}
