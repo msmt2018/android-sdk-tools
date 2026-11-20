@@ -90,8 +90,18 @@ if(EXISTS "${SRC}/aidl/comments.cpp")
     list(APPEND AIDL_COMMENTS_SOURCE "${SRC}/aidl/comments.cpp")
 endif()
 
+set(AIDL_DIAGNOSTICS_SOURCE)
+if(EXISTS "${${AIDL_DIAGNOSTICS_SOURCE}}")
+    list(APPEND AIDL_DIAGNOSTICS_SOURCE "${${AIDL_DIAGNOSTICS_SOURCE}}")
+endif()
+
+set(AIDL_CHECKAPI_SOURCE)
+if(EXISTS "${${AIDL_CHECKAPI_SOURCE}}")
+    list(APPEND AIDL_CHECKAPI_SOURCE "${${AIDL_CHECKAPI_SOURCE}}")
+endif()
+
 add_executable(aidl
-    ${SRC}/aidl/aidl_checkapi.cpp
+    ${${AIDL_CHECKAPI_SOURCE}}
     ${SRC}/aidl/aidl_const_expressions.cpp
     ${AIDL_DUMPAPI_SOURCE}
     ${SRC}/aidl/aidl_language_l.ll
@@ -110,7 +120,7 @@ add_executable(aidl
     ${AIDL_CHECK_VALID_SOURCE}
     ${SRC}/aidl/code_writer.cpp
     ${AIDL_COMMENTS_SOURCE}
-    ${SRC}/aidl/diagnostics.cpp
+    ${${AIDL_DIAGNOSTICS_SOURCE}}
     ${SRC}/aidl/generate_aidl_mappings.cpp
     ${SRC}/aidl/generate_cpp.cpp
     ${AIDL_CPP_ANALYZER_SOURCE}
