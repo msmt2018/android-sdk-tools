@@ -160,7 +160,7 @@ def build_host_protoc(args):
             if missing_sources:
                 makefile_text += (
                     '\n\n# JavaMicro compiler sources present in this AOSP tag.\n'
-                    'libprotoc_la_SOURCES += \\\n'
+                    'protoc_SOURCES += \\\n'
                     + ' \\\n'.join('  ' + path for path in missing_sources)
                     + '\n'
                 )
