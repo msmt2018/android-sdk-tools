@@ -1520,17 +1520,16 @@ static bool sdk_system_property_wait(
                 public_include, public_include + '\n' + private_include, 1)
             zlib_cmake.write_text(source_text)
 
-    # AOSP subprojects without their own project() can inherit the root
-    # project name and emit an unbound sdk-toolsTargets install(EXPORT).
+    
+    # SDK_SKIP_UPSTREAM_CMAKE_PACKAGE_EXPORTS
+    # This repository ships executable archives, not CMake packages. Some AOSP
+    # subprojects inherit the top-level project name and emit unbound export sets.
     cmake_files = set(ROOT.rglob('CMakeLists.txt')) | set(ROOT.rglob('*.cmake'))
-    export_tokens = ('sdk-toolsTargets', '$' + '{PROJECT_NAME}Targets')
-    export_pattern = re.compile(
-        r'(?im)^[ \t]*install\s*\(\s*EXPORT\s+(' +
-        re.escape(export_tokens[0]) + '|' + re.escape(export_tokens[1]) + r')\b')
+    export_pattern = re.compile(r'(?im)^[ \t]*install\s*\(\s*EXPORT\b')
     for cmake_file in sorted(cmake_files):
         if any(part in ('.git', 'build', 'host-tools') for part in cmake_file.parts):
             continue
-        if not cmake_file.is_file():
+        if cmake_file == ROOT / 'CMakeLists.txt' or not cmake_file.is_file():
             continue
         source_text = cmake_file.read_text()
         if 'install(EXPORT' not in source_text:
@@ -1539,10 +1538,6 @@ static bool sdk_system_property_wait(
         while True:
             match = export_pattern.search(source_text)
             if match is None:
-                break
-            export_name = match.group(1)
-            if export_name == export_tokens[1] and re.search(
-                    r'(?im)^[ \t]*project\s*\(', source_text):
                 break
             command_start = match.start()
             open_pos = source_text.find('(', command_start)
@@ -1570,13 +1565,13 @@ static bool sdk_system_property_wait(
                 break
             source_text = (
                 source_text[:command_start] +
-                '# SDK: removed unbound CMake package export; this build ships binaries only.\n' +
+                '# SDK: upstream CMake package export omitted; this build ships binaries only.\n' +
                 source_text[command_end:]
             )
             changed = True
         if changed:
             cmake_file.write_text(source_text)
-            print('release CMake: removed unbound sdk-toolsTargets export from {}'.format(
+            print('release CMake: removed upstream install(EXPORT) from {}'.format(
                 cmake_file.relative_to(ROOT)), flush=True)
 
     # SDK_FILTER_MISSING_RELEASE_SOURCES
