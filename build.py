@@ -119,9 +119,9 @@ def build_host_protoc(args):
     if port_def.is_file():
         port_text = port_def.read_text()
         feature_guard = (
-            '#ifndef __has_feature\\n'
-            '#define __has_feature(x) 0\\n'
-            '#endif\\n'
+            '#ifndef __has_feature\n'
+            '#define __has_feature(x) 0\n'
+            '#endif\n'
         )
         if '#ifndef __has_feature' not in port_text:
             port_def.write_text(feature_guard + port_text)
