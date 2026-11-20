@@ -131,8 +131,13 @@ target_compile_definitions(fastboot PRIVATE
     -D_XOPEN_SOURCE=700
     -DUSE_F2FS
     )
+set(FASTBOOT_DIAGNOSEUSB_TARGETS)
+if(TARGET libdiagnoseusb)
+    list(APPEND FASTBOOT_DIAGNOSEUSB_TARGETS libdiagnoseusb)
+endif()
+
 target_link_libraries(fastboot
-    libdiagnoseusb
+    ${FASTBOOT_DIAGNOSEUSB_TARGETS}
     libsparse
     libziparchive
     libbuildversion
