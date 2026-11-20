@@ -86,22 +86,78 @@ def resolve_manifest_revisions(repos, release_tag, retries):
     manifest_file = manifest_dir / 'default.xml'
     if not manifest_file.is_file():
         raise RuntimeError('Google manifest tag {} has no default.xml'.format(manifest_tag))
-    root = ET.parse(str(manifest_file)).getroot()
-    default = root.find('default')
-    if default is None:
-        raise RuntimeError('Google manifest {} has no default revision'.format(manifest_tag))
-    default_revision = default.get('revision')
-    default_remote = default.get('remote')
-    remotes = {item.get('name'): item.get('fetch', '..') for item in root.findall('remote')}
+
+    # Repo manifests may split projects across included XML files and apply
+    # extend-project/remove-project directives. Read the complete manifest
+    # graph instead of treating default.xml as a self-contained project list.
+    projects_by_name = {}
+    defaults = {}
+    remotes = {}
+    visited_manifests = set()
+
+    def read_manifest(manifest_path):
+        manifest_path = manifest_path.resolve()
+        if manifest_path in visited_manifests:
+            return
+        if not manifest_path.is_file():
+            raise RuntimeError('Google manifest include not found: {}'.format(manifest_path))
+        visited_manifests.add(manifest_path)
+        manifest_root = ET.parse(str(manifest_path)).getroot()
+
+        # Resolve inherited defaults/remotes before processing project entries
+        # in this file; included manifests may define their own values.
+        for node in manifest_root:
+            if node.tag == 'default':
+                defaults.update(node.attrib)
+            elif node.tag == 'remote':
+                remote_name = node.get('name')
+                if remote_name:
+                    remotes[remote_name] = dict(node.attrib)
+
+        for node in manifest_root:
+            if node.tag == 'include':
+                include_name = node.get('name')
+                if not include_name:
+                    raise RuntimeError('manifest include without a name in {}'.format(manifest_path))
+                read_manifest(manifest_dir / include_name)
+            elif node.tag == 'project':
+                name = node.get('name')
+                if name:
+                    projects_by_name.setdefault(name, []).append(dict(node.attrib))
+            elif node.tag == 'extend-project':
+                name = node.get('name')
+                if not name:
+                    continue
+                for project in projects_by_name.get(name, []):
+                    path_filter = node.get('path')
+                    if path_filter and project.get('path', name) != path_filter:
+                        continue
+                    project.update({
+                        key: value for key, value in node.attrib.items()
+                        if key not in ('name', 'path')
+                    })
+            elif node.tag == 'remove-project':
+                name = node.get('name')
+                if not name:
+                    continue
+                path_filter = node.get('path')
+                remaining = [
+                    project for project in projects_by_name.get(name, [])
+                    if path_filter and project.get('path', name) != path_filter
+                ]
+                if remaining:
+                    projects_by_name[name] = remaining
+                else:
+                    projects_by_name.pop(name, None)
+
+    read_manifest(manifest_file)
 
     projects = {}
-    for project in root.findall('project'):
-        name = project.get('name')
-        if not name:
-            continue
-        revision = project.get('revision') or default_revision
-        if revision:
-            projects[name] = revision
+    for name, project_entries in projects_by_name.items():
+        for project in project_entries:
+            revision = project.get('revision') or defaults.get('revision')
+            if revision:
+                projects[name] = revision
 
     resolved = []
     missing = []
