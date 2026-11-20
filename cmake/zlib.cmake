@@ -48,6 +48,8 @@ set(SDK_ZLIB_INCLUDE_DIR ${CMAKE_BINARY_DIR}/sdk-zlib/include)
 configure_file(${SDK_ZLIB_SOURCE_DIR}/zlib.h ${SDK_ZLIB_INCLUDE_DIR}/zlib.h COPYONLY)
 configure_file(${SDK_ZLIB_SOURCE_DIR}/zconf.h ${SDK_ZLIB_INCLUDE_DIR}/zconf.h COPYONLY)
 target_include_directories(sdk_zlib PUBLIC ${SDK_ZLIB_INCLUDE_DIR})
+# Optimized zlib headers include internal headers from the source root.
+target_include_directories(sdk_zlib PRIVATE ${SDK_ZLIB_SOURCE_DIR})
 
 file(STRINGS ${SDK_ZLIB_SOURCE_DIR}/zlib.h _zlib_version_line REGEX "^#define ZLIB_VERSION \"[^\"]*\"")
 string(REGEX REPLACE "^.*ZLIB_VERSION \"([^\"]*)\".*$" "\\1" SDK_ZLIB_VERSION "${_zlib_version_line}")
