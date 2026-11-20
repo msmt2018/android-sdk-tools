@@ -1398,10 +1398,10 @@ def normalize_release_cmake_targets():
         dexdump_cmake.write_text(text)
 
     
+    
     # SDK_API24_SYSTEM_PROPERTY_COMPAT
     # Android 7.0 headers do not expose the API-26 property callback/wait APIs.
-    # Preserve the API-24 target and emulate those operations with the legacy
-    # property read/serial APIs rather than raising the global Android API level.
+    # Preserve the API-24 target and emulate those operations with legacy property APIs.
     properties = ROOT / 'src/libbase/properties.cpp'
     if properties.is_file():
         source_text = properties.read_text()
@@ -1463,12 +1463,12 @@ static bool sdk_system_property_wait(
     logging = ROOT / 'src/libbase/logging.cpp'
     if logging.is_file():
         source_text = logging.read_text()
-        match = re.search(
-            r'(?m)^([ \t]*)return __android_log_is_loggable\(priority, tag, ANDROID_LOG_INFO\);',
-            source_text)
-        if match is not None:
-            indent = match.group(1)
-            if re.search(r'\bgMinimumLogSeverity\s*=', source_text):
+        call = 'return __android_log_is_loggable(priority, tag, ANDROID_LOG_INFO);'
+        position = source_text.find(call)
+        if position >= 0:
+            line_start = source_text.rfind('\n', 0, position) + 1
+            indent = source_text[line_start:position]
+            if 'gMinimumLogSeverity =' in source_text:
                 fallback = (
                     '#if defined(__ANDROID_API__) && __ANDROID_API__ >= 30',
                     '    return __android_log_is_loggable(priority, tag, ANDROID_LOG_INFO);',
@@ -1488,7 +1488,7 @@ static bool sdk_system_property_wait(
                     '#endif',
                 )
             replacement = '\n'.join(indent + line for line in fallback)
-            source_text = source_text[:match.start()] + replacement + source_text[match.end():]
+            source_text = source_text[:line_start] + replacement + source_text[position + len(call):]
             logging.write_text(source_text)
 
     # Some historical Google manifests do not contain external/fmtlib.
@@ -1496,208 +1496,19 @@ static bool sdk_system_property_wait(
     androidfw_cmake = ROOT / 'lib/libandroidfw.cmake'
     if androidfw_cmake.is_file():
         source_text = androidfw_cmake.read_text()
-        fmt_link = re.compile(
-            r'(?m)^([ \t]*)target_link_libraries\(libandroidfw PUBLIC fmt::fmt\)[ \t]*
-    # The shared CMake lists are newer than some official release snapshots.
-    # Keep the exact checked-out sources and omit only source paths absent from
-    # that snapshot; later releases retain their files and therefore retain them.
-    source_extensions = ('.c', '.cc', '.cpp', '.cxx', '.s', '.m', '.mm')
-    for directory in ('lib', 'build-tools', 'platform-tools'):
-        for cmake_file in sorted((ROOT / directory).glob('*.cmake')):
-            lines = cmake_file.read_text().splitlines(keepends=True)
-            output = []
-            in_target = False
-            depth = 0
-            removed = []
-            for original_line in lines:
-                line = original_line
-                if not in_target and re.search(r'\badd_(?:library|executable)\s*\(', original_line):
-                    in_target = True
-                    depth = 0
-                if in_target and not original_line.lstrip().startswith('#'):
-                    matches = list(re.finditer(r'\$\{SRC\}/([^\s\")]+)', line))
-                    for match in reversed(matches):
-                        relative = match.group(1)
-                        if not relative.lower().endswith(source_extensions):
-                            continue
-                        if (ROOT / 'src' / relative).is_file():
-                            continue
-                        token = match.group(0)
-                        normalized_line = line.strip().rstrip(',').strip()
-                        if normalized_line in (token, '"' + token + '"', "'" + token + "'"):
-                            line = ''
-                            removed.append(relative)
-                            break
-                        line = line.replace(token, '')
-                        removed.append(relative)
-                if line:
-                    output.append(line)
-                if in_target:
-                    depth += original_line.count('(') - original_line.count(')')
-                    if depth <= 0:
-                        in_target = False
-            if removed:
-                cmake_file.write_text(''.join(output))
-                print('release CMake source filter {}: removed {}'.format(
-                    cmake_file.relative_to(ROOT), ', '.join(sorted(set(removed)))), flush=True)
-
-def main():
-    version = tools_version()
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
-                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
-                             '(from patches/misc/platform_tools_version.h)'.format(version))
-    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
-    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
-    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
-    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
-    args = parser.parse_args()
-
-    if args.normalize_optional_sources_only:
-        create_legacy_source_aliases()
-        normalize_optional_release_sources()
-        normalize_release_cmake_targets()
-        return
-
-    # check necessary packages
-    for command in ('git', 'patch', 'go', 'bison', 'flex'):
-        check(command)
-
-    repos = json.loads((ROOT / 'repository.json').read_text())
-    print('fetching sources from Google manifest: {}'.format(args.tags))
-    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
-    errors = []
-    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
-        for future in as_completed(futures):
-            try:
-                print(future.result(), flush=True)
-            except RuntimeError as e:
-                errors.append(str(e))
-    if errors:
-        sys.exit('\n'.join(errors))
-
-    create_legacy_source_aliases()
-    normalize_optional_release_sources()
-
-    if not args.skip_patch:
-        patches()
-
-    normalize_release_cmake_targets()
-    print('download success!!')
-
-
-if __name__ == '__main__':
-    main()
-)
-        match = fmt_link.search(source_text)
-        if match is not None and 'if(TARGET fmt::fmt)' not in source_text:
-            indent = match.group(1)
-            replacement = (
-                indent + 'if(TARGET fmt::fmt)\n' +
-                indent + '    target_link_libraries(libandroidfw PUBLIC fmt::fmt)\n' +
-                indent + 'endif()'
-            )
-            source_text = source_text[:match.start()] + replacement + source_text[match.end():]
+        fmt_link = 'target_link_libraries(libandroidfw PUBLIC fmt::fmt)'
+        if fmt_link in source_text and 'if(TARGET fmt::fmt)' not in source_text:
+            source_text = source_text.replace(
+                fmt_link,
+                'if(TARGET fmt::fmt)\n    ' + fmt_link + '\nendif()',
+                1)
             androidfw_cmake.write_text(source_text)
 
     veridex_cmake = ROOT / 'others/veridex.cmake'
     if veridex_cmake.is_file():
         source_text = veridex_cmake.read_text()
-        if re.search(r'(?m)^[ \t]*fmt::fmt[ \t]*
-    # The shared CMake lists are newer than some official release snapshots.
-    # Keep the exact checked-out sources and omit only source paths absent from
-    # that snapshot; later releases retain their files and therefore retain them.
-    source_extensions = ('.c', '.cc', '.cpp', '.cxx', '.s', '.m', '.mm')
-    for directory in ('lib', 'build-tools', 'platform-tools'):
-        for cmake_file in sorted((ROOT / directory).glob('*.cmake')):
-            lines = cmake_file.read_text().splitlines(keepends=True)
-            output = []
-            in_target = False
-            depth = 0
-            removed = []
-            for original_line in lines:
-                line = original_line
-                if not in_target and re.search(r'\badd_(?:library|executable)\s*\(', original_line):
-                    in_target = True
-                    depth = 0
-                if in_target and not original_line.lstrip().startswith('#'):
-                    matches = list(re.finditer(r'\$\{SRC\}/([^\s\")]+)', line))
-                    for match in reversed(matches):
-                        relative = match.group(1)
-                        if not relative.lower().endswith(source_extensions):
-                            continue
-                        if (ROOT / 'src' / relative).is_file():
-                            continue
-                        token = match.group(0)
-                        normalized_line = line.strip().rstrip(',').strip()
-                        if normalized_line in (token, '"' + token + '"', "'" + token + "'"):
-                            line = ''
-                            removed.append(relative)
-                            break
-                        line = line.replace(token, '')
-                        removed.append(relative)
-                if line:
-                    output.append(line)
-                if in_target:
-                    depth += original_line.count('(') - original_line.count(')')
-                    if depth <= 0:
-                        in_target = False
-            if removed:
-                cmake_file.write_text(''.join(output))
-                print('release CMake source filter {}: removed {}'.format(
-                    cmake_file.relative_to(ROOT), ', '.join(sorted(set(removed)))), flush=True)
-
-def main():
-    version = tools_version()
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
-                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
-                             '(from patches/misc/platform_tools_version.h)'.format(version))
-    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
-    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
-    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
-    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
-    args = parser.parse_args()
-
-    if args.normalize_optional_sources_only:
-        create_legacy_source_aliases()
-        normalize_optional_release_sources()
-        normalize_release_cmake_targets()
-        return
-
-    # check necessary packages
-    for command in ('git', 'patch', 'go', 'bison', 'flex'):
-        check(command)
-
-    repos = json.loads((ROOT / 'repository.json').read_text())
-    print('fetching sources from Google manifest: {}'.format(args.tags))
-    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
-    errors = []
-    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
-        for future in as_completed(futures):
-            try:
-                print(future.result(), flush=True)
-            except RuntimeError as e:
-                errors.append(str(e))
-    if errors:
-        sys.exit('\n'.join(errors))
-
-    create_legacy_source_aliases()
-    normalize_optional_release_sources()
-
-    if not args.skip_patch:
-        patches()
-
-    normalize_release_cmake_targets()
-    print('download success!!')
-
-
-if __name__ == '__main__':
-    main()
-, source_text):
-            source_text = re.sub(r'(?m)^[ \t]*fmt::fmt[ \t]*\n', '', source_text, count=1)
+        if 'fmt::fmt' in source_text:
+            source_text = source_text.replace('    fmt::fmt\n', '', 1)
             if 'if(TARGET fmt::fmt)' not in source_text:
                 source_text += (
                     '\n# SDK_OPTIONAL_FMT_TARGET_COMPAT\n'
@@ -1707,7 +1518,7 @@ if __name__ == '__main__':
                 )
             veridex_cmake.write_text(source_text)
 
-# SDK_FILTER_MISSING_RELEASE_SOURCES
+    # SDK_FILTER_MISSING_RELEASE_SOURCES
     # The shared CMake lists are newer than some official release snapshots.
     # Keep the exact checked-out sources and omit only source paths absent from
     # that snapshot; later releases retain their files and therefore retain them.
