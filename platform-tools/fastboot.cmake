@@ -46,21 +46,25 @@ foreach(source
     endif()
 endforeach()
 
-if(NOT LIBFSMGR_SRC)
-    message(FATAL_ERROR "No liblp sources found in ${SRC}/core/fs_mgr/liblp")
-endif()
-
-add_library(libfsmgr STATIC ${LIBFSMGR_SRC})
-target_include_directories(libfsmgr PRIVATE
-    ${SRC}/core/fs_mgr/liblp/include
-    ${SRC}/libbase/include
-    ${SRC}/extras/ext4_utils/include
-    ${SRC}/core/libsparse/include
-    ${SRC}/boringssl/include
-    ${SRC}/core/libcutils/include
-    )
-if(TARGET fmt::fmt)
-    target_link_libraries(libfsmgr PUBLIC fmt::fmt)
+set(FASTBOOT_LIBFSMGR_TARGETS)
+if(LIBFSMGR_SRC)
+    add_library(libfsmgr STATIC ${LIBFSMGR_SRC})
+    target_include_directories(libfsmgr PRIVATE
+        ${SRC}/core/fs_mgr/liblp/include
+        ${SRC}/libbase/include
+        ${SRC}/extras/ext4_utils/include
+        ${SRC}/core/libsparse/include
+        ${SRC}/boringssl/include
+        ${SRC}/core/libcutils/include
+        )
+    if(TARGET fmt::fmt)
+        target_link_libraries(libfsmgr PUBLIC fmt::fmt)
+    endif()
+    list(APPEND FASTBOOT_LIBFSMGR_TARGETS libfsmgr)
+else()
+    # Android 9 snapshots predate logical partitions/liblp; the matching
+    # fastboot source does not consume liblp in those releases.
+    message(STATUS "liblp is absent from this AOSP snapshot; omitting libfsmgr")
 endif()
 
 set(FASTBOOT_FILESYSTEM_SRC)
@@ -133,7 +137,7 @@ target_link_libraries(fastboot
     libziparchive
     libbuildversion
     libcutils
-    libfsmgr
+    ${FASTBOOT_LIBFSMGR_TARGETS}
     libutils
     libbase
     libext4
