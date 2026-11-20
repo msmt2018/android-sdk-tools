@@ -111,6 +111,21 @@ def find_protoc(directory):
 def build_host_protoc(args):
     """Build protoc with the host compiler from the version-matched AOSP source."""
     source = ROOT / 'src/protobuf'
+    # GCC does not provide Clang's __has_feature() preprocessor operator.
+    # Some Google-pinned protobuf snapshots use it without a fallback guard.
+    # Define the conventional false fallback in that exact checkout; Clang
+    # keeps its native builtin and therefore retains feature detection.
+    port_def = source / 'src/google/protobuf/port_def.inc'
+    if port_def.is_file():
+        port_text = port_def.read_text()
+        feature_guard = (
+            '#ifndef __has_feature\\n'
+            '#define __has_feature(x) 0\\n'
+            '#endif\\n'
+        )
+        if '#ifndef __has_feature' not in port_text:
+            port_def.write_text(feature_guard + port_text)
+            print('protobuf portability: added GCC fallback for __has_feature', flush=True)
     build_dir = (ROOT / args.host_build).resolve()
     protoc = find_protoc(build_dir)
     if protoc is not None:
