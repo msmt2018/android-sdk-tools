@@ -1027,6 +1027,7 @@ def normalize_optional_release_sources():
             ('${SRC}/core/libprocessgroup/task_profiles.cpp', 'LIBPROCESSGROUP_TASK_PROFILES_SOURCE'),
         ],
         'lib/libprotoc.cmake': [
+            ('${SRC}/protobuf/src/google/protobuf/generated_message_table_driven_lite.cc', 'PROTOBUF_GENERATED_MESSAGE_TABLE_DRIVEN_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/generated_enum_util.cc', 'PROTOBUF_GENERATED_ENUM_UTIL_SOURCE'),
         ],
