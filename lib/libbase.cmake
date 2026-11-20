@@ -55,3 +55,10 @@ target_include_directories(libbase PRIVATE
     ${SRC}/fmtlib/include 
     ${SRC}/logging/liblog/include
     )
+
+# fdsan is introduced in Android API 29. Expose its weak declarations at
+# compile time while keeping the API-24 target triple for older-device support.
+if(ANDROID)
+    target_compile_options(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29)
+endif()
+
