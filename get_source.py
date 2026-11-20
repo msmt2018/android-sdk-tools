@@ -1007,15 +1007,18 @@ def normalize_optional_release_sources():
     """
     optional_sources = {
         'lib/libbase.cmake': [
+            ('${SRC}/libbase/process.cpp', 'LIBBASE_PROCESS_SOURCE'),
             ('${SRC}/libbase/cmsg.cpp', 'LIBBASE_CMSG_SOURCE'),
             ('${SRC}/libbase/parsebool.cpp', 'LIBBASE_PARSEBOOL_SOURCE'),
             ('${SRC}/libbase/mapped_file.cpp', 'LIBBASE_MAPPED_FILE_SOURCE'),
         ],
         'lib/liblog.cmake': [
+            ('${SRC}/logging/liblog/logger_read.cpp', 'LIBLOG_LOGGER_READ_SOURCE'),
             ('${SRC}/logging/liblog/log_event_write.cpp', 'LIBLOG_EVENT_WRITE_SOURCE'),
             ('${SRC}/logging/liblog/logger_name.cpp', 'LIBLOG_LOGGER_NAME_SOURCE'),
         ],
         'lib/libandroidfw.cmake': [
+            ('${SRC}/base/libs/androidfw/Locale.cpp', 'ANDROIDFW_LOCALE_SOURCE'),
             ('${SRC}/base/libs/androidfw/ConfigDescription.cpp', 'ANDROIDFW_CONFIG_DESCRIPTION_SOURCE'),
             ('${SRC}/base/libs/androidfw/Idmap.cpp', 'ANDROIDFW_IDMAP_SOURCE'),
         ],
@@ -1024,10 +1027,12 @@ def normalize_optional_release_sources():
             ('${SRC}/libziparchive/zip_cd_entry_map.cc', 'LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE'),
         ],
         'lib/libprocessgroup.cmake': [
+            ('${SRC}/core/libprocessgroup/cgrouprc_format/cgroup_controller.cpp', 'LIBPROCESSGROUP_CGROUP_CONTROLLER_SOURCE'),
             ('${SRC}/core/libprocessgroup/sched_policy.cpp', 'LIBPROCESSGROUP_SCHED_POLICY_SOURCE'),
             ('${SRC}/core/libprocessgroup/task_profiles.cpp', 'LIBPROCESSGROUP_TASK_PROFILES_SOURCE'),
         ],
         'lib/libprotoc.cmake': [
+            ('${SRC}/protobuf/src/google/protobuf/generated_message_table_driven_lite.cc', 'PROTOBUF_GENERATED_MESSAGE_TABLE_DRIVEN_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/generated_enum_util.cc', 'PROTOBUF_GENERATED_ENUM_UTIL_SOURCE'),
         ],
@@ -1036,6 +1041,8 @@ def normalize_optional_release_sources():
             ('${SRC}/aidl/diagnostics.cpp', 'AIDL_DIAGNOSTICS_SOURCE'),
         ],
         'build-tools/dexdump.cmake': [
+            ('${SRC}/art/libartbase/arch/instruction_set.cc', 'ART_INSTRUCTION_SET_SOURCE'),
+            ('${SRC}/art/libdexfile/dex/art_dex_file_loader.cc', 'ART_DEX_FILE_LOADER_SOURCE'),
             ('${SRC}/art/libartbase/base/membarrier.cc', 'ART_MEMBARRIER_SOURCE'),
             ('${SRC}/art/libartbase/base/memfd.cc', 'ART_MEMFD_SOURCE'),
             ('${SRC}/art/libartpalette/apex/palette.cc', 'ART_PALETTE_APEX_SOURCE'),
@@ -1051,9 +1058,14 @@ def normalize_optional_release_sources():
             ('${SRC}/f2fs-tools/fsck/compress.c', 'F2FS_COMPRESS_SOURCE'),
         ],
         'platform-tools/fastboot.cmake': [
+            ('${SRC}/core/fastboot/main.cpp', 'FASTBOOT_MAIN_SOURCE'),
+            ('${SRC}/extras/ext4_utils/ext4_sb.cpp', 'FASTBOOT_EXT4_SB_SOURCE'),
             ('${SRC}/extras/ext4_utils/ext4_utils.cpp', 'FASTBOOT_EXT4_UTILS_SOURCE'),
             ('${SRC}/extras/ext4_utils/wipe.cpp', 'FASTBOOT_EXT4_WIPE_SOURCE'),
             ('${SRC}/core/fastboot/fastboot_driver.cpp', 'FASTBOOT_DRIVER_SOURCE'),
+        ],
+        'lib/libsparse.cmake': [
+            ('${SRC}/core/libsparse/backed_block.cpp', 'LIBSPARSE_BACKED_BLOCK_SOURCE'),
         ],
         'lib/libusb.cmake': [
             ('${SRC}/libusb/libusb/os/events_posix.c', 'LIBUSB_EVENTS_POSIX_SOURCE'),
