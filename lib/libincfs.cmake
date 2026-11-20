@@ -14,12 +14,17 @@
 # limitations under the License.
 #
 
+set(LIBINCFS_MAP_PTR_SOURCE)
+if(EXISTS "${SRC}/incremental_delivery/incfs/util/map_ptr.cpp")
+    list(APPEND LIBINCFS_MAP_PTR_SOURCE "${SRC}/incremental_delivery/incfs/util/map_ptr.cpp")
+endif()
+
 add_library(libincfs STATIC
     ${SRC}/incremental_delivery/incfs/incfs_ndk.c
     ${SRC}/incremental_delivery/incfs/incfs.cpp
     ${SRC}/incremental_delivery/incfs/MountRegistry.cpp
     ${SRC}/incremental_delivery/incfs/path.cpp
-    ${SRC}/incremental_delivery/incfs/util/map_ptr.cpp
+    ${LIBINCFS_MAP_PTR_SOURCE}
     ${SRC}/incremental_delivery/sysprop/IncrementalProperties.sysprop.cpp
     )
     
