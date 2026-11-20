@@ -62,7 +62,7 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
-          echo "cache-key=sources-v3-$VERSION-$SOURCE_TAG-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
+          echo "cache-key=sources-v4-$VERSION-$SOURCE_TAG-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
           echo "platform-tools version: $VERSION"
           echo "AOSP source tag: $SOURCE_TAG"
 
