@@ -1043,15 +1043,15 @@ def normalize_optional_release_sources():
         text = cmake_file.read_text()
         changed = False
         for source, variable in entries:
-            source_line = '    ' + source + '\\n'
+            source_line = '    ' + source + '\n'
             if source_line not in text:
                 continue
-            text = text.replace(source_line, '    ${' + variable + '}\\n', 1)
+            text = text.replace(source_line, '    ${' + variable + '}\n', 1)
             guard = (
-                'set(' + variable + ')\\n'
-                'if(EXISTS "' + source + '")\\n'
-                '    list(APPEND ' + variable + ' "' + source + '")\\n'
-                'endif()\\n\\n'
+                'set(' + variable + ')\n'
+                'if(EXISTS "' + source + '")\n'
+                '    list(APPEND ' + variable + ' "' + source + '")\n'
+                'endif()\n\n'
             )
             target_positions = [
                 position for position in (
