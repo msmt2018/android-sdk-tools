@@ -15,7 +15,12 @@
 #
 
 add_library(libprocessgroup STATIC
-    ${SRC}/core/libprocessgroup/cgroup_map.cpp
+set(LIBPROCESSGROUP_CGROUP_MAP_SOURCE)
+if(EXISTS "${SRC}/core/libprocessgroup/cgroup_map.cpp")
+    list(APPEND LIBPROCESSGROUP_CGROUP_MAP_SOURCE "${SRC}/core/libprocessgroup/cgroup_map.cpp")
+endif()
+
+    ${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
     ${SRC}/core/libprocessgroup/processgroup.cpp
     ${SRC}/core/libprocessgroup/sched_policy.cpp
     ${SRC}/core/libprocessgroup/task_profiles.cpp
