@@ -31,12 +31,17 @@ set(INCLUDES
     ${SRC}/core/libcutils/include
     )
 
+set(F2FS_NLS_UTF8_SOURCE)
+if(EXISTS "${SRC}/f2fs-tools/lib/nls_utf8.c")
+    list(APPEND F2FS_NLS_UTF8_SOURCE "${SRC}/f2fs-tools/lib/nls_utf8.c")
+endif()
+
 add_executable(make_f2fs 
     ${SRC}/f2fs-tools/lib/libf2fs.c
     ${SRC}/f2fs-tools/mkfs/f2fs_format.c
     ${SRC}/f2fs-tools/mkfs/f2fs_format_utils.c
     ${SRC}/f2fs-tools/lib/libf2fs_zoned.c
-    ${SRC}/f2fs-tools/lib/nls_utf8.c
+    ${F2FS_NLS_UTF8_SOURCE}
     ${SRC}/f2fs-tools/lib/libf2fs_io.c
     ${SRC}/f2fs-tools/mkfs/f2fs_format_main.c
     )
@@ -57,7 +62,7 @@ add_executable(make_f2fs_casefold
     ${SRC}/f2fs-tools/mkfs/f2fs_format.c
     ${SRC}/f2fs-tools/mkfs/f2fs_format_utils.c
     ${SRC}/f2fs-tools/lib/libf2fs_zoned.c
-    ${SRC}/f2fs-tools/lib/nls_utf8.c
+    ${F2FS_NLS_UTF8_SOURCE}
     ${SRC}/f2fs-tools/lib/libf2fs_io.c
     ${SRC}/f2fs-tools/mkfs/f2fs_format_main.c
     )
@@ -89,7 +94,7 @@ add_executable(sload_f2fs
     ${SRC}/f2fs-tools/lib/libf2fs.c
     ${SRC}/f2fs-tools/lib/libf2fs_io.c
     ${SRC}/f2fs-tools/lib/libf2fs_zoned.c
-    ${SRC}/f2fs-tools/lib/nls_utf8.c
+    ${F2FS_NLS_UTF8_SOURCE}
     ${SRC}/f2fs-tools/fsck/dump.c
     ${SRC}/f2fs-tools/fsck/fsck.c
     ${SRC}/f2fs-tools/fsck/sload.c
