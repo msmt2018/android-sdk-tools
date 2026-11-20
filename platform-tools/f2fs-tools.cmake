@@ -79,6 +79,11 @@ target_link_libraries(make_f2fs_casefold
     sdk_system_libs
     )
 
+set(F2FS_COMPRESS_SOURCE)
+if(EXISTS "${SRC}/f2fs-tools/fsck/compress.c")
+    list(APPEND F2FS_COMPRESS_SOURCE "${SRC}/f2fs-tools/fsck/compress.c")
+endif()
+
 add_executable(sload_f2fs
     ${SRC}/f2fs-tools/fsck/dir.c
     ${SRC}/f2fs-tools/fsck/dict.c
@@ -98,7 +103,7 @@ add_executable(sload_f2fs
     ${SRC}/f2fs-tools/fsck/dump.c
     ${SRC}/f2fs-tools/fsck/fsck.c
     ${SRC}/f2fs-tools/fsck/sload.c
-    ${SRC}/f2fs-tools/fsck/compress.c
+    ${F2FS_COMPRESS_SOURCE}
     )
 target_compile_definitions(sload_f2fs PRIVATE 
     -DWITH_SLOAD
