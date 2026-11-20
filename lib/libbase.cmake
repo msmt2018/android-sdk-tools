@@ -55,3 +55,8 @@ target_include_directories(libbase PRIVATE
     ${SRC}/fmtlib/include 
     ${SRC}/logging/liblog/include
     )
+# fdsan functions are weak imports; expose their API-29 declarations while
+# preserving the Android 24 target triple and runtime fallback on older devices.
+if(ANDROID)
+    target_compile_options(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29)
+endif()
