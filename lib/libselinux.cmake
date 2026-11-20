@@ -38,6 +38,11 @@ if(EXISTS "${SRC}/selinux/src/android.c")
 endif()
 
 add_library(libselinux STATIC
+set(LIBSELINUX_REJECT_UNKNOWN_SOURCE)
+if(EXISTS "${SRC}/selinux/libselinux/src/reject_unknown.c")
+    list(APPEND LIBSELINUX_REJECT_UNKNOWN_SOURCE "${SRC}/selinux/libselinux/src/reject_unknown.c")
+endif()
+
     ${SRC}/selinux/libselinux/src/android/android.c
     ${LIBSELINUX_ANDROID_COMPAT_SOURCE}
     ${LIBSELINUX_ANDROID_SEAPP_SOURCE}
@@ -76,7 +81,7 @@ add_library(libselinux STATIC
     ${SRC}/selinux/libselinux/src/policyvers.c
     ${SRC}/selinux/libselinux/src/procattr.c
     ${SRC}/selinux/libselinux/src/regex.c
-    ${SRC}/selinux/libselinux/src/reject_unknown.c
+    ${LIBSELINUX_REJECT_UNKNOWN_SOURCE}
     ${LIBSELINUX_INTERNAL_SOURCE}
     ${LIBSELINUX_HASHTAB_SOURCE}
     ${SRC}/selinux/libselinux/src/sestatus.c
