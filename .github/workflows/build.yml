@@ -171,6 +171,9 @@ jobs:
           python3 get_source.py --tags "${{ needs.prepare.outputs.source-tag }}"
           python3 build.py --protoc-only --protoc-output host-tools/protoc
 
+      - name: Normalize release-specific CMake source lists
+        run: python3 get_source.py --normalize-optional-sources-only
+
       - name: Setup NDK
         id: ndk
         if: env.TOOLCHAIN == 'ndk'
