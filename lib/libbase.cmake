@@ -24,12 +24,12 @@ if(EXISTS "${SRC}/libbase/posix_strerror_r.cpp")
     list(APPEND LIBBASE_POSIX_STRERROR_SOURCE "${SRC}/libbase/posix_strerror_r.cpp")
 endif()
 
-add_library(libbase STATIC
 set(LIBBASE_ABI_COMPATIBILITY_SOURCE)
 if(EXISTS "${SRC}/libbase/abi_compatibility.cpp")
     list(APPEND LIBBASE_ABI_COMPATIBILITY_SOURCE "${SRC}/libbase/abi_compatibility.cpp")
 endif()
 
+add_library(libbase STATIC
     ${LIBBASE_ABI_COMPATIBILITY_SOURCE}
     ${SRC}/libbase/chrono_utils.cpp
     ${SRC}/libbase/cmsg.cpp
