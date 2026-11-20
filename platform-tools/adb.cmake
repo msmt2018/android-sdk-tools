@@ -213,16 +213,21 @@ append_existing_sources(ADB_CRYPTO_SOURCES
     ${SRC}/adb/crypto/rsa_2048_key.cpp
     ${SRC}/adb/crypto/x509_generator.cpp
 )
-add_library(libadb_crypto STATIC ${ADB_CRYPTO_SOURCES} ${ADB_PROTO_HDRS})
-target_include_directories(libadb_crypto PRIVATE
-    ${SRC}/adb
-    ${SRC}/adb/crypto/include
-    ${SRC}/adb/proto
-    ${SRC}/boringssl/include
-    ${SRC}/core/libcrypto_utils/include
-    ${SRC}/libbase/include
-    ${SRC}/protobuf/src
+if(ADB_CRYPTO_SOURCES)
+    add_library(libadb_crypto STATIC ${ADB_CRYPTO_SOURCES} ${ADB_PROTO_HDRS})
+    target_include_directories(libadb_crypto PRIVATE
+        ${SRC}/adb
+        ${SRC}/adb/crypto/include
+        ${SRC}/adb/proto
+        ${SRC}/boringssl/include
+        ${SRC}/core/libcrypto_utils/include
+        ${SRC}/libbase/include
+        ${SRC}/protobuf/src
     )
+else()
+    # Some older ADB snapshots provide no separate crypto translation units.
+    add_library(libadb_crypto INTERFACE)
+endif()
 
 if(EXISTS "${SRC}/adb/tls/tls_connection.cpp")
     add_library(libadb_tls_connection STATIC
