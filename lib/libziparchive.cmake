@@ -24,12 +24,17 @@ if(EXISTS "${SRC}/libziparchive/zip_cd_entry_map.cc")
     list(APPEND LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE "${SRC}/libziparchive/zip_cd_entry_map.cc")
 endif()
 
+set(LIBZIPARCHIVE_ZIP_ERROR_SOURCE)
+if(EXISTS "${SRC}/libziparchive/zip_error.cpp")
+    list(APPEND LIBZIPARCHIVE_ZIP_ERROR_SOURCE "${SRC}/libziparchive/zip_error.cpp")
+endif()
+
 add_library(libziparchive STATIC
     ${SRC}/libziparchive/zip_archive.cc
     ${SRC}/libziparchive/zip_archive_stream_entry.cc
     ${LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE}
     ${SRC}/libziparchive/zip_writer.cc
-    ${SRC}/libziparchive/zip_error.cpp
+    ${LIBZIPARCHIVE_ZIP_ERROR_SOURCE}
     ${LIBZIPARCHIVE_SIGNAL_HANDLING_SOURCE}
     )
 
