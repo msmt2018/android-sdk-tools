@@ -56,9 +56,12 @@ set(AIDL_LEGACY_COMMON_SOURCES
     ${FLEX_LangScanner_OUTPUTS}
 )
 
+# Build only AIDL implementation files present in the pinned release checkout.
+file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")
 add_executable(aidl
-    ${AIDL_LEGACY_COMMON_SOURCES}
-    ${SRC}/aidl/main_java.cpp
+    ${AIDL_CPP_SOURCES}
+    ${BISON_LangParser_OUTPUTS}
+    ${FLEX_LangScanner_OUTPUTS}
 )
 target_include_directories(aidl PRIVATE
     ${SRC}/libbase/include
