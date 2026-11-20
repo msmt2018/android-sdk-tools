@@ -978,23 +978,63 @@ def run_compat_if_present(relative_path, function):
 
 
 def create_legacy_source_aliases():
-    # Android 9/10 kept several libraries inside system/core. Later releases
-    # split them into independent AOSP projects. Reuse the exact manifest-pinned
-    # source tree through symlinks; do not substitute a newer library revision.
+    # Reconcile split and pre-split AOSP layouts from the exact manifest-pinned
+    # snapshot. Existing files always win; only missing paths are linked from
+    # the same release's historical system/core or ART directories.
     aliases = {
         'src/adb': 'src/core/adb',
         'src/libbase': 'src/core/base',
         'src/libziparchive': 'src/core/libziparchive',
         'src/unwinding/libbacktrace': 'src/core/libbacktrace',
         'src/logging/liblog': 'src/core/liblog',
+        'src/art/libartbase/base': 'src/art/runtime/base',
     }
     for destination, source in aliases.items():
         dst = ROOT / destination
         src = ROOT / source
-        if not dst.exists() and src.is_dir():
+        if not src.is_dir():
+            continue
+        if not dst.exists() and not dst.is_symlink():
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.symlink_to(src, target_is_directory=True)
             print('legacy AOSP layout: {} -> {}'.format(destination, source), flush=True)
+            continue
+        if dst.is_symlink():
+            try:
+                if dst.resolve() == src.resolve():
+                    continue
+            except FileNotFoundError:
+                pass
+        if not dst.is_dir():
+            continue
+        linked = 0
+        for candidate in src.rglob('*'):
+            relative = candidate.relative_to(src)
+            target = dst / relative
+            if candidate.is_dir():
+                if not target.exists() and not target.is_symlink():
+                    target.mkdir(parents=True, exist_ok=True)
+            elif candidate.is_file():
+                if target.exists() or target.is_symlink():
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.symlink_to(candidate.resolve())
+                linked += 1
+        if linked:
+            print('legacy AOSP layout: merged {} missing file(s) from {}'.format(
+                linked, source), flush=True)
+
+    legacy_files = {
+        'src/art/libdexfile/dex/type_lookup_table.cc': 'src/art/runtime/type_lookup_table.cc',
+        'src/art/libdexfile/dex/type_lookup_table.h': 'src/art/runtime/type_lookup_table.h',
+    }
+    for destination, source in legacy_files.items():
+        dst = ROOT / destination
+        src = ROOT / source
+        if src.is_file() and not dst.exists() and not dst.is_symlink():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.symlink_to(src.resolve())
+            print('legacy ART layout: {} -> {}'.format(destination, source), flush=True)
 
 
 def normalize_optional_release_sources():
@@ -1009,28 +1049,36 @@ def normalize_optional_release_sources():
             ('${SRC}/libbase/cmsg.cpp', 'LIBBASE_CMSG_SOURCE'),
             ('${SRC}/libbase/parsebool.cpp', 'LIBBASE_PARSEBOOL_SOURCE'),
             ('${SRC}/libbase/mapped_file.cpp', 'LIBBASE_MAPPED_FILE_SOURCE'),
+            ('${SRC}/libbase/threads.cpp', 'LIBBASE_THREADS_SOURCE'),
         ],
         'lib/liblog.cmake': [
             ('${SRC}/logging/liblog/log_event_write.cpp', 'LIBLOG_EVENT_WRITE_SOURCE'),
             ('${SRC}/logging/liblog/logger_name.cpp', 'LIBLOG_LOGGER_NAME_SOURCE'),
+            ('${SRC}/logging/liblog/logger_write.cpp', 'LIBLOG_LOGGER_WRITE_SOURCE'),
         ],
         'lib/libandroidfw.cmake': [
             ('${SRC}/base/libs/androidfw/ConfigDescription.cpp', 'ANDROIDFW_CONFIG_DESCRIPTION_SOURCE'),
             ('${SRC}/base/libs/androidfw/Idmap.cpp', 'ANDROIDFW_IDMAP_SOURCE'),
+            ('${SRC}/base/libs/androidfw/PosixUtils.cpp', 'ANDROIDFW_POSIX_UTILS_SOURCE'),
         ],
         'lib/libziparchive.cmake': [
             ('${SRC}/libziparchive/zip_error.cpp', 'LIBZIPARCHIVE_ZIP_ERROR_SOURCE'),
             ('${SRC}/libziparchive/zip_cd_entry_map.cc', 'LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE'),
         ],
+        'lib/libsparse.cmake': [
+            ('${SRC}/core/libsparse/output_file.cpp', 'LIBSPARSE_OUTPUT_FILE_SOURCE'),
+        ],
         'lib/libprocessgroup.cmake': [
             ('${SRC}/core/libprocessgroup/sched_policy.cpp', 'LIBPROCESSGROUP_SCHED_POLICY_SOURCE'),
             ('${SRC}/core/libprocessgroup/task_profiles.cpp', 'LIBPROCESSGROUP_TASK_PROFILES_SOURCE'),
+            ('${SRC}/core/libprocessgroup/cgrouprc/cgroup_controller.cpp', 'LIBPROCESSGROUP_LEGACY_CGROUP_CONTROLLER_SOURCE'),
         ],
         'lib/libprotoc.cmake': [
             ('${SRC}/protobuf/src/google/protobuf/generated_message_table_driven_lite.cc', 'PROTOBUF_GENERATED_MESSAGE_TABLE_DRIVEN_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/implicit_weak_message.cc', 'PROTOBUF_IMPLICIT_WEAK_MESSAGE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
             ('${SRC}/protobuf/src/google/protobuf/generated_enum_util.cc', 'PROTOBUF_GENERATED_ENUM_UTIL_SOURCE'),
+            ('${SRC}/protobuf/src/google/protobuf/io/io_win32.cc', 'PROTOBUF_IO_WIN32_SOURCE'),
         ],
         'build-tools/aidl.cmake': [
             ('${SRC}/aidl/aidl_checkapi.cpp', 'AIDL_CHECKAPI_SOURCE'),
@@ -1042,6 +1090,9 @@ def normalize_optional_release_sources():
             ('${SRC}/art/libartpalette/apex/palette.cc', 'ART_PALETTE_APEX_SOURCE'),
             ('${SRC}/art/libartpalette/system/palette_fake.cc', 'ART_PALETTE_FAKE_SOURCE'),
             ('${SRC}/art/libdexfile/dex/signature.cc', 'ART_DEX_SIGNATURE_SOURCE'),
+            ('${SRC}/art/libartbase/base/arena_allocator.cc', 'ART_ARENA_ALLOCATOR_SOURCE'),
+            ('${SRC}/art/libartbase/base/globals_unix.cc', 'ART_GLOBALS_UNIX_SOURCE'),
+            ('${SRC}/art/libdexfile/dex/type_lookup_table.cc', 'ART_TYPE_LOOKUP_TABLE_SOURCE'),
         ],
         'platform-tools/e2fsprogs.cmake': [
             ('${SRC}/e2fsprogs/lib/e2p/encoding.c', 'E2FSPROGS_ENCODING_SOURCE'),
@@ -1211,6 +1262,121 @@ def patches():
     run_compat_if_present('src/base/tools/aapt2/io/Util.h', ensure_aapt2_protobuf_limit_compat)
 
 
+def normalize_release_cmake_targets():
+    """Apply narrowly scoped CMake compatibility for older official snapshots."""
+    base_cmake = ROOT / 'lib/libbase.cmake'
+    if base_cmake.is_file():
+        text = base_cmake.read_text()
+        text = re.sub(
+            r'\n?# fdsan is introduced.*?target_compile_options\(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29\)\s*endif\(\)\s*',
+            '\n', text, flags=re.S)
+        text = re.sub(
+            r'\n?if\(ANDROID\)\s*target_compile_options\(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29\)\s*endif\(\)\s*',
+            '\n', text)
+        marker = '# SDK_API24_LIBBASE_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                '# Keep the API-24 runtime baseline. fdsan is guarded by the target API in unique_fd.h.\n'
+                '# C++17 avoids libc++20 locale wrappers unavailable before API 26; disabling\n'
+                '# fortify for this header-heavy target avoids __sendto_chk (also API 26+).\n'
+                'if(ANDROID)\n'
+                '    set_property(TARGET libbase PROPERTY CXX_STANDARD 17)\n'
+                '    target_compile_options(libbase PRIVATE -U_FORTIFY_SOURCE)\n'
+                'endif()\n'
+            )
+        base_cmake.write_text(text)
+
+    for relative in (
+        'src/libbase/include/android-base/unique_fd.h',
+        'src/core/base/include/android-base/unique_fd.h',
+    ):
+        path = ROOT / relative
+        if not path.is_file():
+            continue
+        text = path.read_text()
+        text = re.sub(
+            r'#if defined\(__BIONIC__\)(?!\s*&&)',
+            '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29',
+            text)
+        path.write_text(text)
+
+    root_cmake = ROOT / 'CMakeLists.txt'
+    if root_cmake.is_file():
+        text = root_cmake.read_text()
+        marker = '# SDK_GTEST_DEPRECATED_COPY_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                '# Older AOSP GoogleTest snapshots trigger Clang deprecated-copy under -Werror.\n'
+                'foreach(_sdk_gtest_target IN ITEMS gmock gmock_main)\n'
+                '    if(TARGET ${_sdk_gtest_target})\n'
+                '        target_compile_options(${_sdk_gtest_target} PRIVATE -Wno-error=deprecated-copy)\n'
+                '    endif()\n'
+                'endforeach()\n'
+            )
+        root_cmake.write_text(text)
+
+    fastboot_cmake = ROOT / 'platform-tools/fastboot.cmake'
+    if fastboot_cmake.is_file():
+        text = fastboot_cmake.read_text()
+        marker = 'set(FASTBOOT_EXT4_SOURCES)'
+        if marker not in text:
+            text, count = re.subn(
+                r'add_library\(libext4 STATIC\s+.*?\)\s*target_include_directories\(libext4 PRIVATE\s+.*?\)\s*',
+                (
+                    'set(FASTBOOT_EXT4_SOURCES)\n'
+                    'foreach(_sdk_ext4_source IN ITEMS ext4_utils.cpp wipe.cpp ext4_sb.cpp)\n'
+                    '    foreach(_sdk_ext4_dir IN ITEMS "${SRC}/extras/ext4_utils" "${SRC}/core/fs_mgr/libext4_utils")\n'
+                    '        if(EXISTS "${_sdk_ext4_dir}/${_sdk_ext4_source}")\n'
+                    '            list(APPEND FASTBOOT_EXT4_SOURCES "${_sdk_ext4_dir}/${_sdk_ext4_source}")\n'
+                    '            break()\n'
+                    '        endif()\n'
+                    '    endforeach()\n'
+                    'endforeach()\n'
+                    'if(FASTBOOT_EXT4_SOURCES)\n'
+                    '    add_library(libext4 STATIC ${FASTBOOT_EXT4_SOURCES})\n'
+                    '    target_include_directories(libext4 PRIVATE\n'
+                    '        ${SRC}/core/libsparse/include\n'
+                    '        ${SRC}/core/include\n'
+                    '        ${SRC}/selinux/libselinux/include\n'
+                    '        ${SRC}/extras/ext4_utils/include\n'
+                    '        ${SRC}/core/fs_mgr/libext4_utils/include\n'
+                    '        ${SRC}/libbase/include\n'
+                    '    )\n'
+                    'else()\n'
+                    '    # This release snapshot has no standalone ext4_utils sources.\n'
+                    '    add_library(libext4 INTERFACE)\n'
+                    'endif()\n\n'
+                ),
+                text, count=1, flags=re.S)
+            if count:
+                fastboot_cmake.write_text(text)
+
+    dexdump_cmake = ROOT / 'build-tools/dexdump.cmake'
+    if dexdump_cmake.is_file():
+        text = dexdump_cmake.read_text()
+        if '${SRC}/art/runtime' not in text:
+            text = text.replace('set(INCLUDES\n', 'set(INCLUDES\n    ${SRC}/art/runtime\n', 1)
+        marker = 'if(ART_PALETTE_APEX_SOURCE OR ART_PALETTE_FAKE_SOURCE)'
+        if marker not in text:
+            text, count = re.subn(
+                r'add_library\(libartpalette STATIC\s+.*?\)\s*target_include_directories\(libartpalette PRIVATE \$\{INCLUDES\}\)\s*',
+                (
+                    'if(ART_PALETTE_APEX_SOURCE OR ART_PALETTE_FAKE_SOURCE)\n'
+                    '    add_library(libartpalette STATIC\n'
+                    '        ${ART_PALETTE_APEX_SOURCE}\n'
+                    '        ${ART_PALETTE_FAKE_SOURCE}\n'
+                    '    )\n'
+                    '    target_include_directories(libartpalette PRIVATE ${INCLUDES})\n'
+                    'else()\n'
+                    '    add_library(libartpalette INTERFACE)\n'
+                    '    target_include_directories(libartpalette INTERFACE ${INCLUDES})\n'
+                    'endif()\n'
+                ),
+                text, count=1, flags=re.S)
+        dexdump_cmake.write_text(text)
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -1226,6 +1392,7 @@ def main():
     if args.normalize_optional_sources_only:
         create_legacy_source_aliases()
         normalize_optional_release_sources()
+        normalize_release_cmake_targets()
         return
 
     # check necessary packages
@@ -1252,6 +1419,7 @@ def main():
     if not args.skip_patch:
         patches()
 
+    normalize_release_cmake_targets()
     print('download success!!')
 
 
