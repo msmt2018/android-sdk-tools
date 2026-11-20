@@ -226,6 +226,10 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/abseil-cpp/CMakeLists.txt")
 else()
     message(STATUS "Abseil: not part of this historical AOSP manifest; skipping")
 endif()
+# Restore the SDK source root: some historical third-party CMake projects
+# reuse the generic SRC variable while exporting targets to the parent scope.
+set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/protobuf/CMakeLists.txt")
     # Newer AOSP protobuf revisions provide their own CMake project.
     add_subdirectory(src/protobuf EXCLUDE_FROM_ALL)
@@ -239,6 +243,10 @@ if(NOT TARGET gtest)
     add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(src/tinyxml2 EXCLUDE_FROM_ALL)
+
+# Do not let third-party CMake variables redirect the version-pinned AOSP tree.
+set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
 
 # building sdk-tools
 add_subdirectory(lib)
