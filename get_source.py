@@ -1060,6 +1060,36 @@ def normalize_optional_release_sources():
         ],
     }
 
+    # Some legacy Google zlib snapshots keep their C files below a
+    # subdirectory. Preserve the exact checked-out files and expose them at
+    # the path expected by the shared CMake target.
+    zlib_root = ROOT / 'src/zlib'
+    if zlib_root.is_dir():
+        for filename in (
+            'adler32.c', 'compress.c', 'crc32.c', 'deflate.c',
+            'gzclose.c', 'gzlib.c', 'gzread.c', 'gzwrite.c',
+            'infback.c', 'inffast.c', 'inflate.c', 'inftrees.c',
+            'trees.c', 'uncompr.c', 'zutil.c',
+        ):
+            destination = zlib_root / filename
+            if destination.exists():
+                continue
+            matches = [
+                candidate for candidate in zlib_root.rglob(filename)
+                if candidate.is_file() and candidate != destination
+            ]
+            if len(matches) == 1:
+                destination.symlink_to(matches[0])
+                print('legacy zlib layout: {} -> {}'.format(
+                    destination.relative_to(ROOT), matches[0].relative_to(ROOT)
+                ), flush=True)
+        zlib_sources = sorted(
+            candidate.relative_to(zlib_root).as_posix()
+            for candidate in zlib_root.rglob('*.c')
+            if candidate.is_file()
+        )
+        print('zlib C source inventory: {}'.format(', '.join(zlib_sources)), flush=True)
+
     for relative_path, entries in optional_sources.items():
         cmake_file = ROOT / relative_path
         if not cmake_file.is_file():
