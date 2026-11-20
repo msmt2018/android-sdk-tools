@@ -130,82 +130,23 @@ if(EXISTS "${SRC}/base/tools/aapt2/ValueTransformer.cpp")
     list(APPEND AAPT2_VALUE_TRANSFORMER_SOURCE "${SRC}/base/tools/aapt2/ValueTransformer.cpp")
 endif()
 
-add_library(libaapt2 STATIC
-    ${SRC}/base/tools/aapt2/compile/IdAssigner.cpp
-    ${SRC}/base/tools/aapt2/compile/InlineXmlFormatParser.cpp
-    ${SRC}/base/tools/aapt2/compile/NinePatch.cpp
-    ${SRC}/base/tools/aapt2/compile/Png.cpp
-    ${SRC}/base/tools/aapt2/compile/PngChunkFilter.cpp
-    ${SRC}/base/tools/aapt2/compile/PngCrunch.cpp
-    ${SRC}/base/tools/aapt2/compile/PseudolocaleGenerator.cpp
-    ${SRC}/base/tools/aapt2/compile/Pseudolocalizer.cpp
-    ${SRC}/base/tools/aapt2/compile/XmlIdCollector.cpp
-    ${SRC}/base/tools/aapt2/configuration/ConfigurationParser.cpp
-    ${SRC}/base/tools/aapt2/dump/DumpManifest.cpp
-    ${SRC}/base/tools/aapt2/filter/AbiFilter.cpp
-    ${SRC}/base/tools/aapt2/filter/ConfigFilter.cpp
-    ${SRC}/base/tools/aapt2/format/Archive.cpp
-    ${SRC}/base/tools/aapt2/format/Container.cpp
-    ${SRC}/base/tools/aapt2/format/binary/BinaryResourceParser.cpp
-    ${SRC}/base/tools/aapt2/format/binary/ResChunkPullParser.cpp
-    ${SRC}/base/tools/aapt2/format/binary/TableFlattener.cpp
-    ${SRC}/base/tools/aapt2/format/binary/XmlFlattener.cpp
-    ${SRC}/base/tools/aapt2/format/proto/ProtoDeserialize.cpp
-    ${SRC}/base/tools/aapt2/format/proto/ProtoSerialize.cpp
-    ${SRC}/base/tools/aapt2/io/BigBufferStream.cpp
-    ${SRC}/base/tools/aapt2/io/File.cpp
-    ${SRC}/base/tools/aapt2/io/FileStream.cpp
-    ${SRC}/base/tools/aapt2/io/FileSystem.cpp
-    ${SRC}/base/tools/aapt2/io/StringStream.cpp
-    ${SRC}/base/tools/aapt2/io/Util.cpp
-    ${SRC}/base/tools/aapt2/io/ZipArchive.cpp
-    ${SRC}/base/tools/aapt2/link/AutoVersioner.cpp
-    ${SRC}/base/tools/aapt2/link/ManifestFixer.cpp
-    ${SRC}/base/tools/aapt2/link/NoDefaultResourceRemover.cpp
-    ${SRC}/base/tools/aapt2/link/ProductFilter.cpp
-    ${SRC}/base/tools/aapt2/link/PrivateAttributeMover.cpp
-    ${SRC}/base/tools/aapt2/link/ReferenceLinker.cpp
-    ${SRC}/base/tools/aapt2/link/ResourceExcluder.cpp
-    ${SRC}/base/tools/aapt2/link/TableMerger.cpp
-    ${SRC}/base/tools/aapt2/link/XmlCompatVersioner.cpp
-    ${SRC}/base/tools/aapt2/link/XmlNamespaceRemover.cpp
-    ${SRC}/base/tools/aapt2/link/XmlReferenceLinker.cpp
-    ${SRC}/base/tools/aapt2/optimize/MultiApkGenerator.cpp
-    ${SRC}/base/tools/aapt2/optimize/ResourceDeduper.cpp
-    ${SRC}/base/tools/aapt2/optimize/ResourceFilter.cpp
-    ${SRC}/base/tools/aapt2/optimize/ResourcePathShortener.cpp
-    ${SRC}/base/tools/aapt2/optimize/VersionCollapser.cpp
-    ${SRC}/base/tools/aapt2/process/SymbolTable.cpp
-    ${SRC}/base/tools/aapt2/split/TableSplitter.cpp
-    ${SRC}/base/tools/aapt2/text/Printer.cpp
-    ${SRC}/base/tools/aapt2/text/Unicode.cpp
-    ${SRC}/base/tools/aapt2/text/Utf8Iterator.cpp
-    ${SRC}/base/tools/aapt2/util/BigBuffer.cpp
-    ${SRC}/base/tools/aapt2/util/Files.cpp
-    ${SRC}/base/tools/aapt2/util/Util.cpp
-    ${SRC}/base/tools/aapt2/Debug.cpp
-    ${SRC}/base/tools/aapt2/DominatorTree.cpp
-    ${SRC}/base/tools/aapt2/java/AnnotationProcessor.cpp
-    ${SRC}/base/tools/aapt2/java/ClassDefinition.cpp
-    ${SRC}/base/tools/aapt2/java/JavaClassGenerator.cpp
-    ${SRC}/base/tools/aapt2/java/ManifestClassGenerator.cpp
-    ${SRC}/base/tools/aapt2/java/ProguardRules.cpp
-    ${SRC}/base/tools/aapt2/LoadedApk.cpp
-    ${SRC}/base/tools/aapt2/Resource.cpp
-    ${SRC}/base/tools/aapt2/ResourceParser.cpp
-    ${SRC}/base/tools/aapt2/ResourceTable.cpp
-    ${SRC}/base/tools/aapt2/ResourceUtils.cpp
-    ${SRC}/base/tools/aapt2/ResourceValues.cpp
-    ${SRC}/base/tools/aapt2/SdkConstants.cpp
-    ${SRC}/base/tools/aapt2/StringPool.cpp
-    ${SRC}/base/tools/aapt2/trace/TraceBuffer.cpp
-    ${SRC}/base/tools/aapt2/xml/XmlActionExecutor.cpp
-    ${SRC}/base/tools/aapt2/xml/XmlDom.cpp
-    ${SRC}/base/tools/aapt2/xml/XmlPullParser.cpp
-    ${SRC}/base/tools/aapt2/xml/XmlUtil.cpp
-    ${AAPT2_VALUE_TRANSFORMER_SOURCE}
-    ${AAPT2_PROTO_SRC}
-    )
+# Build against the source files actually present in this release tag.
+# AAPT2's source layout changed substantially between Android P and later
+# releases, so a fixed list copied from a newer tag is not valid here.
+file(GLOB_RECURSE AAPT2_ALL_CPP CONFIGURE_DEPENDS
+    "${SRC}/base/tools/aapt2/*.cpp")
+list(FILTER AAPT2_ALL_CPP EXCLUDE REGEX "/(test|tests|integration-tests)/")
+set(AAPT2_MAIN_SOURCE "${SRC}/base/tools/aapt2/Main.cpp")
+if(NOT EXISTS "${AAPT2_MAIN_SOURCE}")
+    message(FATAL_ERROR "AAPT2 Main.cpp is missing from the selected Google source tag")
+endif()
+list(REMOVE_ITEM AAPT2_ALL_CPP "${AAPT2_MAIN_SOURCE}")
+if(NOT AAPT2_ALL_CPP)
+    message(FATAL_ERROR "No AAPT2 implementation sources found in the selected Google source tag")
+endif()
+set(AAPT2_LIBRARY_SOURCES ${AAPT2_ALL_CPP} ${AAPT2_PROTO_SRC})
+
+add_library(libaapt2 STATIC ${AAPT2_LIBRARY_SOURCES})
 target_include_directories(libaapt2 PRIVATE ${INCLUDES})
 target_compile_options(libaapt2 PRIVATE ${COMPILE_FLAGS})
 
@@ -219,10 +160,7 @@ target_compile_options(libaapt2 PRIVATE ${COMPILE_FLAGS})
 #target_link_libraries(libaapt2_jni libaapt2)
 
 # build the executable file aapt2
-add_executable(aapt2
-    ${SRC}/base/tools/aapt2/Main.cpp
-    ${TOOL_SOURCE}
-    )
+add_executable(aapt2 ${AAPT2_MAIN_SOURCE})
 target_include_directories(aapt2 PRIVATE ${INCLUDES})
 target_compile_options(aapt2 PRIVATE ${COMPILE_FLAGS})
 target_link_libraries(aapt2
