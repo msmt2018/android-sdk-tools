@@ -252,13 +252,18 @@ if(EXISTS "${SRC}/adb/pairing_auth/pairing_auth.cpp")
         ${SRC}/boringssl/include ${SRC}/protobuf/src)
 endif()
 
-add_library(libadb_sysdeps STATIC
-    ${SRC}/adb/sysdeps/env.cpp
+if(EXISTS "${SRC}/adb/sysdeps/env.cpp")
+    add_library(libadb_sysdeps STATIC "${SRC}/adb/sysdeps/env.cpp")
+    target_include_directories(libadb_sysdeps PRIVATE
+        ${SRC}/libbase/include
+        ${SRC}/adb
     )
-target_include_directories(libadb_sysdeps PRIVATE
-    ${SRC}/libbase/include
-    ${SRC}/adb
-    )
+else()
+    # This historical ADB snapshot has no separate env.cpp translation unit.
+    # Keep the link target for the shared target-link list; its implementation
+    # is supplied by the release's existing sysdeps sources.
+    add_library(libadb_sysdeps INTERFACE)
+endif()
 
 if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
     add_library(libfastdeploy STATIC
@@ -272,13 +277,18 @@ if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
         ${SRC}/boringssl/include)
 endif()
 
-add_library(libcrypto STATIC
-    ${SRC}/core/libcrypto_utils/android_pubkey.cpp
+if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+    target_include_directories(libcrypto PRIVATE
+        ${SRC}/core/libcrypto_utils/include
+        ${SRC}/boringssl/include
     )
-target_include_directories(libcrypto PRIVATE
-    ${SRC}/core/libcrypto_utils/include 
-    ${SRC}/boringssl/include
-    )
+else()
+    # Older platform-tools snapshots do not ship android_pubkey.cpp as a
+    # separate libcrypto_utils source. Keep the target interface available;
+    # BoringSSL remains the crypto implementation linked below.
+    add_library(libcrypto INTERFACE)
+endif()
 
 append_existing_sources(ADB_EXECUTABLE_SOURCES
     ${SRC}/adb/client/adb_client.cpp
