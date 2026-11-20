@@ -96,47 +96,13 @@ if(EXISTS "${SRC}/aidl/diagnostics.cpp")
     list(APPEND AIDL_DIAGNOSTICS_SOURCE "${SRC}/aidl/diagnostics.cpp")
 endif()
 
+# Build only AIDL implementation files present in the pinned release checkout.
+file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")
 add_executable(aidl
-    ${SRC}/aidl/aidl_checkapi.cpp
-    ${SRC}/aidl/aidl_const_expressions.cpp
-    ${AIDL_DUMPAPI_SOURCE}
-    ${SRC}/aidl/aidl_language_l.ll
-    ${SRC}/aidl/aidl_language_y.yy
-    ${SRC}/aidl/aidl_language.cpp
-    ${AIDL_TO_COMMON_SRC}
-    ${SRC}/aidl/aidl_to_cpp_common.cpp
-    ${SRC}/aidl/aidl_to_cpp.cpp
-    ${SRC}/aidl/aidl_to_java.cpp
-    ${SRC}/aidl/aidl_to_ndk.cpp
-    ${AIDL_TO_RUST_SOURCE}
-    ${SRC}/aidl/aidl_typenames.cpp
-    ${SRC}/aidl/aidl.cpp
-    ${SRC}/aidl/ast_java.cpp
-    ${AIDL_CPP_AST_SOURCE}
-    ${AIDL_CHECK_VALID_SOURCE}
-    ${SRC}/aidl/code_writer.cpp
-    ${AIDL_COMMENTS_SOURCE}
-    ${AIDL_DIAGNOSTICS_SOURCE}
-    ${SRC}/aidl/generate_aidl_mappings.cpp
-    ${SRC}/aidl/generate_cpp.cpp
-    ${AIDL_CPP_ANALYZER_SOURCE}
-    ${SRC}/aidl/generate_java_binder.cpp
-    ${SRC}/aidl/generate_java.cpp
-    ${SRC}/aidl/generate_ndk.cpp
-    ${SRC}/aidl/generate_rust.cpp
-    ${SRC}/aidl/import_resolver.cpp
-    ${SRC}/aidl/io_delegate.cpp
-    ${AIDL_LINE_READER_SOURCE}
-    ${SRC}/aidl/location.cpp
-    ${SRC}/aidl/logging.cpp
-    ${SRC}/aidl/options.cpp
-    ${SRC}/aidl/parser.cpp
-    ${AIDL_PERMISSION_SOURCE}
-    ${AIDL_PREPROCESS_SOURCE}
-    ${SRC}/aidl/main.cpp
+    ${AIDL_CPP_SOURCES}
     ${BISON_LangParser_OUTPUTS}
     ${FLEX_LangScanner_OUTPUTS}
-    )
+)
     
 target_include_directories(aidl PRIVATE
     ${SRC}/libbase/include
