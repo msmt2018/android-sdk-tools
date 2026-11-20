@@ -1494,10 +1494,82 @@ static bool sdk_system_property_wait(
                 source_text += (
                     '\n# SDK_OPTIONAL_FMT_TARGET_COMPAT\n'
                     'if(TARGET fmt::fmt)\n'
-                    '    target_link_libraries(veridex PRIVATE fmt::fmt)\n'
+                    '    target_link_libraries(veridex fmt::fmt)\n'
                     'endif()\n'
                 )
             veridex_cmake.write_text(source_text)
+
+
+    # SDK_ZLIB_PRIVATE_HEADERS_COMPAT
+    # zlib's implementation files include zutil.h from their own source directory.
+    zlib_cmake = ROOT / 'cmake/zlib.cmake'
+    if zlib_cmake.is_file():
+        source_text = zlib_cmake.read_text()
+        public_include = 'target_include_directories(sdk_zlib PUBLIC ' + '$' + '{SDK_ZLIB_INCLUDE_DIR}' + ')'
+        private_include = 'target_include_directories(sdk_zlib PRIVATE ' + '$' + '{SDK_ZLIB_SOURCE_DIR}' + ')'
+        if public_include in source_text and private_include not in source_text:
+            source_text = source_text.replace(
+                public_include, public_include + '\n' + private_include, 1)
+            zlib_cmake.write_text(source_text)
+
+    # AOSP subprojects without their own project() can inherit the root
+    # project name and emit an unbound sdk-toolsTargets install(EXPORT).
+    cmake_files = set(ROOT.rglob('CMakeLists.txt')) | set(ROOT.rglob('*.cmake'))
+    export_tokens = ('sdk-toolsTargets', '$' + '{PROJECT_NAME}Targets')
+    export_pattern = re.compile(
+        r'(?im)^[ \t]*install\s*\(\s*EXPORT\s+(' +
+        re.escape(export_tokens[0]) + '|' + re.escape(export_tokens[1]) + r')\b')
+    for cmake_file in sorted(cmake_files):
+        if any(part in ('.git', 'build', 'host-tools') for part in cmake_file.parts):
+            continue
+        if not cmake_file.is_file():
+            continue
+        source_text = cmake_file.read_text()
+        if 'install(EXPORT' not in source_text:
+            continue
+        changed = False
+        while True:
+            match = export_pattern.search(source_text)
+            if match is None:
+                break
+            export_name = match.group(1)
+            if export_name == export_tokens[1] and re.search(
+                    r'(?im)^[ \t]*project\s*\(', source_text):
+                break
+            command_start = match.start()
+            open_pos = source_text.find('(', command_start)
+            depth = 0
+            in_quote = False
+            escaped = False
+            command_end = None
+            for index in range(open_pos, len(source_text)):
+                char = source_text[index]
+                if char == '"' and not escaped:
+                    in_quote = not in_quote
+                if not in_quote:
+                    if char == '(':
+                        depth += 1
+                    elif char == ')':
+                        depth -= 1
+                        if depth == 0:
+                            command_end = index + 1
+                            break
+                if char == '\\' and not escaped:
+                    escaped = True
+                else:
+                    escaped = False
+            if command_end is None:
+                break
+            source_text = (
+                source_text[:command_start] +
+                '# SDK: removed unbound CMake package export; this build ships binaries only.\n' +
+                source_text[command_end:]
+            )
+            changed = True
+        if changed:
+            cmake_file.write_text(source_text)
+            print('release CMake: removed unbound sdk-toolsTargets export from {}'.format(
+                cmake_file.relative_to(ROOT)), flush=True)
 
     # SDK_FILTER_MISSING_RELEASE_SOURCES
     # The shared CMake lists are newer than some official release snapshots.
