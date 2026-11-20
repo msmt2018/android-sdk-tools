@@ -1009,12 +1009,15 @@ def normalize_optional_release_sources():
         'lib/libbase.cmake': [
             ('${SRC}/libbase/cmsg.cpp', 'LIBBASE_CMSG_SOURCE'),
             ('${SRC}/libbase/parsebool.cpp', 'LIBBASE_PARSEBOOL_SOURCE'),
+            ('${SRC}/libbase/mapped_file.cpp', 'LIBBASE_MAPPED_FILE_SOURCE'),
         ],
         'lib/liblog.cmake': [
             ('${SRC}/logging/liblog/log_event_write.cpp', 'LIBLOG_EVENT_WRITE_SOURCE'),
+            ('${SRC}/logging/liblog/logger_name.cpp', 'LIBLOG_LOGGER_NAME_SOURCE'),
         ],
         'lib/libandroidfw.cmake': [
             ('${SRC}/base/libs/androidfw/ConfigDescription.cpp', 'ANDROIDFW_CONFIG_DESCRIPTION_SOURCE'),
+            ('${SRC}/base/libs/androidfw/Idmap.cpp', 'ANDROIDFW_IDMAP_SOURCE'),
         ],
         'lib/libziparchive.cmake': [
             ('${SRC}/libziparchive/zip_error.cpp', 'LIBZIPARCHIVE_ZIP_ERROR_SOURCE'),
@@ -1022,9 +1025,11 @@ def normalize_optional_release_sources():
         ],
         'lib/libprocessgroup.cmake': [
             ('${SRC}/core/libprocessgroup/sched_policy.cpp', 'LIBPROCESSGROUP_SCHED_POLICY_SOURCE'),
+            ('${SRC}/core/libprocessgroup/task_profiles.cpp', 'LIBPROCESSGROUP_TASK_PROFILES_SOURCE'),
         ],
         'lib/libprotoc.cmake': [
             ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
+            ('${SRC}/protobuf/src/google/protobuf/generated_enum_util.cc', 'PROTOBUF_GENERATED_ENUM_UTIL_SOURCE'),
         ],
         'build-tools/aidl.cmake': [
             ('${SRC}/aidl/aidl_checkapi.cpp', 'AIDL_CHECKAPI_SOURCE'),
@@ -1032,11 +1037,14 @@ def normalize_optional_release_sources():
         ],
         'build-tools/dexdump.cmake': [
             ('${SRC}/art/libartbase/base/membarrier.cc', 'ART_MEMBARRIER_SOURCE'),
+            ('${SRC}/art/libartbase/base/memfd.cc', 'ART_MEMFD_SOURCE'),
             ('${SRC}/art/libartpalette/apex/palette.cc', 'ART_PALETTE_APEX_SOURCE'),
+            ('${SRC}/art/libartpalette/system/palette_fake.cc', 'ART_PALETTE_FAKE_SOURCE'),
             ('${SRC}/art/libdexfile/dex/signature.cc', 'ART_DEX_SIGNATURE_SOURCE'),
         ],
         'platform-tools/e2fsprogs.cmake': [
             ('${SRC}/e2fsprogs/lib/e2p/encoding.c', 'E2FSPROGS_ENCODING_SOURCE'),
+            ('${SRC}/e2fsprogs/lib/e2p/ljs.c', 'E2FSPROGS_LJS_SOURCE'),
             ('${SRC}/e2fsprogs/lib/ext2fs/nls_utf8.c', 'E2FSPROGS_NLS_UTF8_SOURCE'),
         ],
         'platform-tools/f2fs-tools.cmake': [
@@ -1044,6 +1052,7 @@ def normalize_optional_release_sources():
         ],
         'platform-tools/fastboot.cmake': [
             ('${SRC}/extras/ext4_utils/ext4_utils.cpp', 'FASTBOOT_EXT4_UTILS_SOURCE'),
+            ('${SRC}/extras/ext4_utils/wipe.cpp', 'FASTBOOT_EXT4_WIPE_SOURCE'),
             ('${SRC}/core/fastboot/fastboot_driver.cpp', 'FASTBOOT_DRIVER_SOURCE'),
         ],
         'lib/libusb.cmake': [
