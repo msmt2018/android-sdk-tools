@@ -55,3 +55,9 @@ target_include_directories(libbase PRIVATE
     ${SRC}/fmtlib/include 
     ${SRC}/logging/liblog/include
     )
+
+# fdsan symbols are weak and fall back to close(2) on API < 29.
+# Expose their API-29 declarations while retaining the android-24 target triple.
+if(ANDROID)
+    target_compile_options(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29)
+endif()
