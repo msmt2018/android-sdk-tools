@@ -159,10 +159,26 @@ def resolve_manifest_revisions(repos, release_tag, retries):
             if revision:
                 projects[name] = revision
 
+    def has_release_tag(url, tag_name):
+        tag_ref = 'refs/tags/{}'.format(tag_name)
+        for attempt in range(1, retries + 1):
+            try:
+                result = subprocess.run(
+                    ['git', 'ls-remote', '--exit-code', '--refs', url, tag_ref],
+                    capture_output=True, text=True, timeout=30)
+            except subprocess.TimeoutExpired:
+                result = None
+            if result is not None and result.returncode == 0 and result.stdout.strip():
+                return True
+            if result is not None and result.returncode == 2:
+                return False
+            if attempt < retries:
+                time.sleep(2 * attempt)
+        return False
+
     resolved = []
     missing = []
     for repo in repos:
-        # Third-party sources with an explicit pin (currently zlib) retain it.
         if repo.get('branch'):
             resolved.append(repo)
             continue
@@ -173,28 +189,18 @@ def resolve_manifest_revisions(repos, release_tag, retries):
             continue
         project_name = url[len(prefix):]
         revision = projects.get(project_name)
+
+        # Prefer an exact platform-tools release tag when the Google project
+        # publishes one; otherwise use the revision pinned by the selected
+        # platform/manifest snapshot.
+        if has_release_tag(url, release_tag):
+            item = dict(repo)
+            item['branch'] = release_tag
+            resolved.append(item)
+            print('verified Google project release tag: {} ({})'.format(project_name, release_tag), flush=True)
+            continue
+
         if revision is None:
-            # Some platform-tools release tags exist on individual Google
-            # projects even when that project is omitted from the release
-            # manifest. Use the tag only after verifying that exact ref exists.
-            tag_ref = 'refs/tags/{}'.format(release_tag)
-            tag_result = None
-            for attempt in range(1, retries + 1):
-                tag_result = subprocess.run(
-                    ['git', 'ls-remote', '--exit-code', '--refs', url, tag_ref],
-                    capture_output=True, text=True)
-                if tag_result.returncode == 0 and tag_result.stdout.strip():
-                    break
-                if tag_result.returncode == 2:
-                    break
-                if attempt < retries:
-                    time.sleep(2 * attempt)
-            if tag_result is not None and tag_result.returncode == 0 and tag_result.stdout.strip():
-                item = dict(repo)
-                item['branch'] = release_tag
-                resolved.append(item)
-                print('verified Google project tag: {} ({})'.format(project_name, release_tag), flush=True)
-                continue
             missing.append(project_name)
             continue
         item = dict(repo)
