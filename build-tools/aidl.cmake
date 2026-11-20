@@ -81,6 +81,21 @@ if(EXISTS "${SRC}/aidl/preprocess.cpp")
     list(APPEND AIDL_PREPROCESS_SOURCE "${SRC}/aidl/preprocess.cpp")
 endif()
 
+set(AIDL_TO_RUST_SOURCE)
+if(EXISTS "${SRC}/aidl/aidl_to_rust.cpp")
+    list(APPEND AIDL_TO_RUST_SOURCE "${SRC}/aidl/aidl_to_rust.cpp")
+endif()
+
+set(AIDL_COMMENTS_SOURCE)
+if(EXISTS "${SRC}/aidl/comments.cpp")
+    list(APPEND AIDL_COMMENTS_SOURCE "${SRC}/aidl/comments.cpp")
+endif()
+
+set(AIDL_DIAGNOSTICS_SOURCE)
+if(EXISTS "${SRC}/aidl/diagnostics.cpp")
+    list(APPEND AIDL_DIAGNOSTICS_SOURCE "${SRC}/aidl/diagnostics.cpp")
+endif()
+
 add_executable(aidl
     ${SRC}/aidl/aidl_checkapi.cpp
     ${SRC}/aidl/aidl_const_expressions.cpp
@@ -93,15 +108,15 @@ add_executable(aidl
     ${SRC}/aidl/aidl_to_cpp.cpp
     ${SRC}/aidl/aidl_to_java.cpp
     ${SRC}/aidl/aidl_to_ndk.cpp
-    ${SRC}/aidl/aidl_to_rust.cpp
+    ${AIDL_TO_RUST_SOURCE}
     ${SRC}/aidl/aidl_typenames.cpp
     ${SRC}/aidl/aidl.cpp
     ${SRC}/aidl/ast_java.cpp
     ${AIDL_CPP_AST_SOURCE}
     ${AIDL_CHECK_VALID_SOURCE}
     ${SRC}/aidl/code_writer.cpp
-    ${SRC}/aidl/comments.cpp
-    ${SRC}/aidl/diagnostics.cpp
+    ${AIDL_COMMENTS_SOURCE}
+    ${AIDL_DIAGNOSTICS_SOURCE}
     ${SRC}/aidl/generate_aidl_mappings.cpp
     ${SRC}/aidl/generate_cpp.cpp
     ${AIDL_CPP_ANALYZER_SOURCE}
