@@ -1025,6 +1025,10 @@ def normalize_optional_release_sources():
         'lib/libprotoc.cmake': [
             ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
         ],
+        'build-tools/aidl.cmake': [
+            ('${SRC}/aidl/aidl_checkapi.cpp', 'AIDL_CHECKAPI_SOURCE'),
+            ('${SRC}/aidl/diagnostics.cpp', 'AIDL_DIAGNOSTICS_SOURCE'),
+        ],
         'build-tools/dexdump.cmake': [
             ('${SRC}/art/libartbase/base/membarrier.cc', 'ART_MEMBARRIER_SOURCE'),
             ('${SRC}/art/libartpalette/apex/palette.cc', 'ART_PALETTE_APEX_SOURCE'),
