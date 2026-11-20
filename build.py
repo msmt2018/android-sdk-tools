@@ -139,6 +139,40 @@ def build_host_protoc(args):
         # CMakeLists.txt or silently using a host-installed protoc.
         autotools_build = build_dir / 'autotools'
         autotools_build.mkdir(parents=True, exist_ok=True)
+
+        # This AOSP protobuf checkout registers JavaMicroGenerator from
+        # compiler/main.cc, but its legacy Automake source list omits the
+        # implementation files. Add the sources from this exact checkout
+        # before autoreconf regenerates Makefile.in; never copy sources from
+        # a different protobuf/platform-tools release.
+        makefile_am = source / 'Makefile.am'
+        javamicro_dir = source / 'src/google/protobuf/compiler/javamicro'
+        if makefile_am.is_file() and javamicro_dir.is_dir():
+            javamicro_sources = sorted(
+                path.relative_to(source / 'src').as_posix()
+                for path in javamicro_dir.glob('*.cc')
+            )
+            makefile_text = makefile_am.read_text()
+            missing_sources = [
+                path for path in javamicro_sources
+                if path not in makefile_text
+            ]
+            if missing_sources:
+                makefile_text += (
+                    '\\n\\n# JavaMicro compiler sources present in this AOSP tag.\\n'
+                    'libprotoc_la_SOURCES += \\\\n'
+                    + ' \\\\n'.join('  ' + path for path in missing_sources)
+                    + '\\n'
+                )
+                makefile_am.write_text(makefile_text)
+                print('protobuf Automake: added {} JavaMicro source files from this tag'.format(
+                    len(missing_sources)), flush=True)
+            if not javamicro_sources:
+                raise RuntimeError('JavaMicroGenerator is referenced but no implementation sources exist in {}'.format(
+                    javamicro_dir))
+        else:
+            raise RuntimeError('legacy protobuf Automake files or JavaMicro source directory are missing')
+
         # Old AOSP protobuf autogen.sh downloads gmock-1.7.0 from the retired
         # googlecode.com URL whenever this directory is absent. gmock is only
         # needed by protobuf's unit tests, which are not built for host protoc.
