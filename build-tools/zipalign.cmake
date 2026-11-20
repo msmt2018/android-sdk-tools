@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
+file(GLOB ZIPALIGN_SOURCE_FILES CONFIGURE_DEPENDS "${SRC}/build/tools/zipalign/*.cpp")
+
 add_executable(zipalign
-    ${SRC}/build/tools/zipalign/ZipAlign.cpp
-    ${SRC}/build/tools/zipalign/ZipEntry.cpp
-    ${SRC}/build/tools/zipalign/ZipFile.cpp
-    ${SRC}/build/tools/zipalign/ZipAlignMain.cpp
+    ${ZIPALIGN_SOURCE_FILES}
     )
 
 target_include_directories(zipalign PRIVATE
