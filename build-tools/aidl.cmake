@@ -92,12 +92,17 @@ if(EXISTS "${SRC}/aidl/comments.cpp")
 endif()
 
 set(AIDL_DIAGNOSTICS_SOURCE)
-if(EXISTS "${SRC}/aidl/diagnostics.cpp")
-    list(APPEND AIDL_DIAGNOSTICS_SOURCE "${SRC}/aidl/diagnostics.cpp")
+if(EXISTS "${${AIDL_DIAGNOSTICS_SOURCE}}")
+    list(APPEND AIDL_DIAGNOSTICS_SOURCE "${${AIDL_DIAGNOSTICS_SOURCE}}")
+endif()
+
+set(AIDL_CHECKAPI_SOURCE)
+if(EXISTS "${${AIDL_CHECKAPI_SOURCE}}")
+    list(APPEND AIDL_CHECKAPI_SOURCE "${${AIDL_CHECKAPI_SOURCE}}")
 endif()
 
 add_executable(aidl
-    ${SRC}/aidl/aidl_checkapi.cpp
+    ${${AIDL_CHECKAPI_SOURCE}}
     ${SRC}/aidl/aidl_const_expressions.cpp
     ${AIDL_DUMPAPI_SOURCE}
     ${SRC}/aidl/aidl_language_l.ll
