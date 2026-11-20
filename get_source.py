@@ -1069,10 +1069,10 @@ def normalize_optional_release_sources():
             ('${SRC}/libziparchive/zip_error.cpp', 'LIBZIPARCHIVE_ZIP_ERROR_SOURCE'),
             ('${SRC}/libziparchive/zip_cd_entry_map.cc', 'LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE'),
         ],
-        'lib/libprocessgroup.cmake': [
         'lib/libsparse.cmake': [
             ('${SRC}/core/libsparse/output_file.cpp', 'LIBSPARSE_OUTPUT_FILE_SOURCE'),
         ],
+        'lib/libprocessgroup.cmake': [
             ('${SRC}/core/libprocessgroup/cgrouprc_format/cgroup_controller.cpp', 'LIBPROCESSGROUP_CGROUP_CONTROLLER_SOURCE'),
             ('${SRC}/core/libprocessgroup/sched_policy.cpp', 'LIBPROCESSGROUP_SCHED_POLICY_SOURCE'),
             ('${SRC}/core/libprocessgroup/task_profiles.cpp', 'LIBPROCESSGROUP_TASK_PROFILES_SOURCE'),
