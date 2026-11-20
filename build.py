@@ -159,10 +159,10 @@ def build_host_protoc(args):
             ]
             if missing_sources:
                 makefile_text += (
-                    '\\n\\n# JavaMicro compiler sources present in this AOSP tag.\\n'
-                    'libprotoc_la_SOURCES += \\\\n'
-                    + ' \\\\n'.join('  ' + path for path in missing_sources)
-                    + '\\n'
+                    '\n\n# JavaMicro compiler sources present in this AOSP tag.\n'
+                    'libprotoc_la_SOURCES += \\\n'
+                    + ' \\\n'.join('  ' + path for path in missing_sources)
+                    + '\n'
                 )
                 makefile_am.write_text(makefile_text)
                 print('protobuf Automake: added {} JavaMicro source files from this tag'.format(
