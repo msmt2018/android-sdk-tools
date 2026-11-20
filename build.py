@@ -266,7 +266,7 @@ def verify_package(zip_path, arch):
 
             with archive.open(entry) as stream:
                 header = stream.read(20)
-            if len(header) < 20 or header[:4] != b'\\x7fELF':
+            if len(header) < 20 or header[:4] != b'\x7fELF':
                 raise RuntimeError('packaged tool is not an ELF executable: {}'.format(name))
             if header[4] != expected[0] or header[5] != 1:
                 raise RuntimeError(
