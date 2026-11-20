@@ -176,6 +176,27 @@ def resolve_manifest_revisions(repos, release_tag, retries):
                 time.sleep(2 * attempt)
         return False
 
+    # Probe Google project release tags concurrently; serial remote checks
+    # made preparation unnecessarily slow across the full source manifest.
+    release_tag_by_url = {}
+    tag_urls = {
+        repo.get('url', '') for repo in repos
+        if not repo.get('branch') and repo.get('url', '').startswith(
+            'https://android.googlesource.com/')
+    }
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {
+            pool.submit(has_release_tag, url, release_tag): url
+            for url in tag_urls
+        }
+        for future in as_completed(futures):
+            url = futures[future]
+            try:
+                release_tag_by_url[url] = future.result()
+            except Exception as error:
+                release_tag_by_url[url] = False
+                print('Google release tag probe failed for {}: {}'.format(url, error), flush=True)
+
     resolved = []
     missing = []
     for repo in repos:
@@ -194,7 +215,7 @@ def resolve_manifest_revisions(repos, release_tag, retries):
         # For versions without a matching platform/manifest tag, prefer the
         # exact per-project release tag when Google actually published it.
         # Otherwise retain the revision pinned by the selected manifest.
-        if (manifest_tag != release_tag or revision is None) and has_release_tag(url, release_tag):
+        if (manifest_tag != release_tag or revision is None) and release_tag_by_url.get(url, False):
             item = dict(repo)
             item['branch'] = release_tag
             resolved.append(item)
