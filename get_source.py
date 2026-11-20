@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -42,6 +43,89 @@ def tools_version():
 def check(command):
     if shutil.which(command) is None:
         sys.exit('please install the {} package'.format(command))
+
+
+# Platform-tools 28.0.x and 29.0.0 predate the release-specific manifest refs.
+# These are the nearest official Google source snapshots at the corresponding
+# release points; all project revisions are then taken from that manifest.
+MANIFEST_TAG_OVERRIDES = {
+    '28.0.0': 'android-p-preview-4',
+    '28.0.1': 'android-9.0.0_r1',
+    '28.0.2': 'android-9.0.0_r33',
+    '29.0.0': 'android-q-preview-5',
+}
+
+
+def manifest_tag_for(version, requested_tag):
+    return MANIFEST_TAG_OVERRIDES.get(version, requested_tag)
+
+
+def resolve_manifest_revisions(repos, release_tag, retries):
+    version = tools_version()
+    manifest_tag = manifest_tag_for(version, release_tag)
+    manifest_dir = ROOT / '.aosp-manifest'
+    shutil.rmtree(manifest_dir, ignore_errors=True)
+    command = [
+        'git', 'clone', '-q', '-c', 'advice.detachedHead=false',
+        '--depth', '1', '--branch', manifest_tag,
+        'https://android.googlesource.com/platform/manifest',
+        str(manifest_dir),
+    ]
+    result = None
+    for attempt in range(1, retries + 1):
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode == 0:
+            break
+        shutil.rmtree(manifest_dir, ignore_errors=True)
+        if attempt < retries:
+            time.sleep(5 * attempt)
+    if result is None or result.returncode != 0:
+        raise RuntimeError('failed to fetch Google platform manifest tag {}:\n{}'.format(
+            manifest_tag, result.stderr if result else 'no git result'))
+
+    manifest_file = manifest_dir / 'default.xml'
+    if not manifest_file.is_file():
+        raise RuntimeError('Google manifest tag {} has no default.xml'.format(manifest_tag))
+    root = ET.parse(str(manifest_file)).getroot()
+    default = root.find('default')
+    if default is None:
+        raise RuntimeError('Google manifest {} has no default revision'.format(manifest_tag))
+    default_revision = default.get('revision')
+
+    projects = {}
+    for project in root.findall('project'):
+        name = project.get('name')
+        if not name:
+            continue
+        revision = project.get('revision') or default_revision
+        if revision:
+            projects[name] = revision
+
+    resolved = []
+    missing = []
+    for repo in repos:
+        # Third-party sources with an explicit pin retain that exact pin.
+        if repo.get('branch'):
+            resolved.append(repo)
+            continue
+        prefix = 'https://android.googlesource.com/'
+        url = repo.get('url', '')
+        if not url.startswith(prefix):
+            missing.append('{} (non-AOSP URL without explicit branch)'.format(url))
+            continue
+        project_name = url[len(prefix):]
+        revision = projects.get(project_name)
+        if revision is None:
+            missing.append(project_name)
+            continue
+        item = dict(repo)
+        item['branch'] = revision.removeprefix('refs/tags/').removeprefix('refs/heads/')
+        resolved.append(item)
+
+    print('Google source manifest: {} (release tag {})'.format(manifest_tag, release_tag), flush=True)
+    print('Resolved {} AOSP projects; absent from this snapshot: {}'.format(
+        len(resolved), ', '.join(missing) if missing else 'none'), flush=True)
+    return resolved
 
 
 def clone(repo, default_branch, retries):
@@ -744,7 +828,8 @@ def main():
         check(command)
 
     repos = json.loads((ROOT / 'repository.json').read_text())
-    print('fetching sources: {}'.format(args.tags))
+    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
+    print('fetching sources from Google manifest: {}'.format(args.tags))
     errors = []
     with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
         futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
