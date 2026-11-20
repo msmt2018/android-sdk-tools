@@ -976,6 +976,98 @@ def create_legacy_source_aliases():
             print('legacy AOSP layout: {} -> {}'.format(destination, source), flush=True)
 
 
+def normalize_optional_release_sources():
+    """Remove only CMake source entries absent from this exact Google snapshot.
+
+    Source inventories differ across Android release tags. Optional files
+    introduced after the selected snapshot must not be passed to add_library()
+    or add_executable(); no replacement source is fabricated here.
+    """
+    optional_sources = {
+        'lib/libbase.cmake': [
+            ('${SRC}/libbase/cmsg.cpp', 'LIBBASE_CMSG_SOURCE'),
+            ('${SRC}/libbase/parsebool.cpp', 'LIBBASE_PARSEBOOL_SOURCE'),
+        ],
+        'lib/liblog.cmake': [
+            ('${SRC}/logging/liblog/log_event_write.cpp', 'LIBLOG_EVENT_WRITE_SOURCE'),
+        ],
+        'lib/libandroidfw.cmake': [
+            ('${SRC}/base/libs/androidfw/ConfigDescription.cpp', 'ANDROIDFW_CONFIG_DESCRIPTION_SOURCE'),
+        ],
+        'lib/libziparchive.cmake': [
+            ('${SRC}/libziparchive/zip_error.cpp', 'LIBZIPARCHIVE_ZIP_ERROR_SOURCE'),
+            ('${SRC}/libziparchive/zip_cd_entry_map.cc', 'LIBZIPARCHIVE_CD_ENTRY_MAP_SOURCE'),
+        ],
+        'lib/libprocessgroup.cmake': [
+            ('${SRC}/core/libprocessgroup/sched_policy.cpp', 'LIBPROCESSGROUP_SCHED_POLICY_SOURCE'),
+        ],
+        'lib/libprotoc.cmake': [
+            ('${SRC}/protobuf/src/google/protobuf/any_lite.cc', 'PROTOBUF_ANY_LITE_SOURCE'),
+        ],
+        'build-tools/dexdump.cmake': [
+            ('${SRC}/art/libartbase/base/membarrier.cc', 'ART_MEMBARRIER_SOURCE'),
+            ('${SRC}/art/libartpalette/apex/palette.cc', 'ART_PALETTE_APEX_SOURCE'),
+            ('${SRC}/art/libdexfile/dex/signature.cc', 'ART_DEX_SIGNATURE_SOURCE'),
+        ],
+        'platform-tools/e2fsprogs.cmake': [
+            ('${SRC}/e2fsprogs/lib/e2p/encoding.c', 'E2FSPROGS_ENCODING_SOURCE'),
+            ('${SRC}/e2fsprogs/lib/ext2fs/nls_utf8.c', 'E2FSPROGS_NLS_UTF8_SOURCE'),
+        ],
+        'platform-tools/f2fs-tools.cmake': [
+            ('${SRC}/f2fs-tools/fsck/compress.c', 'F2FS_COMPRESS_SOURCE'),
+        ],
+        'platform-tools/fastboot.cmake': [
+            ('${SRC}/extras/ext4_utils/ext4_utils.cpp', 'FASTBOOT_EXT4_UTILS_SOURCE'),
+            ('${SRC}/core/fastboot/fastboot_driver.cpp', 'FASTBOOT_DRIVER_SOURCE'),
+        ],
+        'lib/libusb.cmake': [
+            ('${SRC}/libusb/libusb/os/events_posix.c', 'LIBUSB_EVENTS_POSIX_SOURCE'),
+        ],
+        'build-tools/zipalign.cmake': [
+            ('${SRC}/build/tools/zipalign/ZipAlignMain.cpp', 'ZIPALIGN_MAIN_SOURCE'),
+        ],
+        'platform-tools/adb.cmake': [
+            ('${SRC}/adb/sysdeps/env.cpp', 'ADB_ENV_SOURCE'),
+            ('${SRC}/core/libcrypto_utils/android_pubkey.cpp', 'ADB_ANDROID_PUBKEY_SOURCE'),
+        ],
+        'lib/libincfs.cmake': [
+            ('${SRC}/incremental_delivery/incfs/util/map_ptr.cpp', 'INCFS_MAP_PTR_SOURCE'),
+        ],
+    }
+
+    for relative_path, entries in optional_sources.items():
+        cmake_file = ROOT / relative_path
+        if not cmake_file.is_file():
+            continue
+        text = cmake_file.read_text()
+        changed = False
+        for source, variable in entries:
+            source_line = '    ' + source + '\n'
+            if source_line not in text:
+                continue
+            text = text.replace(source_line, '    ${' + variable + '}\n', 1)
+            guard = (
+                'set(' + variable + ')\n'
+                'if(EXISTS "' + source + '")\n'
+                '    list(APPEND ' + variable + ' "' + source + '")\n'
+                'endif()\n\n'
+            )
+            target_positions = [
+                position for position in (
+                    text.find('add_library('),
+                    text.find('add_executable('),
+                ) if position >= 0
+            ]
+            if not target_positions:
+                raise RuntimeError('no CMake target in {}'.format(relative_path))
+            insert_at = min(target_positions)
+            text = text[:insert_at] + guard + text[insert_at:]
+            changed = True
+        if changed:
+            cmake_file.write_text(text)
+            print('normalized optional sources for {}'.format(relative_path), flush=True)
+
+
 def patches():
     run_compat_if_present(
         'src/abseil-cpp/absl/meta/type_traits.h',
@@ -1083,6 +1175,7 @@ def main():
         sys.exit('\n'.join(errors))
 
     create_legacy_source_aliases()
+    normalize_optional_release_sources()
 
     if not args.skip_patch:
         patches()
