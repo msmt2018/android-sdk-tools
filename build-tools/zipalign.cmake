@@ -18,7 +18,6 @@ add_executable(zipalign
     ${SRC}/build/tools/zipalign/ZipAlign.cpp
     ${SRC}/build/tools/zipalign/ZipEntry.cpp
     ${SRC}/build/tools/zipalign/ZipFile.cpp
-    ${SRC}/build/tools/zipalign/ZipAlignMain.cpp
     )
 
 target_include_directories(zipalign PRIVATE
