@@ -1176,6 +1176,7 @@ def main():
         sys.exit('\n'.join(errors))
 
     create_legacy_source_aliases()
+    normalize_optional_release_sources()
 
     if not args.skip_patch:
         patches()
