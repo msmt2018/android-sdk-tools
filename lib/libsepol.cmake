@@ -20,6 +20,11 @@ if(EXISTS "${SRC}/selinux/libsepol/src/policydb_validate.c")
 endif()
 
 add_library(libsepol STATIC
+set(LIBSEPOL_OPTIMIZE_SOURCE)
+if(EXISTS "${SRC}/selinux/libsepol/src/optimize.c")
+    list(APPEND LIBSEPOL_OPTIMIZE_SOURCE "${SRC}/selinux/libsepol/src/optimize.c")
+endif()
+
     ${SRC}/selinux/libsepol/src/assertion.c
     ${SRC}/selinux/libsepol/src/avrule_block.c
     ${SRC}/selinux/libsepol/src/avtab.c
@@ -46,7 +51,7 @@ add_library(libsepol STATIC
     ${SRC}/selinux/libsepol/src/module_to_cil.c
     ${SRC}/selinux/libsepol/src/node_record.c
     ${SRC}/selinux/libsepol/src/nodes.c
-    ${SRC}/selinux/libsepol/src/optimize.c
+    ${LIBSEPOL_OPTIMIZE_SOURCE}
     ${SRC}/selinux/libsepol/src/polcaps.c
     ${SRC}/selinux/libsepol/src/policydb.c
     ${SRC}/selinux/libsepol/src/policydb_convert.c
