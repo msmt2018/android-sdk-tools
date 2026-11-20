@@ -145,7 +145,7 @@ def build_host_protoc(args):
         # implementation files. Add the sources from this exact checkout
         # before autoreconf regenerates Makefile.in; never copy sources from
         # a different protobuf/platform-tools release.
-        makefile_am = source / 'Makefile.am'
+        makefile_am = source / 'src/Makefile.am'
         javamicro_dir = source / 'src/google/protobuf/compiler/javamicro'
         if makefile_am.is_file() and javamicro_dir.is_dir():
             javamicro_sources = sorted(
@@ -160,7 +160,7 @@ def build_host_protoc(args):
             if missing_sources:
                 makefile_text += (
                     '\n\n# JavaMicro compiler sources present in this AOSP tag.\n'
-                    'protoc_SOURCES += \\\n'
+                    'libprotoc_la_SOURCES += \\\n'
                     + ' \\\n'.join('  ' + path for path in missing_sources)
                     + '\n'
                 )
