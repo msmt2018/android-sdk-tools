@@ -45,19 +45,12 @@ def check(command):
         sys.exit('please install the {} package'.format(command))
 
 
-# Platform-tools 28.0.x and 29.0.0 predate the release-specific manifest refs.
-# These are the nearest official Google source snapshots at the corresponding
-# release points; all project revisions are then taken from that manifest.
-MANIFEST_TAG_OVERRIDES = {
-    '28.0.0': 'android-p-preview-4',
-    '28.0.1': 'android-9.0.0_r1',
-    '28.0.2': 'android-9.0.0_r33',
-    '29.0.0': 'android-q-preview-5',
-}
-
-
+# Always use the requested Platform Tools release tag. Some early releases
+# do not have a matching platform/manifest tag; in that case resolve each AOSP
+# project directly from the same release tag instead of substituting an Android
+# platform preview/release snapshot.
 def manifest_tag_for(version, requested_tag):
-    return MANIFEST_TAG_OVERRIDES.get(version, requested_tag)
+    return requested_tag
 
 
 def resolve_manifest_revisions(repos, release_tag, retries):
@@ -80,8 +73,30 @@ def resolve_manifest_revisions(repos, release_tag, retries):
         if attempt < retries:
             time.sleep(5 * attempt)
     if result is None or result.returncode != 0:
-        raise RuntimeError('failed to fetch Google platform manifest tag {}:\\n{}'.format(
-            manifest_tag, result.stderr if result else 'no git result'))
+        # Early Platform Tools releases may have project-level release tags
+        # without a corresponding platform/manifest tag. Keep every project
+        # on the exact requested release tag; never substitute android-*-preview
+        # or android-*.0.0_r* source snapshots.
+        prefix = 'https://android.googlesource.com/'
+        resolved = []
+        missing = []
+        for repo in repos:
+            if repo.get('branch'):
+                resolved.append(repo)
+                continue
+            url = repo.get('url', '')
+            if not url.startswith(prefix):
+                missing.append('{} (non-AOSP URL without explicit branch)'.format(url))
+                continue
+            item = dict(repo)
+            item['branch'] = release_tag
+            resolved.append(item)
+        if missing:
+            raise RuntimeError('cannot resolve exact release tag {} for: {}'.format(
+                release_tag, ', '.join(missing)))
+        print('Google manifest tag {} unavailable; using exact project tag {} '
+              'for all AOSP repositories'.format(manifest_tag, release_tag), flush=True)
+        return resolved
 
     manifest_file = manifest_dir / 'default.xml'
     if not manifest_file.is_file():
