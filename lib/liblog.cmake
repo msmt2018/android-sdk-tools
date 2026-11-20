@@ -14,12 +14,12 @@
 # limitations under the License.
 #
 
-add_library(liblog STATIC
 set(LIBLOG_EVENT_LIST_SOURCE)
 if(EXISTS "${SRC}/logging/liblog/log_event_list.cpp")
     list(APPEND LIBLOG_EVENT_LIST_SOURCE "${SRC}/logging/liblog/log_event_list.cpp")
 endif()
 
+add_library(liblog STATIC
     ${LIBLOG_EVENT_LIST_SOURCE}
     ${SRC}/logging/liblog/log_event_write.cpp
     ${SRC}/logging/liblog/logger_name.cpp
