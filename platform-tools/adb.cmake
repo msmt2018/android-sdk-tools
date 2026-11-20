@@ -213,16 +213,20 @@ append_existing_sources(ADB_CRYPTO_SOURCES
     ${SRC}/adb/crypto/rsa_2048_key.cpp
     ${SRC}/adb/crypto/x509_generator.cpp
 )
-add_library(libadb_crypto STATIC ${ADB_CRYPTO_SOURCES} ${ADB_PROTO_HDRS})
-target_include_directories(libadb_crypto PRIVATE
-    ${SRC}/adb
-    ${SRC}/adb/crypto/include
-    ${SRC}/adb/proto
-    ${SRC}/boringssl/include
-    ${SRC}/core/libcrypto_utils/include
-    ${SRC}/libbase/include
-    ${SRC}/protobuf/src
+if(ADB_CRYPTO_SOURCES)
+    add_library(libadb_crypto STATIC ${ADB_CRYPTO_SOURCES} ${ADB_PROTO_HDRS})
+    target_include_directories(libadb_crypto PRIVATE
+        ${SRC}/adb
+        ${SRC}/adb/crypto/include
+        ${SRC}/adb/proto
+        ${SRC}/boringssl/include
+        ${SRC}/core/libcrypto_utils/include
+        ${SRC}/libbase/include
+        ${SRC}/protobuf/src
     )
+else()
+    add_library(libadb_crypto INTERFACE)
+endif()
 
 if(EXISTS "${SRC}/adb/tls/tls_connection.cpp")
     add_library(libadb_tls_connection STATIC
@@ -252,13 +256,15 @@ if(EXISTS "${SRC}/adb/pairing_auth/pairing_auth.cpp")
         ${SRC}/boringssl/include ${SRC}/protobuf/src)
 endif()
 
-add_library(libadb_sysdeps STATIC
-    ${SRC}/adb/sysdeps/env.cpp
+if(EXISTS "${SRC}/adb/sysdeps/env.cpp")
+    add_library(libadb_sysdeps STATIC "${SRC}/adb/sysdeps/env.cpp")
+    target_include_directories(libadb_sysdeps PRIVATE
+        ${SRC}/libbase/include
+        ${SRC}/adb
     )
-target_include_directories(libadb_sysdeps PRIVATE
-    ${SRC}/libbase/include
-    ${SRC}/adb
-    )
+else()
+    add_library(libadb_sysdeps INTERFACE)
+endif()
 
 if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
     add_library(libfastdeploy STATIC
@@ -272,13 +278,15 @@ if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
         ${SRC}/boringssl/include)
 endif()
 
-add_library(libcrypto STATIC
-    ${SRC}/core/libcrypto_utils/android_pubkey.cpp
+if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+    target_include_directories(libcrypto PRIVATE
+        ${SRC}/core/libcrypto_utils/include
+        ${SRC}/boringssl/include
     )
-target_include_directories(libcrypto PRIVATE
-    ${SRC}/core/libcrypto_utils/include 
-    ${SRC}/boringssl/include
-    )
+else()
+    add_library(libcrypto INTERFACE)
+endif()
 
 append_existing_sources(ADB_EXECUTABLE_SOURCES
     ${SRC}/adb/client/adb_client.cpp
