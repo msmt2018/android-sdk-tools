@@ -15,7 +15,12 @@
 #
 
 add_library(liblog STATIC
-    ${SRC}/logging/liblog/log_event_list.cpp
+set(LIBLOG_EVENT_LIST_SOURCE)
+if(EXISTS "${SRC}/logging/liblog/log_event_list.cpp")
+    list(APPEND LIBLOG_EVENT_LIST_SOURCE "${SRC}/logging/liblog/log_event_list.cpp")
+endif()
+
+    ${LIBLOG_EVENT_LIST_SOURCE}
     ${SRC}/logging/liblog/log_event_write.cpp
     ${SRC}/logging/liblog/logger_name.cpp
     ${SRC}/logging/liblog/logger_read.cpp
