@@ -231,6 +231,60 @@ def package(binary_dir, zip_path):
                 archive.write(path, path.relative_to(binary_dir))
 
 
+ELF_ABI = {
+    # ELF class and e_machine values from the System V ABI.
+    'aarch64': (2, 183),
+    'arm': (1, 40),
+    'x86_64': (2, 62),
+    'i686': (1, 3),
+}
+
+
+def verify_package(zip_path, arch):
+    """Verify every packaged native tool is an executable for the requested ABI."""
+    expected = ELF_ABI[arch]
+    required = [
+        '{}/{}'.format(group, tool)
+        for group, tools in ANDROID_TOOLS.items() for tool in tools
+    ]
+    with zipfile.ZipFile(zip_path) as archive:
+        corrupt = archive.testzip()
+        if corrupt is not None:
+            raise RuntimeError('corrupt package member: {}'.format(corrupt))
+
+        members = set(archive.namelist())
+        missing = sorted(set(required) - members)
+        if missing:
+            raise RuntimeError('package is missing tools: {}'.format(', '.join(missing)))
+
+        for name in required:
+            entry = archive.getinfo(name)
+            mode = (entry.external_attr >> 16) & 0o777
+            if not mode & 0o111:
+                raise RuntimeError('packaged tool is not executable: {} (mode {:04o})'.format(
+                    name, mode))
+
+            with archive.open(entry) as stream:
+                header = stream.read(20)
+            if len(header) < 20 or header[:4] != b'\\x7fELF':
+                raise RuntimeError('packaged tool is not an ELF executable: {}'.format(name))
+            if header[4] != expected[0] or header[5] != 1:
+                raise RuntimeError(
+                    '{} has wrong ELF class/data for {}: class={}, data={}'.format(
+                        name, arch, header[4], header[5]))
+            machine = int.from_bytes(header[18:20], 'little')
+            if machine != expected[1]:
+                raise RuntimeError(
+                    '{} has wrong ELF machine for {}: expected {}, got {}'.format(
+                        name, arch, expected[1], machine))
+            elf_type = int.from_bytes(header[16:18], 'little')
+            if elf_type not in (2, 3):
+                raise RuntimeError('{} is not an executable ELF image (type {})'.format(
+                    name, elf_type))
+
+    info('verified {} executable ELF tools for {}'.format(len(required), arch))
+
+
 def complete(args, build_dir):
     binary_dir = build_dir / 'bin'
     missing = [
@@ -246,6 +300,8 @@ def complete(args, build_dir):
     output_dir = Path(args.output_dir).resolve() if args.output_dir else build_dir
     zip_path = output_dir / 'android-sdk-tools-{}-{}.zip'.format(args.link, args.arch)
     package(binary_dir, zip_path)
+    if args.target == ['all']:
+        verify_package(zip_path, args.arch)
     info('package: {}'.format(zip_path))
     return zip_path
 
