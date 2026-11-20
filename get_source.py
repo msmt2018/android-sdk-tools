@@ -1377,6 +1377,50 @@ def normalize_release_cmake_targets():
                 text, count=1, flags=re.S)
         dexdump_cmake.write_text(text)
 
+    # SDK_FILTER_MISSING_RELEASE_SOURCES
+    # The shared CMake lists are newer than some official release snapshots.
+    # Keep the exact checked-out sources and omit only source paths absent from
+    # that snapshot; later releases retain their files and therefore retain them.
+    source_extensions = ('.c', '.cc', '.cpp', '.cxx', '.s', '.m', '.mm')
+    for directory in ('lib', 'build-tools', 'platform-tools'):
+        for cmake_file in sorted((ROOT / directory).glob('*.cmake')):
+            lines = cmake_file.read_text().splitlines(keepends=True)
+            output = []
+            in_target = False
+            depth = 0
+            removed = []
+            for original_line in lines:
+                line = original_line
+                if not in_target and re.search(r'\badd_(?:library|executable)\s*\(', original_line):
+                    in_target = True
+                    depth = 0
+                if in_target and not original_line.lstrip().startswith('#'):
+                    matches = list(re.finditer(r'\$\{SRC\}/([^\s\")]+)', line))
+                    for match in reversed(matches):
+                        relative = match.group(1)
+                        if not relative.lower().endswith(source_extensions):
+                            continue
+                        if (ROOT / 'src' / relative).is_file():
+                            continue
+                        token = match.group(0)
+                        normalized_line = line.strip().rstrip(',').strip()
+                        if normalized_line in (token, '"' + token + '"', "'" + token + "'"):
+                            line = ''
+                            removed.append(relative)
+                            break
+                        line = line.replace(token, '')
+                        removed.append(relative)
+                if line:
+                    output.append(line)
+                if in_target:
+                    depth += original_line.count('(') - original_line.count(')')
+                    if depth <= 0:
+                        in_target = False
+            if removed:
+                cmake_file.write_text(''.join(output))
+                print('release CMake source filter {}: removed {}'.format(
+                    cmake_file.relative_to(ROOT), ', '.join(sorted(set(removed)))), flush=True)
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
