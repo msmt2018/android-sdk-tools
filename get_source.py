@@ -1179,7 +1179,12 @@ def main():
     parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
     parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
     parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
     args = parser.parse_args()
+
+    if args.normalize_optional_sources_only:
+        normalize_optional_release_sources()
+        return
 
     # check necessary packages
     for command in ('git', 'patch', 'go', 'bison', 'flex'):
