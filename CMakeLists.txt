@@ -221,6 +221,12 @@ add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
 if(NOT TARGET gtest)
     add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
 endif()
+# The Android 10 GoogleTest snapshot triggers Clang's deprecated-copy
+# diagnostic in gmock; keep the upstream source intact but do not promote
+# this compatibility warning to a build failure.
+if(TARGET gmock)
+    target_compile_options(gmock PRIVATE -Wno-error=deprecated-copy)
+endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/abseil-cpp/CMakeLists.txt")
     add_subdirectory(src/abseil-cpp EXCLUDE_FROM_ALL)
 else()
