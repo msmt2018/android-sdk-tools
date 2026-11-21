@@ -45,13 +45,12 @@ add_compile_options(
     # Several pinned AOSP revisions use std::function without including its header.
     "$<$<COMPILE_LANGUAGE:CXX>:-include>"
     "$<$<COMPILE_LANGUAGE:CXX>:functional>"
-    # Restore the Bionic annotation after sys/cdefs.h has been parsed.
-    "$<$<COMPILE_LANGUAGE:C,CXX>:-include>"
-    "$<$<COMPILE_LANGUAGE:C,CXX>:${CMAKE_CURRENT_LIST_DIR}/bionic_compat.h>"
+    # Keep the forced include and its path grouped so CMake option de-duplication
+    # does not remove the second -include switch.
+    "$<$<COMPILE_LANGUAGE:C,CXX>:SHELL:-include ${CMAKE_CURRENT_LIST_DIR}/bionic_compat.h>"
     # The generated IncrementalProperties sysprop wrapper calls the public
     # Bionic property callback API but omits its declaring header.
-    "$<$<COMPILE_LANGUAGE:CXX>:-include>"
-    "$<$<COMPILE_LANGUAGE:CXX>:sys/system_properties.h>"
+    "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include sys/system_properties.h>"
     )
 
 if(SDK_STATIC)
