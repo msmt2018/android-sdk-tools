@@ -99,6 +99,8 @@ target_link_libraries(aidl
     libbase
     liblog
     gmock
-    fmt::fmt
     sdk_system_libs
     )
+if(TARGET fmt::fmt)
+    target_link_libraries(aidl PRIVATE fmt::fmt)
+endif()
