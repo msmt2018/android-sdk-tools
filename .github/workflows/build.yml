@@ -81,6 +81,19 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
+          sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<'APT_SOURCES'
+          Types: deb
+          URIs: https://archive.ubuntu.com/ubuntu
+          Suites: noble noble-updates noble-backports
+          Components: main universe
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+          Types: deb
+          URIs: https://security.ubuntu.com/ubuntu
+          Suites: noble-security
+          Components: main universe
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          APT_SOURCES
           for attempt in 1 2 3 4 5; do
             if sudo apt-get update -o Acquire::Retries=3 &&
                sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ninja-build bison flex autoconf automake libtool pkg-config patch; then
@@ -136,6 +149,19 @@ jobs:
       - name: Install dependencies
         run: |
           set -euo pipefail
+          sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<'APT_SOURCES'
+          Types: deb
+          URIs: https://archive.ubuntu.com/ubuntu
+          Suites: noble noble-updates noble-backports
+          Components: main universe
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+          Types: deb
+          URIs: https://security.ubuntu.com/ubuntu
+          Suites: noble-security
+          Components: main universe
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+          APT_SOURCES
           for attempt in 1 2 3 4 5; do
             if sudo apt-get update -o Acquire::Retries=3 &&
                sudo apt-get install -y --no-install-recommends -o Acquire::Retries=3 ninja-build bison flex; then
