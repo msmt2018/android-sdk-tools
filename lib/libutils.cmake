@@ -72,6 +72,7 @@ endif()
 target_include_directories(libutils PRIVATE
     ${SRC}/core/include
     ${SRC}/core/libutils/include
+    ${SRC}/safe-iop/include
     ${SRC}/core/libprocessgroup/include
     ${SRC}/core/libvndksupport/include
     ${SRC}/logging/liblog/include 
