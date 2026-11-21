@@ -44,6 +44,9 @@ target_compile_definitions(liblog PRIVATE
 
     )
     
+# Quote the legacy Bionic annotation so the shell treats its parentheses literally.
+target_compile_options(liblog PRIVATE "SHELL:-D__unused='__attribute__((unused))'")
+
 target_include_directories(liblog PRIVATE
     ${SRC}/core/include
     ${SRC}/logging/liblog/include
