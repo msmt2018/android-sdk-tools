@@ -106,6 +106,13 @@ if(DEFINED PROTOC_PATH)
 endif()
 
 # thrid-party libraries
+# The legacy 32-bit ARM AES assembly in these pinned BoringSSL revisions
+# is rejected by the NDK r27c integrated assembler. Keep the portable C
+# implementation for armeabi-v7a; other ABIs retain their optimized assembly.
+if(ANDROID AND ANDROID_ABI STREQUAL "armeabi-v7a")
+    set(OPENSSL_NO_ASM ON CACHE BOOL "Disable incompatible legacy ARM assembly" FORCE)
+endif()
+
 # BoringSSL in Platform Tools 34.x keeps its generated CMake project under src/.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/boringssl/CMakeLists.txt")
     add_subdirectory(src/boringssl EXCLUDE_FROM_ALL)
