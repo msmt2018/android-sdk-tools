@@ -158,5 +158,9 @@
   {
     "path": "src/zstd",
     "url": "https://android.googlesource.com/platform/external/zstd"
+  },
+  {
+    "path": "src/safe-iop",
+    "url": "https://android.googlesource.com/platform/external/safe-iop"
   }
 ]
