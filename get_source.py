@@ -1499,11 +1499,11 @@ static bool sdk_system_property_wait(
     # Add private forward declarations locally; this does not raise the runtime API.
     for relative, declaration in (
         ('src/logging/liblog/logger_write.cpp',
-         '\\nextern "C" {\\nstruct __android_log_message;\\n'
-         'void __android_log_logd_logger(const struct __android_log_message*);\\n}\\n'),
+         '\nextern "C" {\nstruct __android_log_message;\n'
+         'void __android_log_logd_logger(const struct __android_log_message*);\n}\n'),
         ('src/logging/liblog/properties.cpp',
-         '\\n#include <stdint.h>\\nextern "C" {\\n'
-         'int32_t __android_log_get_minimum_priority(void);\\n}\\n'),
+         '\n#include <stdint.h>\nextern "C" {\n'
+         'int32_t __android_log_get_minimum_priority(void);\n}\n'),
     ):
         source = ROOT / relative
         if source.is_file():
