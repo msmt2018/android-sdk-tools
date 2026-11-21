@@ -45,6 +45,10 @@ add_compile_options(
     # Several pinned AOSP revisions use std::function without including its header.
     "$<$<COMPILE_LANGUAGE:CXX>:-include>"
     "$<$<COMPILE_LANGUAGE:CXX>:functional>"
+    # The generated IncrementalProperties sysprop wrapper calls the public
+    # Bionic property callback API but omits its declaring header.
+    "$<$<COMPILE_LANGUAGE:CXX>:-include>"
+    "$<$<COMPILE_LANGUAGE:CXX>:sys/system_properties.h>"
     )
 
 if(SDK_STATIC)
