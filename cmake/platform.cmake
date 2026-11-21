@@ -44,6 +44,8 @@ add_compile_options(
     "$<$<COMPILE_LANGUAGE:C,CXX>:-D__unused=__attribute__((unused))>"
     # Restore C++17 compatibility symbols removed by newer libc++ releases.
     "$<$<COMPILE_LANGUAGE:CXX>:-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION>"
+    # Restore std::result_of for older vendored fmtlib under the C++20 build.
+    "$<$<COMPILE_LANGUAGE:CXX>:-D_LIBCPP_ENABLE_CXX20_REMOVED_TYPE_TRAITS>"
     # Several pinned AOSP revisions use std::function without including its header.
     "$<$<COMPILE_LANGUAGE:CXX>:-include>"
     "$<$<COMPILE_LANGUAGE:CXX>:functional>"
