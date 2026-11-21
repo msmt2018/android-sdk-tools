@@ -38,6 +38,14 @@ add_compile_options(
     "$<$<COMPILE_LANGUAGE:C,CXX>:-fPIC>"
     "$<$<COMPILE_LANGUAGE:C,CXX>:-Wno-attributes>"
     "$<$<COMPILE_LANGUAGE:C,CXX>:-fdiagnostics-color=always>"
+    # Normalize legacy Bionic annotation handling across NDK API levels.
+    "$<$<COMPILE_LANGUAGE:C,CXX>:-U__unused>"
+    "$<$<COMPILE_LANGUAGE:C,CXX>:-D__unused=__attribute__((unused))>"
+    # Restore C++17 compatibility symbols removed by newer libc++ releases.
+    "$<$<COMPILE_LANGUAGE:CXX>:-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION>"
+    # Several pinned AOSP revisions use std::function without including its header.
+    "$<$<COMPILE_LANGUAGE:CXX>:-include>"
+    "$<$<COMPILE_LANGUAGE:CXX>:functional>"
     )
 
 if(SDK_STATIC)
