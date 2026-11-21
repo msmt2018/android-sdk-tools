@@ -237,8 +237,24 @@ def resolve_manifest_revisions(repos, release_tag, retries):
 
 def clone(repo, default_branch, retries):
     path = ROOT / repo['path']
+    # Cached source trees can be interrupted or partially populated. Validate
+    # zlib's private headers because its C files include them locally; a
+    # missing internal header otherwise appears as a compiler error much later.
+    required_files = (
+        ('zlib.h', 'zconf.h', 'zutil.h', 'deflate.h', 'inflate.h',
+         'inftrees.h', 'inffast.h', 'trees.h')
+        if repo.get('path') == 'src/zlib' else ()
+    )
+    def complete():
+        return not required_files or all((path / name).is_file() for name in required_files)
+
     if path.exists():
-        return '{} already exists, skip'.format(repo['path'])
+        if complete():
+            return '{} already exists, skip'.format(repo['path'])
+        print('incomplete source cache for {}; removing before refetch'.format(
+            repo['path']), flush=True)
+        shutil.rmtree(path, ignore_errors=True)
+
     # AOSP projects use the revision pinned by the release manifest. Explicit
     # third-party pins (e.g. zlib) are preserved as-is.
     branch = repo.get('branch', default_branch)
@@ -246,8 +262,10 @@ def clone(repo, default_branch, retries):
                '--depth', '1', '--branch', branch, repo['url'], str(path)]
     for attempt in range(1, retries + 1):
         result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode == 0:
+        if result.returncode == 0 and complete():
             return 'cloned {} ({})'.format(repo['path'], branch)
+        if result.returncode == 0:
+            result.stderr += '\\nclone completed but required source headers are missing'
         shutil.rmtree(path, ignore_errors=True)
         if attempt < retries:
             time.sleep(5 * attempt)
