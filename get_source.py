@@ -1706,11 +1706,21 @@ static bool sdk_system_property_wait(
 
 def ensure_historical_android_api_compat():
     """Fix source/API mismatches in the pinned historical AOSP snapshots."""
-    vector = ROOT / 'src/core/libutils/VectorImpl.cpp'
-    if vector.is_file():
-        source = vector.read_text()
-        if '#include <safe_iop.h>' in source and not re.search(r'\bsafe_iop_[A-Za-z0-9_]+', source):
-            vector.write_text(source.replace('#include <safe_iop.h>', ''))
+    # Keep VectorImpl's safe_iop.h include. The official external/safe-iop
+    # project is fetched from the same Google manifest snapshot and exposed
+    # through libutils.cmake; removing this header leaves safe_add/sub/mul
+    # undeclared and silently disables the upstream overflow checks.
+
+    # cgrouprc.h opens __BEGIN_DECLS before its API-level guard in older
+    # AOSP snapshots. On API 24 the guard skips __END_DECLS, leaking C linkage
+    # into the following C++ headers included by cgroup_map.cpp.
+    cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
+    if cgroup_header.is_file():
+        header = cgroup_header.read_text()
+        broken = '__END_DECLS\n\n#endif'
+        if broken in header:
+            header = header.replace(broken, '#endif\n\n__END_DECLS', 1)
+            cgroup_header.write_text(header)
 
     # fdsan was introduced in API 29; these binaries target API 24.
     zip_archive = ROOT / 'src/libziparchive/zip_archive.cc'
