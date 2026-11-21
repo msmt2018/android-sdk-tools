@@ -51,6 +51,11 @@ target_include_directories(sdk_zlib PUBLIC ${SDK_ZLIB_INCLUDE_DIR})
 # Optimized zlib headers include internal headers from the source root.
 target_include_directories(sdk_zlib PRIVATE ${SDK_ZLIB_SOURCE_DIR})
 
+# Support AOSP zlib snapshots that keep internal headers in src/.
+if(EXISTS "${SDK_ZLIB_SOURCE_DIR}/src/zutil.h")
+    target_include_directories(sdk_zlib PRIVATE "${SDK_ZLIB_SOURCE_DIR}/src")
+endif()
+
 file(STRINGS ${SDK_ZLIB_SOURCE_DIR}/zlib.h _zlib_version_line REGEX "^#define ZLIB_VERSION \"[^\"]*\"")
 string(REGEX REPLACE "^.*ZLIB_VERSION \"([^\"]*)\".*$" "\\1" SDK_ZLIB_VERSION "${_zlib_version_line}")
 
