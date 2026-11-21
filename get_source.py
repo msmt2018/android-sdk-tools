@@ -1168,6 +1168,26 @@ def normalize_optional_release_sources():
                 print('legacy zlib layout: {} -> {}'.format(
                     destination.relative_to(ROOT), matches[0].relative_to(ROOT)
                 ), flush=True)
+        # Older external/zlib snapshots place private implementation
+        # headers below src/ while their C files are normalized to the root.
+        # Mirror only uniquely located headers; do not overwrite release files.
+        for filename in (
+            'zutil.h', 'deflate.h', 'inflate.h', 'inftrees.h',
+            'inffast.h', 'trees.h', 'gzguts.h', 'crc32.h',
+        ):
+            destination = zlib_root / filename
+            if destination.exists():
+                continue
+            matches = [
+                candidate for candidate in zlib_root.rglob(filename)
+                if candidate.is_file() and candidate != destination
+            ]
+            if len(matches) == 1:
+                destination.symlink_to(matches[0])
+                print('legacy zlib header: {} -> {}'.format(
+                    destination.relative_to(ROOT), matches[0].relative_to(ROOT)
+                ), flush=True)
+
         zlib_sources = sorted(
             candidate.relative_to(zlib_root).as_posix()
             for candidate in zlib_root.rglob('*.c')
