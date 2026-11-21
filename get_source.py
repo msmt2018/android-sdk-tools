@@ -1494,6 +1494,27 @@ static bool sdk_system_property_wait(
             source_text = source_text[:line_start] + replacement + source_text[position + len(call):]
             logging.write_text(source_text)
 
+    # API-30 liblog declarations are hidden by the API-24 NDK headers used
+    # for these cross-builds, although the pinned liblog source implements them.
+    # Add private forward declarations locally; this does not raise the runtime API.
+    for relative, declaration in (
+        ('src/logging/liblog/logger_write.cpp',
+         '\\nextern "C" {\\nstruct __android_log_message;\\n'
+         'void __android_log_logd_logger(const struct __android_log_message*);\\n}\\n'),
+        ('src/logging/liblog/properties.cpp',
+         '\\n#include <stdint.h>\\nextern "C" {\\n'
+         'int32_t __android_log_get_minimum_priority(void);\\n}\\n'),
+    ):
+        source = ROOT / relative
+        if source.is_file():
+            source_text = source.read_text()
+            if '__android_log_logd_logger(' in declaration:
+                required = 'void __android_log_logd_logger(const struct __android_log_message*);'
+            else:
+                required = 'int32_t __android_log_get_minimum_priority(void);'
+            if required not in source_text:
+                source.write_text(declaration + source_text)
+
     # Some historical Google manifests do not contain external/fmtlib.
     # Only link fmt when that exact release snapshot provides its target.
     androidfw_cmake = ROOT / 'lib/libandroidfw.cmake'
