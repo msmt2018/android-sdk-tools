@@ -1540,6 +1540,16 @@ static bool sdk_system_property_wait(
             source_text = source_text[:line_start] + replacement + source_text[position + len(call):]
             logging.write_text(source_text)
 
+    # API-24 NDK headers do not expose the newer debuggable query. This
+    # build explicitly sets ANDROID_DEBUGGABLE=0, so preserve that build policy
+    # without introducing an API-30 symbol dependency.
+    event_tag_map = ROOT / 'src/logging/liblog/event_tag_map.cpp'
+    if event_tag_map.is_file():
+        source_text = event_tag_map.read_text()
+        source_text = source_text.replace(
+            '__android_log_is_debuggable()', '(ANDROID_DEBUGGABLE != 0)')
+        event_tag_map.write_text(source_text)
+
     # Some historical Google manifests do not contain external/fmtlib.
     # Only link fmt when that exact release snapshot provides its target.
     androidfw_cmake = ROOT / 'lib/libandroidfw.cmake'
