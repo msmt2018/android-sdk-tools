@@ -237,11 +237,11 @@ def resolve_manifest_revisions(repos, release_tag, retries):
 
 def clone(repo, default_branch, retries):
     path = ROOT / repo['path']
-    required_files = (
-        ('zlib.h', 'zconf.h', 'zutil.h', 'deflate.h', 'inflate.h',
-         'inftrees.h', 'inffast.h', 'trees.h')
-        if repo.get('path') == 'src/zlib' else ()
-    )
+    # Older official zlib snapshots do not consistently ship every private
+    # implementation header checked by newer releases. A successful Git
+    # checkout is complete even when those optional headers are absent; let
+    # the release-specific CMake source list determine what is actually built.
+    required_files = ('zlib.h',) if repo.get('path') == 'src/zlib' else ()
     def complete():
         return not required_files or all((path / name).is_file() for name in required_files)
 
