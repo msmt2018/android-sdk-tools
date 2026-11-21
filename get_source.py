@@ -1239,52 +1239,61 @@ def ensure_liblog_ndk_r27_compat():
     cmake = ROOT / 'lib/liblog.cmake'
     if cmake.is_file():
         text = cmake.read_text()
+        # The previous helper emitted literal backslash-n sequences into
+        # CMake, producing "target_compile_definitions called with invalid arguments".
+        # Rebuild these target settings as real, independently parsed CMake commands.
         text = re.sub(
-            r'(?m)^\\s*target_compile_options\\(liblog PRIVATE .*__unused.*\\)\\s*\\n?',
+            r'(?m)^\s*target_compile_options\(liblog PRIVATE .*__unused.*\)\s*\n?',
             '',
             text,
         )
-        if 'target_compile_definitions(liblog PRIVATE' in text:
-            if '__unused=__attribute__((unused))' not in text:
-                text = text.replace(
-                    'target_compile_definitions(liblog PRIVATE',
-                    'target_compile_definitions(liblog PRIVATE\\n    "__unused=__attribute__((unused))"',
-                    1,
-                )
-        else:
-            text += '\\ntarget_compile_definitions(liblog PRIVATE "__unused=__attribute__((unused))")\\n'
-        if 'set_target_properties(liblog PROPERTIES' not in text:
-            text += '\\nset_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)\\n'
+        text = re.sub(
+            r'(?m)^\s*target_compile_definitions\(liblog PRIVATE.*(?:\\n.*)?\n?',
+            '',
+            text,
+        )
+        text = re.sub(
+            r'(?m)^\s*set_target_properties\(liblog PROPERTIES.*(?:\\n.*)?\n?',
+            '',
+            text,
+        )
+        text = text.rstrip() + (
+            '\n\ntarget_compile_definitions(liblog PRIVATE "__unused=__attribute__((unused))")'
+            '\nset_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)\n'
+        )
         cmake.write_text(text)
 
     event_tag_map = ROOT / 'src/logging/liblog/event_tag_map.cpp'
     if event_tag_map.is_file():
         text = event_tag_map.read_text()
-        declaration = ('#include <stddef.h>\\n'
-                       'extern "C" int __android_log_is_loggable_len(int prio, '
-                       'const char* tag, size_t len, int default_prio);\\n')
-        if '__android_log_is_loggable_len(' in text and 'extern "C" int __android_log_is_loggable_len' not in text:
+        if ('__android_log_is_loggable_len(' in text and
+                'extern "C" int __android_log_is_loggable_len' not in text):
             include_marker = '#include "logd_reader.h"'
             if include_marker not in text:
                 raise RuntimeError('event_tag_map.cpp compatibility anchor not found')
-            text = text.replace(include_marker, include_marker + '\\n\\n' + declaration, 1)
+            declaration = (
+                '#include <stddef.h>\n'
+                'extern "C" int __android_log_is_loggable_len('
+                'int prio, const char* tag, size_t len, int default_prio);'
+            )
+            text = text.replace(include_marker, include_marker + '\n' + declaration, 1)
             event_tag_map.write_text(text)
 
     properties = ROOT / 'src/core/libcutils/properties.cpp'
     if properties.is_file():
         text = properties.read_text()
         old = '__system_property_read_callback(pi, trampoline, data);'
-        new = ('char name[PROP_NAME_MAX] = {};\\n'
-               '    char value[PROP_VALUE_MAX] = {};\\n'
-               '    __system_property_read(pi, name, value);\\n'
-               '    trampoline(data, name, value, 0);')
+        new = (
+            'char name[PROP_NAME_MAX] = {};\n'
+            '    char value[PROP_VALUE_MAX] = {};\n'
+            '    __system_property_read(pi, name, value);\n'
+            '    trampoline(data, name, value, 0);'
+        )
         if old in text:
             text = text.replace(old, new, 1)
             properties.write_text(text)
 
-    print('Applied liblog __unused, API-24 loggable declaration, and property-read compatibility', flush=True)
-
-
+    print('liblog NDK r27/API 24 compatibility: CMake definitions and legacy property API verified', flush=True)
 def patches():
     run_compat_if_present(
         'src/abseil-cpp/absl/meta/type_traits.h',
