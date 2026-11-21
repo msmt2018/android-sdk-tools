@@ -41,6 +41,7 @@ target_compile_definitions(liblog PRIVATE
     -DFAKE_LOG_DEVICE=1
     -DSNET_EVENT_LOG_TAG=1397638686
     -DANDROID_DEBUGGABLE=0
+    -D__unused=__attribute__((unused))
     )
     
 target_include_directories(liblog PRIVATE
@@ -50,3 +51,5 @@ target_include_directories(liblog PRIVATE
     ${SRC}/libbase/include
     )
     
+# Historical liblog relies on std::unary_function, removed in C++20.
+set_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
