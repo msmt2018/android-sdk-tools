@@ -1681,6 +1681,141 @@ static bool sdk_system_property_wait(
                 print('release CMake source filter {}: removed {}'.format(
                     cmake_file.relative_to(ROOT), ', '.join(sorted(set(removed)))), flush=True)
 
+
+def ensure_historical_android_api_compat():
+    """Fix source/API mismatches in the pinned historical AOSP snapshots."""
+    vector = ROOT / 'src/core/libutils/VectorImpl.cpp'
+    if vector.is_file():
+        source = vector.read_text()
+        if '#include <safe_iop.h>' in source and not re.search(r'\bsafe_iop_[A-Za-z0-9_]+', source):
+            vector.write_text(source.replace('#include <safe_iop.h>', ''))
+
+    # fdsan was introduced in API 29; these binaries target API 24.
+    zip_archive = ROOT / 'src/libziparchive/zip_archive.cc'
+    if zip_archive.is_file():
+        source = zip_archive.read_text()
+        source = source.replace(
+            '#if defined(__BIONIC__)',
+            '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29'
+        )
+        zip_archive.write_text(source)
+
+    # Use the OpenSSL-compatible headers from this tag's pinned BoringSSL.
+    selinux_cmake = ROOT / 'lib/libselinux.cmake'
+    if selinux_cmake.is_file():
+        source = selinux_cmake.read_text()
+        marker = '# SDK_HISTORICAL_BORINGSSL_INCLUDE_COMPAT'
+        if marker not in source:
+            source += (
+                '\n' + marker + '\n'
+                'if(EXISTS "' + '
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
+    args = parser.parse_args()
+
+    if args.normalize_optional_sources_only:
+        create_legacy_source_aliases()
+        normalize_optional_release_sources()
+        ensure_liblog_ndk_r27_compat()
+        normalize_release_cmake_targets()
+        ensure_historical_android_api_compat()
+        return
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources from Google manifest: {}'.format(args.tags))
+    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    create_legacy_source_aliases()
+    normalize_optional_release_sources()
+    ensure_liblog_ndk_r27_compat()
+
+    if not args.skip_patch:
+        patches()
+
+    normalize_release_cmake_targets()
+    ensure_historical_android_api_compat()
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+ + '{SRC}/boringssl/src/include/openssl/sha.h")\n'
+                '    target_include_directories(libselinux PRIVATE "' + '
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
+    args = parser.parse_args()
+
+    if args.normalize_optional_sources_only:
+        create_legacy_source_aliases()
+        normalize_optional_release_sources()
+        ensure_liblog_ndk_r27_compat()
+        normalize_release_cmake_targets()
+        return
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources from Google manifest: {}'.format(args.tags))
+    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    create_legacy_source_aliases()
+    normalize_optional_release_sources()
+    ensure_liblog_ndk_r27_compat()
+
+    if not args.skip_patch:
+        patches()
+
+    normalize_release_cmake_targets()
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+ + '{SRC}/boringssl/src/include")\n'
+                'endif()\n'
+            )
+            selinux_cmake.write_text(source)
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
