@@ -256,39 +256,31 @@ def clone(repo, default_branch, retries):
     for attempt in range(1, retries + 1):
         shutil.rmtree(path, ignore_errors=True)
         path.mkdir(parents=True, exist_ok=True)
-        init = subprocess.run(['git', 'init', '-q', str(path)], capture_output=True, text=True)
-        if init.returncode != 0:
-            result = init
-        else:
-            remote = subprocess.run(
+        result = subprocess.run(['git', 'init', '-q', str(path)], capture_output=True, text=True)
+        if result.returncode == 0:
+            result = subprocess.run(
                 ['git', '-C', str(path), 'remote', 'add', 'origin', url],
                 capture_output=True, text=True)
-            if remote.returncode != 0:
-                result = remote
-            else:
-                if revision.startswith('refs/'):
-                    refs = [revision]
-                elif re.fullmatch(r'[0-9a-fA-F]{40}', revision):
-                    refs = [revision]
-                else:
-                    refs = ['refs/tags/' + revision, 'refs/heads/' + revision]
-                for ref in refs:
-                    result = subprocess.run(
-                        ['git', '-C', str(path), 'fetch', '--depth', '1', 'origin', ref],
+        if result.returncode == 0:
+            refs = ([revision] if revision.startswith('refs/') or
+                    re.fullmatch(r'[0-9a-fA-F]{40}', revision) else
+                    ['refs/tags/' + revision, 'refs/heads/' + revision])
+            for ref in refs:
+                result = subprocess.run(
+                    ['git', '-C', str(path), 'fetch', '--depth', '1', 'origin', ref],
+                    capture_output=True, text=True)
+                if result.returncode == 0:
+                    checkout = subprocess.run(
+                        ['git', '-C', str(path), 'checkout', '--detach', '--quiet', 'FETCH_HEAD'],
                         capture_output=True, text=True)
-                    if result.returncode == 0:
-                        checkout = subprocess.run(
-                            ['git', '-C', str(path), 'checkout', '--detach', '--quiet', 'FETCH_HEAD'],
-                            capture_output=True, text=True)
-                        if checkout.returncode == 0 and complete():
-                            return 'fetched {} ({})'.format(repo['path'], revision)
-                        if checkout.returncode != 0:
-                            result = checkout
-                        else:
-                            result.stderr = (result.stderr or '') + '\\nchecked out source is missing required zlib headers'
-                    shutil.rmtree(path, ignore_errors=True)
-                    path.mkdir(parents=True, exist_ok=True)
-                    subprocess.run(['git', 'init', '-q', str(path)], capture_output=True, text=True)
+                    if checkout.returncode == 0 and complete():
+                        return 'fetched {} ({})'.format(repo['path'], revision)
+                    result = checkout
+                if ref != refs[-1]:
+                    subprocess.run(['git', '-C', str(path), 'remote', 'remove', 'origin'],
+                                   capture_output=True, text=True)
+                    subprocess.run(['git', '-C', str(path), 'init', '-q'],
+                                   capture_output=True, text=True)
                     subprocess.run(['git', '-C', str(path), 'remote', 'add', 'origin', url],
                                    capture_output=True, text=True)
         if attempt < retries:
