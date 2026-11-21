@@ -174,12 +174,11 @@ template <typename T>
 T GetProp(const char* key, const char* legacy = nullptr) {
     std::string value;
 #ifdef __BIONIC__
-    auto pi = __system_property_find(key);
-    if (pi != nullptr) {
-        __system_property_read_callback(pi, [](void* cookie, const char*, const char* value, std::uint32_t) {
-            *static_cast<std::string*>(cookie) = value;
-        }, &value);
-    }
+    // __system_property_find/read_callback are unavailable when targeting
+    // Android API levels below 26. The legacy getter is available on API 24.
+    char prop_value[PROP_VALUE_MAX] = {};
+    __system_property_get(key, prop_value);
+    value = prop_value;
 #else
     value = android::base::GetProperty(key, "");
 #endif
