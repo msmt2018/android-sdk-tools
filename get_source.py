@@ -1200,6 +1200,27 @@ def normalize_optional_release_sources():
             print('normalized optional sources for {}'.format(relative_path), flush=True)
 
 
+def ensure_liblog_ndk_r27_compat():
+    """Remove obsolete liblog compatibility overrides for the NDK r27 toolchain."""
+    cmake = ROOT / 'lib/liblog.cmake'
+    if cmake.is_file():
+        text = cmake.read_text()
+        text = re.sub(
+            r'(?m)^target_compile_options\(liblog PRIVATE "SHELL:-D__unused=.*?"\)\s*\n?',
+            '',
+            text,
+        )
+        if 'set_target_properties(liblog PROPERTIES' not in text:
+            text += '\nset_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)\n'
+        cmake.write_text(text)
+    event_tag_map = ROOT / 'src/logging/liblog/event_tag_map.cpp'
+    if event_tag_map.is_file():
+        text = event_tag_map.read_text()
+        text = re.sub(r'\s*:\s*public\s+std::unary_function\s*<[^;{}]*?>', '', text, flags=re.S)
+        event_tag_map.write_text(text)
+    print('liblog NDK r27 compatibility: removed __unused override and obsolete unary_function bases', flush=True)
+
+
 def patches():
     run_compat_if_present(
         'src/abseil-cpp/absl/meta/type_traits.h',
@@ -1668,6 +1689,7 @@ def main():
     if args.normalize_optional_sources_only:
         create_legacy_source_aliases()
         normalize_optional_release_sources()
+        ensure_liblog_ndk_r27_compat()
         normalize_release_cmake_targets()
         return
 
@@ -1691,6 +1713,7 @@ def main():
 
     create_legacy_source_aliases()
     normalize_optional_release_sources()
+    ensure_liblog_ndk_r27_compat()
 
     if not args.skip_patch:
         patches()
