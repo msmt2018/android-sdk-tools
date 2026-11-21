@@ -259,7 +259,9 @@ def clone(repo, default_branch, retries):
     # third-party pins (e.g. zlib) are preserved as-is.
     branch = repo.get('branch', default_branch)
     command = ['git', 'clone', '-q', '-c', 'advice.detachedHead=false',
-               '--depth', '1', '--branch', branch, repo['url'], str(path)]
+               '--depth', '1, --branch', branch, repo['url'], str(path)]
+    command[4] = '--depth'
+    command[5] = '1'
     for attempt in range(1, retries + 1):
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode == 0 and complete():
