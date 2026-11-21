@@ -25,6 +25,7 @@ endif()
 add_library(sdk_zlib STATIC
     ${SDK_ZLIB_SOURCE_DIR}/adler32.c
     ${SDK_ZLIB_SOURCE_DIR}/compress.c
+    ${SDK_ZLIB_SOURCE_DIR}/cpu_features.c
     ${SDK_ZLIB_SOURCE_DIR}/crc32.c
     ${SDK_ZLIB_SOURCE_DIR}/deflate.c
     ${SDK_ZLIB_SOURCE_DIR}/gzclose.c
@@ -48,6 +49,10 @@ set(SDK_ZLIB_INCLUDE_DIR ${CMAKE_BINARY_DIR}/sdk-zlib/include)
 configure_file(${SDK_ZLIB_SOURCE_DIR}/zlib.h ${SDK_ZLIB_INCLUDE_DIR}/zlib.h COPYONLY)
 configure_file(${SDK_ZLIB_SOURCE_DIR}/zconf.h ${SDK_ZLIB_INCLUDE_DIR}/zconf.h COPYONLY)
 target_include_directories(sdk_zlib PUBLIC ${SDK_ZLIB_INCLUDE_DIR})
+# Chromium's optimized insert_string header includes cpu_features.h from the
+# zlib source root. Keep internal headers private to sdk_zlib; public consumers
+# continue to receive only the copied zlib API headers.
+target_include_directories(sdk_zlib PRIVATE ${SDK_ZLIB_SOURCE_DIR})
 
 file(STRINGS ${SDK_ZLIB_SOURCE_DIR}/zlib.h _zlib_version_line REGEX "^#define ZLIB_VERSION \"[^\"]*\"")
 string(REGEX REPLACE "^.*ZLIB_VERSION \"([^\"]*)\".*$" "\\1" SDK_ZLIB_VERSION "${_zlib_version_line}")
