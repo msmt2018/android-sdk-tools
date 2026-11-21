@@ -54,6 +54,4 @@ target_include_directories(liblog PRIVATE
 # Historical liblog relies on std::unary_function, removed in C++20.
 # Bionic does not expose this legacy annotation in every NDK API level.
 # Quote the attribute so the shell does not parse its parentheses.
-target_compile_options(liblog PRIVATE "SHELL:-D__unused='__attribute__((unused))'")
-
 set_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
