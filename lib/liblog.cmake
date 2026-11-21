@@ -44,6 +44,11 @@ target_compile_definitions(liblog PRIVATE
 
     )
     
+# Prefer the release-matched liblog public header over the older core/include copy.
+if(EXISTS "${SRC}/logging/liblog/include/android/log.h")
+    target_include_directories(liblog BEFORE PRIVATE ${SRC}/logging/liblog/include)
+endif()
+
 target_include_directories(liblog PRIVATE
     ${SRC}/core/include
     ${SRC}/logging/liblog/include
