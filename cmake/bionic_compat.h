@@ -3,7 +3,8 @@
  * Some NDK sys/cdefs.h configurations leave __unused undefined for C++.
  */
 #pragma once
-#if defined(__ANDROID__)
+
+#if defined(ANDROID) || defined(__ANDROID__) || defined(__BIONIC__)
 #include <sys/cdefs.h>
 #ifndef __unused
 #define __unused __attribute__((unused))
