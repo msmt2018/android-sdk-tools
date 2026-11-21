@@ -36,12 +36,12 @@ add_library(liblog STATIC
     )
 
 target_compile_definitions(liblog PRIVATE
-    -DLIBLOG_LOG_TAG=1006 
-    -D_XOPEN_SOURCE=700 
-    -DFAKE_LOG_DEVICE=1
-    -DSNET_EVENT_LOG_TAG=1397638686
-    -DANDROID_DEBUGGABLE=0
-    -D__unused=__attribute__((unused))
+    LIBLOG_LOG_TAG=1006
+    _XOPEN_SOURCE=700
+    FAKE_LOG_DEVICE=1
+    SNET_EVENT_LOG_TAG=1397638686
+    ANDROID_DEBUGGABLE=0
+
     )
     
 target_include_directories(liblog PRIVATE
@@ -52,4 +52,6 @@ target_include_directories(liblog PRIVATE
     )
     
 # Historical liblog relies on std::unary_function, removed in C++20.
+target_compile_options(liblog PRIVATE "SHELL:-D__unused='__attribute__((unused))'")
+
 set_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
