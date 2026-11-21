@@ -1766,6 +1766,7 @@ def main():
         normalize_optional_release_sources()
         ensure_liblog_ndk_r27_compat()
         normalize_release_cmake_targets()
+        ensure_historical_android_api_compat()
         return
 
     # check necessary packages
@@ -1795,6 +1796,7 @@ def main():
         patches()
 
     normalize_release_cmake_targets()
+    ensure_historical_android_api_compat()
     print('download success!!')
 
 
