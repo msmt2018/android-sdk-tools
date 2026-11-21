@@ -37,6 +37,8 @@ endif()
 add_compile_options(
     "$<$<COMPILE_LANGUAGE:C,CXX>:-fPIC>"
     "$<$<COMPILE_LANGUAGE:C,CXX>:-Wno-attributes>"
+    # Old pinned BoringSSL has intentional switch fallthrough not annotated for Clang.
+    "$<$<COMPILE_LANGUAGE:C>:-Wno-error=implicit-fallthrough>"
     "$<$<COMPILE_LANGUAGE:C,CXX>:-fdiagnostics-color=always>"
     # Normalize legacy Bionic annotation handling across NDK API levels.
     "$<$<COMPILE_LANGUAGE:C,CXX>:-D__unused=__attribute__((unused))>"
