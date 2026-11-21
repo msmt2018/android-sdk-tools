@@ -237,8 +237,6 @@ def resolve_manifest_revisions(repos, release_tag, retries):
 
 def clone(repo, default_branch, retries):
     path = ROOT / repo['path']
-    # Cached source trees can be interrupted or partially populated. Validate
-    # zlib's private headers because its C files include them locally.
     required_files = (
         ('zlib.h', 'zconf.h', 'zutil.h', 'deflate.h', 'inflate.h',
          'inftrees.h', 'inffast.h', 'trees.h')
@@ -250,26 +248,53 @@ def clone(repo, default_branch, retries):
     if path.exists():
         if complete():
             return '{} already exists, skip'.format(repo['path'])
-        print('incomplete source cache for {}; removing before refetch'.format(
-            repo['path']), flush=True)
         shutil.rmtree(path, ignore_errors=True)
 
-    # AOSP projects use the revision pinned by the release manifest. Explicit
-    # third-party pins (e.g. zlib) are preserved as-is.
-    branch = repo.get('branch', default_branch)
-    command = ['git', 'clone', '-q', '-c', 'advice.detachedHead=false',
-               '--depth', '1', '--branch', branch, repo['url'], str(path)]
+    revision = repo.get('branch', default_branch)
+    url = repo['url']
+    result = None
     for attempt in range(1, retries + 1):
-        result = subprocess.run(command, capture_output=True, text=True)
-        if result.returncode == 0 and complete():
-            return 'cloned {} ({})'.format(repo['path'], branch)
-        if result.returncode == 0:
-            result.stderr = (result.stderr or '') + '\\nclone completed but required source headers are missing'
         shutil.rmtree(path, ignore_errors=True)
+        path.mkdir(parents=True, exist_ok=True)
+        init = subprocess.run(['git', 'init', '-q', str(path)], capture_output=True, text=True)
+        if init.returncode != 0:
+            result = init
+        else:
+            remote = subprocess.run(
+                ['git', '-C', str(path), 'remote', 'add', 'origin', url],
+                capture_output=True, text=True)
+            if remote.returncode != 0:
+                result = remote
+            else:
+                if revision.startswith('refs/'):
+                    refs = [revision]
+                elif re.fullmatch(r'[0-9a-fA-F]{40}', revision):
+                    refs = [revision]
+                else:
+                    refs = ['refs/tags/' + revision, 'refs/heads/' + revision]
+                for ref in refs:
+                    result = subprocess.run(
+                        ['git', '-C', str(path), 'fetch', '--depth', '1', 'origin', ref],
+                        capture_output=True, text=True)
+                    if result.returncode == 0:
+                        checkout = subprocess.run(
+                            ['git', '-C', str(path), 'checkout', '--detach', '--quiet', 'FETCH_HEAD'],
+                            capture_output=True, text=True)
+                        if checkout.returncode == 0 and complete():
+                            return 'fetched {} ({})'.format(repo['path'], revision)
+                        if checkout.returncode != 0:
+                            result = checkout
+                        else:
+                            result.stderr = (result.stderr or '') + '\\nchecked out source is missing required zlib headers'
+                    shutil.rmtree(path, ignore_errors=True)
+                    path.mkdir(parents=True, exist_ok=True)
+                    subprocess.run(['git', 'init', '-q', str(path)], capture_output=True, text=True)
+                    subprocess.run(['git', '-C', str(path), 'remote', 'add', 'origin', url],
+                                   capture_output=True, text=True)
         if attempt < retries:
             time.sleep(5 * attempt)
-    raise RuntimeError('failed to clone {} ({}) [manifest-pinned revision]:\\n{}'.format(
-        repo['url'], branch, result.stderr))
+    raise RuntimeError('failed to fetch {} ({}) [manifest-pinned revision]:\\n{}'.format(
+        url, revision, result.stderr if result else 'no git result'))
 
 
 def replace_in_file(path, old, new):
