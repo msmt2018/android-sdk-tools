@@ -136,6 +136,8 @@ endif()
 file(GLOB_RECURSE AAPT2_ALL_CPP CONFIGURE_DEPENDS
     "${SRC}/base/tools/aapt2/*.cpp")
 list(FILTER AAPT2_ALL_CPP EXCLUDE REGEX "/(test|tests|integration-tests)/|(_test|_tests)\.cpp$")
+# Unicode_data.cpp is generated data included by Unicode.cpp, not a translation unit.
+list(REMOVE_ITEM AAPT2_ALL_CPP "${SRC}/base/tools/aapt2/text/Unicode_data.cpp")
 set(AAPT2_MAIN_SOURCE "${SRC}/base/tools/aapt2/Main.cpp")
 if(NOT EXISTS "${AAPT2_MAIN_SOURCE}")
     message(FATAL_ERROR "AAPT2 Main.cpp is missing from the selected Google source tag")
