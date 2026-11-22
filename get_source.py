@@ -1737,6 +1737,9 @@ def ensure_historical_android_api_compat():
             if '__END_DECLS' not in header:
                 header = header.rstrip() + '\n\n__END_DECLS\n'
             cgroup_header.write_text(header)
+        # These declarations are private to the in-tree libprocessgroup implementation.
+        # Remove public SDK availability attributes so the code can stay at API 24.
+        header = re.sub(r'\s*__INTRODUCED_IN\s*\([^)]*\)', '', header)
         if '__ANDROID_API_Q__' in header and 'ACgroupFile_getVersion' in header:
             raise RuntimeError('cgrouprc API declarations remain hidden by an API guard')
 
