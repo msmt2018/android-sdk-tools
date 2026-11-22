@@ -1817,6 +1817,25 @@ def ensure_historical_android_api_compat():
         if uses_glr_cpp:
             print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
 
+    # SDK_E2FSPROGS_SPARSE_WRITE_SIZE_T_COMPAT
+    sparse_io = ROOT / 'src/e2fsprogs/lib/ext2fs/sparse_io.c'
+    if sparse_io.is_file():
+        sparse_source = sparse_io.read_text()
+        sparse_source, sparse_count = re.subn(
+            r'(sparse_import_segment\\s*\\(\\s*void\\s*\\*\\s*\\w+\\s*,\\s*const\\s+void\\s*\\*\\s*\\w+\\s*,\\s*)int(\\s+\\w+\\s*,)',
+            r'\\1size_t\\2',
+            sparse_source,
+            count=1,
+        )
+        if sparse_count:
+            sparse_io.write_text(sparse_source)
+            print('e2fsprogs: aligned sparse write callback length with libsparse size_t API', flush=True)
+        elif re.search(r'sparse_import_segment\\s*\\(', sparse_source) and not re.search(
+            r'sparse_import_segment\\s*\\(\\s*void\\s*\\*\\s*\\w+\\s*,\\s*const\\s+void\\s*\\*\\s*\\w+\\s*,\\s*size_t\\s+\\w+',
+            sparse_source,
+        ):
+            raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io))
+
     # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
     logging = ROOT / 'src/libbase/logging.cpp'
     if logging.is_file():
