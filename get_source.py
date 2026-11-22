@@ -1790,6 +1790,22 @@ def ensure_historical_android_api_compat():
         if uses_glr_cpp:
             print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
 
+    # SDK_AIDL_LOCATION_UNSIGNED_NARROWING_COMPAT
+    aidl_grammar = ROOT / 'src/aidl/aidl_language_y.yy'
+    if aidl_grammar.is_file():
+        grammar_text = aidl_grammar.read_text()
+        grammar_text = grammar_text.replace(
+            '.line = l.begin.line,',
+            '.line = static_cast<unsigned int>(l.begin.line),',
+        )
+        grammar_text = grammar_text.replace(
+            '.column = l.begin.column,',
+            '.column = static_cast<unsigned int>(l.begin.column),',
+        )
+        aidl_grammar.write_text(grammar_text)
+        if '.line = l.begin.line,' in grammar_text or '.column = l.begin.column,' in grammar_text:
+            raise RuntimeError('AIDL source location still narrows signed coordinates: {}'.format(aidl_grammar))
+
     # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
     logging = ROOT / 'src/libbase/logging.cpp'
     if logging.is_file():
