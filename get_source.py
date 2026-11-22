@@ -1772,21 +1772,29 @@ static bool sdk_system_property_wait(
 def ensure_historical_android_api_compat():
     """Fix historical AOSP source/API mismatches for the API-24 static build."""
     # SDK_AIDL_BISON_CPP_PURE_COMPAT
-    # Use Bison's legacy directive for this C++ parser; api.pure is rejected as unused.
+    # Bison's glr.cc skeleton is intrinsically pure; explicit purity directives
+    # are unused and rejected by Bison 3.8.2, so remove them only for glr.cc.
     aidl_grammar = ROOT / 'src/aidl/aidl_language_y.yy'
     if aidl_grammar.is_file():
         grammar_lines = aidl_grammar.read_text().splitlines()
+        uses_glr_cpp = any(line.strip() == '%skeleton "glr.cc"' for line in grammar_lines)
         changed = False
-        for index, line in enumerate(grammar_lines):
-            if line.strip().startswith('%define api.pure'):
-                grammar_lines[index] = line[:len(line) - len(line.lstrip())] + '%pure-parser'
-                changed = True
-                break
+        if uses_glr_cpp:
+            for index, line in enumerate(grammar_lines):
+                directive = line.strip()
+                if directive.startswith('%define api.pure') or directive == '%pure-parser':
+                    grammar_lines[index] = ''
+                    changed = True
         if changed:
             aidl_grammar.write_text('\n'.join(grammar_lines) + '\n')
-        if any(line.strip().startswith('%define api.pure') for line in aidl_grammar.read_text().splitlines()):
-            raise RuntimeError('AIDL Bison grammar still contains unsupported api.pure: {}'.format(aidl_grammar))
-        print('AIDL Bison: normalized legacy pure-parser directive', flush=True)
+        verified = aidl_grammar.read_text().splitlines()
+        if uses_glr_cpp and any(
+            line.strip().startswith('%define api.pure') or line.strip() == '%pure-parser'
+            for line in verified
+        ):
+            raise RuntimeError('AIDL GLR C++ grammar still contains an unused purity directive: {}'.format(aidl_grammar))
+        if uses_glr_cpp:
+            print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
 
     # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
     logging = ROOT / 'src/libbase/logging.cpp'
