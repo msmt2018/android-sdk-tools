@@ -1758,6 +1758,91 @@ static bool sdk_system_property_wait(
 
 def ensure_historical_android_api_compat():
     """Fix historical AOSP source/API mismatches for the API-24 static build."""
+
+    # SDK_HISTORICAL_LIBLP_UUID_COMPAT
+    # The Android-P liblp sources include <uuid/uuid.h>, while the same
+    # manifest already builds e2fsprogs' compatible libext2_uuid target.
+    fastboot_cmake = ROOT / 'platform-tools/fastboot.cmake'
+    if fastboot_cmake.is_file():
+        cmake_text = fastboot_cmake.read_text()
+        include_anchor = '    ${SRC}/core/libcutils/include\n'
+        uuid_include = '    ${SRC}/e2fsprogs/lib\n'
+        if uuid_include not in cmake_text and include_anchor in cmake_text:
+            cmake_text = cmake_text.replace(include_anchor, include_anchor + uuid_include, 1)
+        if 'target_link_libraries(libfsmgr PUBLIC libext2_uuid)' not in cmake_text:
+            target_anchor = 'add_library(libfsmgr STATIC ${LIBFSMGR_SRC})\n'
+            if target_anchor in cmake_text:
+                cmake_text = cmake_text.replace(
+                    target_anchor,
+                    target_anchor +
+                    'if(EXISTS "${SRC}/e2fsprogs/lib/uuid/uuid.h")\n'
+                    '    target_include_directories(libfsmgr PRIVATE "${SRC}/e2fsprogs/lib")\n'
+                    'endif()\n'
+                    'if(TARGET libext2_uuid)\n'
+                    '    target_link_libraries(libfsmgr PUBLIC libext2_uuid)\n'
+                    'endif()\n',
+                    1)
+        fastboot_cmake.write_text(cmake_text)
+
+    # SDK_AIDL_RELEASE_EXCLUDES_UNIT_TESTS
+    # The historical AIDL release executable must not compile *_unittest.cpp.
+    aidl_cmake = ROOT / 'build-tools/aidl.cmake'
+    if aidl_cmake.is_file():
+        cmake_text = aidl_cmake.read_text()
+        if 'AIDL_CPP_SOURCES' in cmake_text:
+            cmake_text, changed = re.subn(
+                r'list\(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX [^\n]+\)',
+                'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/[^/]*_unittest\\\\.cpp$")',
+                cmake_text, count=1)
+            if changed == 0 and '/[^/]*_unittest' not in cmake_text:
+                raise RuntimeError('cannot locate AIDL unit-test exclusion in {}'.format(aidl_cmake))
+        # Bison 3.8 emits the legacy counter_type initializer for this parser.
+        # Keep the compatibility warning scoped to generated parser sources.
+        parser_marker = 'add_flex_bison_dependency(LangScanner LangParser)\n'
+        parser_option = (
+            'set_source_files_properties(${BISON_LangParser_OUTPUTS} '
+            'PROPERTIES COMPILE_OPTIONS "-Wno-c++11-narrowing")\n'
+        )
+        if parser_marker in cmake_text and parser_option not in cmake_text:
+            cmake_text = cmake_text.replace(parser_marker, parser_marker + parser_option, 1)
+        aidl_cmake.write_text(cmake_text)
+
+    # SDK_BIONIC_GETLOGIN_R_COMPAT
+    # Bionic does not expose getlogin_r(); resolve the current UID through
+    # getpwuid_r() without changing the API-24 runtime baseline.
+    compat_header = ROOT / 'cmake/bionic_compat.h'
+    if compat_header.is_file():
+        compat_text = compat_header.read_text()
+        compat_marker = 'SDK_BIONIC_GETLOGIN_R_COMPAT'
+        if compat_marker not in compat_text:
+            compat_text += (
+                '\n/* ' + compat_marker + ' */\n'
+                '#if defined(__BIONIC__) || defined(__ANDROID__)\n'
+                '#include <errno.h>\n'
+                '#include <pwd.h>\n'
+                '#include <stddef.h>\n'
+                '#include <string.h>\n'
+                '#include <sys/types.h>\n'
+                '#include <unistd.h>\n'
+                'static inline int sdk_getlogin_r(char *buffer, size_t buffer_size) {\n'
+                '    if (buffer == NULL || buffer_size == 0) return EINVAL;\n'
+                '    struct passwd entry;\n'
+                '    struct passwd *found = NULL;\n'
+                '    char storage[1024];\n'
+                '    int status = getpwuid_r(getuid(), &entry, storage, sizeof(storage), &found);\n'
+                '    if (status != 0) return status;\n'
+                '    if (found == NULL || entry.pw_name == NULL) return ENOENT;\n'
+                '    size_t length = strlen(entry.pw_name);\n'
+                '    if (length >= buffer_size) return ERANGE;\n'
+                '    memcpy(buffer, entry.pw_name, length + 1);\n'
+                '    return 0;\n'
+                '}\n'
+                '#ifndef getlogin_r\n'
+                '#define getlogin_r sdk_getlogin_r\n'
+                '#endif\n'
+                '#endif\n'
+            )
+        compat_header.write_text(compat_text)
     # SDK_AIDL_BISON_CPP_PURE_COMPAT
     # Bison's glr.cc skeleton is intrinsically pure; explicit purity directives
     # are unused and rejected by Bison 3.8.2, so remove them only for glr.cc.
