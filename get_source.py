@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SDK_SOURCE_COMPAT_CACHE_EPOCH = 20261122_02
 #
 # Copyright © 2022 Github Lzhiyong
 #
