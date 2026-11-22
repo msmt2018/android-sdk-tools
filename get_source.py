@@ -1718,22 +1718,96 @@ static bool sdk_system_property_wait(
 
 
 def ensure_historical_android_api_compat():
-    """Fix source/API mismatches in the pinned historical AOSP snapshots."""
-    # Keep VectorImpl's safe_iop.h include. The official external/safe-iop
-    # project is fetched from the same Google manifest snapshot and exposed
-    # through libutils.cmake; removing this header leaves safe_add/sub/mul
-    # undeclared and silently disables the upstream overflow checks.
+    """Fix historical AOSP source/API mismatches for the API-24 static build."""
+    # Keep VectorImpl's safe_iop.h include. The matching external/safe-iop
+    # project is fetched from the selected Google manifest snapshot.
+    zip_cmake = ROOT / 'lib/libziparchive.cmake'
+    if zip_cmake.is_file():
+        text = zip_cmake.read_text()
+        marker = '# SDK_HISTORICAL_LIBUTILS_INCLUDE_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                'if(EXISTS "' + '$' + '{SRC}/core/libutils/include/utils/Compat.h")\n'
+                '    target_include_directories(libziparchive PRIVATE "' + '$' + '{SRC}/core/libutils/include")\n'
+                'elseif(EXISTS "' + '$' + '{SRC}/libutils/include/utils/Compat.h")\n'
+                '    target_include_directories(libziparchive PRIVATE "' + '$' + '{SRC}/libutils/include")\n'
+                'endif()\n'
+            )
+            zip_cmake.write_text(text)
 
-    # cgrouprc.h opens __BEGIN_DECLS before its API-level guard in older
-    # AOSP snapshots. On API 24 the guard skips __END_DECLS, leaking C linkage
-    # into the following C++ headers included by cgroup_map.cpp.
+    # cgrouprc's internal C API is implemented in this static target. Expose
+    # its declarations even though the app-facing API guard hides them at API 24.
     cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
     if cgroup_header.is_file():
         header = cgroup_header.read_text()
-        broken = '__END_DECLS\n\n#endif'
-        if broken in header:
-            header = header.replace(broken, '#endif\n\n__END_DECLS', 1)
+        header, guard_count = re.subn(
+            r'(?m)^[ \t]*#if[ \t]+__ANDROID_API__[ \t]*>=[ \t]*__ANDROID_API_Q__[ \t]*\n',
+            '', header, count=1)
+        if guard_count:
+            if header.rstrip().endswith('#endif'):
+                header = header.rstrip()[:-len('#endif')].rstrip() + '\n'
+            else:
+                header, _ = re.subn(
+                    r'(?m)^[ \t]*#endif[ \t]*\n(?=[ \t]*__END_DECLS)',
+                    '', header, count=1)
+            if '__END_DECLS' not in header:
+                header = header.rstrip() + '\n\n__END_DECLS\n'
             cgroup_header.write_text(header)
+        if '__ANDROID_API_Q__' in header and 'ACgroupFile_getVersion' in header:
+            raise RuntimeError('cgrouprc API declarations remain hidden by an API guard')
+
+    # Include the C API implementation units; otherwise compilation succeeds
+    # but the static library later fails to link.
+    processgroup_cmake = ROOT / 'lib/libprocessgroup.cmake'
+    if processgroup_cmake.is_file():
+        text = processgroup_cmake.read_text()
+        marker = '# SDK_HISTORICAL_CGROUPRC_API_SOURCES'
+        if marker not in text:
+            anchor = 'add_library(libprocessgroup STATIC\n'
+            if anchor not in text:
+                raise RuntimeError('libprocessgroup CMake target anchor not found')
+            block = (
+                marker + '\n'
+                'set(LIBPROCESSGROUP_CGROUPRC_API_SOURCES)\n'
+                'foreach(_cgrouprc_api_source\n'
+                '    "' + '$' + '{SRC}/core/libprocessgroup/cgrouprc/a_cgroup_controller.cpp"\n'
+                '    "' + '$' + '{SRC}/core/libprocessgroup/cgrouprc/a_cgroup_file.cpp")\n'
+                '    if(EXISTS "' + '$' + '{_cgrouprc_api_source}")\n'
+                '        list(APPEND LIBPROCESSGROUP_CGROUPRC_API_SOURCES "' + '$' + '{_cgrouprc_api_source}")\n'
+                '    endif()\n'
+                'endforeach()\n\n'
+            )
+            text = text.replace(anchor, block + anchor, 1)
+            text = text.replace(
+                anchor,
+                anchor + '    ' + '$' + '{LIBPROCESSGROUP_CGROUPRC_API_SOURCES}\n',
+                1)
+            processgroup_cmake.write_text(text)
+
+    # API 26's property callback is unavailable to the API-24 NDK target.
+    # Use the API-1 read function while retaining the same string result.
+    buildversion = ROOT / 'src/soong/cc/libbuildversion/libbuildversion.cpp'
+    if buildversion.is_file():
+        source = buildversion.read_text()
+        callback = re.compile(
+            r'__system_property_read_callback\s*\(\s*pi\s*,\s*'
+            r'\[\]\s*\(\s*void\s*\*\s*cookie\s*,\s*const\s+char\s*\*\s*,\s*'
+            r'const\s+char\s*\*\s*value\s*,\s*(?:unsigned|uint32_t)\s*\)\s*'
+            r'\{\s*auto\s+property_value\s*=\s*reinterpret_cast<std::string\s*\*>\(cookie\)\s*;\s*'
+            r'\*property_value\s*=\s*value\s*;\s*\}\s*,\s*&property_value\s*\)\s*;',
+            re.S)
+        source, count = callback.subn(
+            'char property_name[PROP_NAME_MAX] = {};\n'
+            '    char property_buffer[PROP_VALUE_MAX] = {};\n'
+            '    if (__system_property_read(pi, property_name, property_buffer) >= 0) {\n'
+            '        property_value = property_buffer;\n'
+            '    }',
+            source, count=1)
+        if count:
+            buildversion.write_text(source)
+        elif '__system_property_read_callback' in source:
+            raise RuntimeError('unhandled property callback in {}'.format(buildversion))
 
     # fdsan was introduced in API 29; these binaries target API 24.
     zip_archive = ROOT / 'src/libziparchive/zip_archive.cc'
