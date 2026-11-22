@@ -202,10 +202,10 @@ add_library(libext2fs STATIC
     )
 target_include_directories(libext2fs PRIVATE ${INCLUDES})
 
-# ismounted.c uses GNU hasmntopt(), hidden by the strict POSIX feature macros.
+# Bionic has no GNU hasmntopt(); force the source-local compatibility shim.
 if(EXISTS "${SRC}/e2fsprogs/lib/ext2fs/ismounted.c")
     set_source_files_properties("${SRC}/e2fsprogs/lib/ext2fs/ismounted.c"
-        PROPERTIES COMPILE_DEFINITIONS _GNU_SOURCE)
+        PROPERTIES COMPILE_DEFINITIONS SDK_USE_HASMNTOPT_COMPAT)
 endif()
 
 # libext2_misc
