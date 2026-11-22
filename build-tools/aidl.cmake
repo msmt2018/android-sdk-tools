@@ -83,6 +83,8 @@ endif()
 
 # Build only AIDL implementation files present in the pinned release checkout.
 file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")
+# Unit tests are not part of the distributable AIDL compiler executable.
+list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/aidl_unittest\\.cpp$")
 add_executable(aidl
     ${AIDL_CPP_SOURCES}
     ${BISON_LangParser_OUTPUTS}
