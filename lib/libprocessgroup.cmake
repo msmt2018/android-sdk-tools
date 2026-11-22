@@ -19,6 +19,19 @@ if(EXISTS "${SRC}/core/libprocessgroup/cgroup_map.cpp")
     list(APPEND LIBPROCESSGROUP_CGROUP_MAP_SOURCE "${SRC}/core/libprocessgroup/cgroup_map.cpp")
 endif()
 
+# cgroup_map consumes libcgrouprc APIs implemented in this same static
+# library. Compile this translation unit against the API level that introduced
+# those in-tree interfaces, without raising the NDK API level for other code.
+if(LIBPROCESSGROUP_CGROUP_MAP_SOURCE)
+    if(TOOLS_VERSION VERSION_GREATER_EQUAL "30.0.0")
+        set_source_files_properties(${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
+            PROPERTIES COMPILE_OPTIONS "-U__ANDROID_API__;-D__ANDROID_API__=30")
+    else()
+        set_source_files_properties(${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
+            PROPERTIES COMPILE_OPTIONS "-U__ANDROID_API__;-D__ANDROID_API__=29")
+    endif()
+endif()
+
 add_library(libprocessgroup STATIC
     ${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
     ${SRC}/core/libprocessgroup/processgroup.cpp
