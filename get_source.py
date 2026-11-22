@@ -1852,6 +1852,27 @@ def ensure_historical_android_api_compat():
                 '#endif\n'
             )
         compat_header.write_text(compat_text)
+    # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT
+    # POSIX declares link(); the generated e2fsprogs error-table source used
+    # the same identifier for its static et_list object.
+    prof_err_source = ROOT / 'src/e2fsprogs/lib/support/prof_err.c'
+    if prof_err_source.is_file():
+        prof_err_text = prof_err_source.read_text()
+        if 'static struct et_list link' in prof_err_text:
+            prof_err_text = prof_err_text.replace(
+                'static struct et_list link',
+                'static struct et_list prof_err_link', 1)
+            prof_err_text = re.sub(
+                r'\\blink\\.(next|table)\\b',
+                r'prof_err_link.\\1', prof_err_text)
+            prof_err_text = re.sub(
+                r'&\\s*link\\b', '&prof_err_link', prof_err_text)
+            prof_err_source.write_text(prof_err_text)
+        verified = prof_err_source.read_text()
+        if 'static struct et_list link' in verified or re.search(
+                r'\\blink\\.(?:next|table)\\b|&\\s*link\\b', verified):
+            raise RuntimeError('e2fsprogs prof_err link identifier still conflicts with POSIX link(): {}'.format(prof_err_source))
+
     # SDK_AIDL_BISON_CPP_PURE_COMPAT
     # Bison's glr.cc skeleton is intrinsically pure; explicit purity directives
     # are unused and rejected by Bison 3.8.2, so remove them only for glr.cc.
