@@ -1979,7 +1979,7 @@ def ensure_historical_android_api_compat():
             header, _ = re.subn(r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
                                 'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
                                 header, count=1)
-            api24_marker = '# SDK_API24_LIBLOG_INTERNAL_DECLARATIONS'
+            api24_marker = '// SDK_API24_LIBLOG_INTERNAL_DECLARATIONS'
             if api24_marker not in header:
                 end_marker = '#ifdef __cplusplus\n}\n#endif'
                 end_index = header.rfind(end_marker)
