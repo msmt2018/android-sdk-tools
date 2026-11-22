@@ -1819,11 +1819,47 @@ def ensure_historical_android_api_compat():
                 'function(log_id, severity, log_message->tag, log_message->file, log_message->line, message);',
                 'function(log_id, severity, log_message->tag, log_message->file, log_message->line, log_message->message);',
                 1)
+            compat_marker = '# SDK_API24_ANDROID_LOG_MESSAGE_COMPAT'
+            if compat_marker not in source_text:
+                include_anchor = '#include <android/log.h>'
+                compat_struct = (
+                    '\n' + compat_marker + '\n'
+                    '#if defined(__ANDROID_API__) && __ANDROID_API__ < 30\n'
+                    '#include <stddef.h>\n#include <stdint.h>\n'
+                    'struct __android_log_message {\n'
+                    '    size_t struct_size;\n'
+                    '    int32_t buffer_id;\n'
+                    '    int32_t priority;\n'
+                    '    const char* tag;\n'
+                    '    const char* file;\n'
+                    '    uint32_t line;\n'
+                    '    const char* message;\n'
+                    '};\n#endif\n'
+                )
+                if include_anchor not in source_text:
+                    raise RuntimeError('cannot insert API-24 libbase logger message definition: {}'.format(logging))
+                source_text = source_text.replace(include_anchor, include_anchor + compat_struct, 1)
             logging.write_text(source_text)
         if old_signature.search(logging.read_text()):
             raise RuntimeError('legacy libbase logger callback signature remains in {}'.format(logging))
         if '__android_log_set_logger' in logging.read_text() and 'log_message->message' not in logging.read_text():
             raise RuntimeError('libbase logger callback message field was not normalized: {}'.format(logging))
+
+    # SDK_BORINGSSL_SIKE_FPRDC_ARRAY_PARAMETER_COMPAT
+    sike_generic = ROOT / 'src/boringssl/src/third_party/sike/asm/fp_generic.c'
+    sike_header = ROOT / 'src/boringssl/src/third_party/sike/fpx.h'
+    if sike_generic.is_file() and sike_header.is_file():
+        header_text = sike_header.read_text()
+        if re.search(r'void\s+sike_fprdc\s*\(\s*dfelm_t\s+\w+\s*,\s*felm_t\s+\w+\s*\)', header_text):
+            source_text = sike_generic.read_text()
+            source_text, count = re.subn(
+                r'(?m)^void\s+sike_fprdc\s*\(\s*felm_t\s+ma\s*,\s*felm_t\s+mc\s*\)',
+                'void sike_fprdc(dfelm_t ma, felm_t mc)', source_text, count=1)
+            if count:
+                sike_generic.write_text(source_text)
+                print('BoringSSL SIKE: corrected sike_fprdc input array bound to dfelm_t', flush=True)
+            elif not re.search(r'void\s+sike_fprdc\s*\(\s*dfelm_t\s+ma\s*,\s*felm_t\s+mc\s*\)', source_text):
+                raise RuntimeError('BoringSSL SIKE sike_fprdc signature does not match its dfelm_t prototype: {}'.format(sike_generic))
 
     # SDK_CGROUPRC_FLAGS_API24_DECLARATION_COMPAT
     cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
