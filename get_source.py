@@ -1787,12 +1787,17 @@ def ensure_historical_android_api_compat():
     if aidl_cmake.is_file():
         cmake_text = aidl_cmake.read_text()
         if 'AIDL_CPP_SOURCES' in cmake_text:
-            cmake_text, changed = re.subn(
-                r'list\(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX [^\n]+\)',
-                'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/[^/]*_unittest\\\\.cpp$")',
-                cmake_text, count=1)
-            if changed == 0 and '/[^/]*_unittest' not in cmake_text:
-                raise RuntimeError('cannot locate AIDL unit-test exclusion in {}'.format(aidl_cmake))
+            if 'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX' in cmake_text:
+                cmake_text, _ = re.subn(
+                    r'list\(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX [^\n]+\)',
+                    'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/[^/]*_unittest\\\\.cpp$")',
+                    cmake_text, count=1)
+            else:
+                glob = re.search(r'(?m)^file\(GLOB AIDL_CPP_SOURCES[^\n]*\)$', cmake_text)
+                if glob is not None:
+                    cmake_text = cmake_text[:glob.end()] + (
+                        '\nlist(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/[^/]*_unittest\\\\.cpp$")'
+                    ) + cmake_text[glob.end():]
         parser_marker = 'add_flex_bison_dependency(LangScanner LangParser)\n'
         parser_option = ('set_source_files_properties(${BISON_LangParser_OUTPUTS} '
                          'PROPERTIES COMPILE_OPTIONS "-Wno-c++11-narrowing")\n')
