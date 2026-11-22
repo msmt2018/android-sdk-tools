@@ -17,7 +17,7 @@
 #define __unused __attribute__((__unused__))
 #endif
 #endif
-#if defined(SDK_USE_HASMNTOPT_COMPAT) && (defined(ANDROID) || defined(__ANDROID__) || defined(__BIONIC__)) && !defined(__cplusplus)
+#if defined(SDK_USE_HASMNTOPT_COMPAT) && defined(__ANDROID_API__) && __ANDROID_API__ < 26 && !defined(__cplusplus)
 #include <mntent.h>
 #include <stddef.h>
 #include <string.h>
