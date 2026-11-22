@@ -22,6 +22,7 @@ set(INCLUDES
     ${SRC}/fmtlib/include    
     ${SRC}/logging/liblog/include
     ${SRC}/libbase/include
+    ${SRC}/core/libcutils/include
     ${SRC}/libziparchive/include
     )
 
@@ -72,6 +73,7 @@ add_library(libartbase STATIC
     ${SRC}/art/libartbase/base/mem_map_unix.cc
     )
 target_include_directories(libartbase PRIVATE ${INCLUDES})
+target_link_libraries(libartbase PUBLIC libcutils)
 # Standalone equivalent of ART's Soong globalFlags/deviceFlags for the
 # non-sanitized Android target. PUBLIC propagates the required constants to
 # every consumer of instruction_set.h.
