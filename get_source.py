@@ -389,7 +389,7 @@ def ensure_art_memory_tool_compat():
         'constexpr size_t kMemoryToolStackGuardSizeScale = 1;\n'
     )
     text, added = re.subn(
-        r'(?m)^#endif[ \t]*(?=\n#endif\s*// ART_.*MEMORY_TOOL_H_)',
+        r'(?m)^#endif[ \t]*(?=\n\s*#endif\s*// ART_.*MEMORY_TOOL_H_)',
         fallback + '#endif',
         text,
         count=1,
