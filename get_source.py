@@ -371,38 +371,34 @@ def ensure_art_memory_tool_compat():
         return
 
     lines = text.splitlines(keepends=True)
-    token_index = next(
+    asan_index = next(
         (i for i, line in enumerate(lines)
-         if 'VALGRIND' in line or 'memcheck' in line.lower()),
+         if '__has_feature(address_sanitizer)' in line),
         None,
     )
-    if token_index is None:
-        print('ART memory tool: no Valgrind branch in {}'.format(path), flush=True)
-        return
-
-    else_index = next(
-        (i for i in range(token_index - 1, -1, -1)
-         if re.match(r'^\s*#\s*else\b', lines[i])),
-        None,
-    )
-    if else_index is None:
-        raise RuntimeError('cannot locate Valgrind preprocessor branch in {}'.format(path))
+    if asan_index is None:
+        raise RuntimeError('cannot locate ART address-sanitizer branch in {}'.format(path))
 
     depth = 0
+    else_index = None
     closing_index = None
-    for i in range(else_index + 1, len(lines)):
-        directive = re.match(r'^\s*#\s*(if|ifdef|ifndef|endif)\b', lines[i])
+    for i in range(asan_index + 1, len(lines)):
+        directive = re.match(r'^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b', lines[i])
         if directive is None:
             continue
-        if directive.group(1) == 'endif':
+        kind = directive.group(1)
+        if kind in ('if', 'ifdef', 'ifndef'):
+            depth += 1
+        elif kind == 'else' and depth == 0:
+            else_index = i
+        elif kind == 'endif':
             if depth == 0:
                 closing_index = i
                 break
             depth -= 1
-        else:
-            depth += 1
-    if closing_index is None:
-        raise RuntimeError('cannot find closing Valgrind branch in {}'.format(path))
+
+    if else_index is None or closing_index is None:
+        raise RuntimeError('cannot isolate ART Valgrind branch in {}'.format(path))
 
     lines[else_index] = '#elif defined(ART_USE_VALGRIND)\n'
     fallback = [
