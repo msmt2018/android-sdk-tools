@@ -1792,15 +1792,59 @@ static bool sdk_system_property_wait(
 def ensure_historical_android_api_compat():
     """Fix historical AOSP source/API mismatches for the API-24 static build."""
     # SDK_AIDL_BISON_CPP_PURE_COMPAT
-    # Bison 3.x rejects api.pure when the C++ lalr1.cc skeleton does not consume it.
-    # The legacy %pure-parser directive is retained for the AIDL parser's supported
-    # Bison compatibility path and avoids the unused api.pure %define error.
+    # Use Bison's legacy directive for this C++ parser; api.pure is rejected as unused.
     aidl_grammar = ROOT / 'src/aidl/aidl_language_y.yy'
     if aidl_grammar.is_file():
-        grammar = aidl_grammar.read_text()
-        grammar, count = re.subn(
-            r'(?m)^[ \t]*%define[ \t]+api\.pure(?:[ \t]+(?:true|full))?[ \t]*    # Keep VectorImpl's safe_iop.h include. The matching external/safe-iop
-    # project is fetched from the selected Google manifest snapshot.
+        grammar_lines = aidl_grammar.read_text().splitlines()
+        changed = False
+        for index, line in enumerate(grammar_lines):
+            if line.strip().startswith('%define api.pure'):
+                grammar_lines[index] = line[:len(line) - len(line.lstrip())] + '%pure-parser'
+                changed = True
+                break
+        if changed:
+            aidl_grammar.write_text('\n'.join(grammar_lines) + '\n')
+        if any(line.strip().startswith('%define api.pure') for line in aidl_grammar.read_text().splitlines()):
+            raise RuntimeError('AIDL Bison grammar still contains unsupported api.pure: {}'.format(aidl_grammar))
+        print('AIDL Bison: normalized legacy pure-parser directive', flush=True)
+
+    # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
+    logging = ROOT / 'src/libbase/logging.cpp'
+    if logging.is_file():
+        source_text = logging.read_text()
+        old_signature = re.compile(
+            r'\[\]\s*\(\s*const struct __android_logger_data\s*\*\s*logger_data\s*,\s*'
+            r'const char\s*\*\s*message\s*\)\s*\{'
+        )
+        source_text, changed = old_signature.subn(
+            '[](const struct __android_log_message* log_message) {', source_text, count=1)
+        if changed:
+            source_text = source_text.replace('logger_data->', 'log_message->')
+            source_text = source_text.replace(
+                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, message);',
+                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, log_message->message);',
+                1)
+            logging.write_text(source_text)
+        if old_signature.search(logging.read_text()):
+            raise RuntimeError('legacy libbase logger callback signature remains in {}'.format(logging))
+        if '__android_log_set_logger' in logging.read_text() and 'log_message->message' not in logging.read_text():
+            raise RuntimeError('libbase logger callback message field was not normalized: {}'.format(logging))
+
+    # SDK_CGROUPRC_FLAGS_API24_DECLARATION_COMPAT
+    cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
+    if cgroup_header.is_file():
+        header = cgroup_header.read_text()
+        prototype = 'uint32_t ACgroupController_getFlags(const ACgroupController* controller);'
+        if prototype not in header:
+            if '__END_DECLS' not in header or 'ACgroupController' not in header:
+                raise RuntimeError('cannot locate Cgroup API declaration anchor in {}'.format(cgroup_header))
+            header = header.replace('__END_DECLS', prototype + '\n\n__END_DECLS', 1)
+            cgroup_header.write_text(header)
+        if prototype not in cgroup_header.read_text():
+            raise RuntimeError('Cgroup Flags API declaration missing from {}'.format(cgroup_header))
+        print('libprocessgroup: exposed manifest-local Cgroup Flags declaration for API-24 build', flush=True)
+
+    # Preserve the selected manifest snapshot's historical source layout.
     zip_cmake = ROOT / 'lib/libziparchive.cmake'
     if zip_cmake.is_file():
         text = zip_cmake.read_text()
