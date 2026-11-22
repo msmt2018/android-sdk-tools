@@ -274,6 +274,7 @@ if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
         ${FASTDEPLOY_PROTO_SRC} ${FASTDEPLOY_PROTO_HDRS})
     target_include_directories(libfastdeploy PRIVATE
         ${SRC}/adb ${SRC}/core/libcutils/include
+        ${SRC}/core/libutils/include
         ${SRC}/libbase/include ${SRC}/protobuf/src
         ${SRC}/boringssl/include)
 endif()
