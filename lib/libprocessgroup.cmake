@@ -32,6 +32,12 @@ if(LIBPROCESSGROUP_CGROUP_MAP_SOURCE)
     endif()
 endif()
 
+# Keep private in-tree cgrouprc consumers at the project's API 24 target.
+if(LIBPROCESSGROUP_CGROUP_MAP_SOURCE)
+    set_source_files_properties(${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
+        PROPERTIES COMPILE_OPTIONS "-U__ANDROID_API__;-D__ANDROID_API__=24")
+endif()
+
 add_library(libprocessgroup STATIC
     ${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
     ${SRC}/core/libprocessgroup/processgroup.cpp
