@@ -371,8 +371,8 @@ def ensure_art_memory_tool_compat():
         return
 
     text, changed = re.subn(
-        r'#else\\s*\\n\\s*#include <valgrind\\.h>\\s*\\n\\s*#include <memcheck/memcheck\\.h>',
-        '#elif defined(ART_USE_VALGRIND)\\n\\n#include <valgrind.h>\\n#include <memcheck/memcheck.h>',
+        r'#else\s*\n\s*#include <valgrind\.h>\s*\n\s*#include <memcheck/memcheck\.h>',
+        '#elif defined(ART_USE_VALGRIND)\n\n#include <valgrind.h>\n#include <memcheck/memcheck.h>',
         text,
         count=1,
     )
@@ -380,20 +380,20 @@ def ensure_art_memory_tool_compat():
         raise RuntimeError('cannot locate Valgrind branch in {}'.format(path))
 
     fallback = (
-        '#else\\n'
-        '#define MEMORY_TOOL_MAKE_NOACCESS(p, s) do { (void)(p); (void)(s); } while (0)\\n'
-        '#define MEMORY_TOOL_MAKE_UNDEFINED(p, s) do { (void)(p); (void)(s); } while (0)\\n'
-        '#define MEMORY_TOOL_MAKE_DEFINED(p, s) do { (void)(p); (void)(s); } while (0)\\n'
-        '#define ATTRIBUTE_NO_SANITIZE_ADDRESS\\n'
-        '#define RUNNING_ON_MEMORY_TOOL 0U\\n'
-        'constexpr bool kMemoryToolIsAvailable = false;\\n'
-        'constexpr bool kMemoryToolIsValgrind = false;\\n'
-        'constexpr bool kMemoryToolDetectsLeaks = false;\\n'
-        'constexpr bool kMemoryToolAddsRedzones = false;\\n'
-        'constexpr size_t kMemoryToolStackGuardSizeScale = 1;\\n'
+        '#else\n'
+        '#define MEMORY_TOOL_MAKE_NOACCESS(p, s) do { (void)(p); (void)(s); } while (0)\n'
+        '#define MEMORY_TOOL_MAKE_UNDEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n'
+        '#define MEMORY_TOOL_MAKE_DEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n'
+        '#define ATTRIBUTE_NO_SANITIZE_ADDRESS\n'
+        '#define RUNNING_ON_MEMORY_TOOL 0U\n'
+        'constexpr bool kMemoryToolIsAvailable = false;\n'
+        'constexpr bool kMemoryToolIsValgrind = false;\n'
+        'constexpr bool kMemoryToolDetectsLeaks = false;\n'
+        'constexpr bool kMemoryToolAddsRedzones = false;\n'
+        'constexpr size_t kMemoryToolStackGuardSizeScale = 1;\n'
     )
     text, added = re.subn(
-        r'(?m)^#endif[ \\t]*(?=\\n#endif\\s*// ART_.*MEMORY_TOOL_H_)',
+        r'(?m)^#endif[ \t]*(?=\n#endif\s*// ART_.*MEMORY_TOOL_H_)',
         fallback + '#endif',
         text,
         count=1,
