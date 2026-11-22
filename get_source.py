@@ -1769,6 +1769,271 @@ static bool sdk_system_property_wait(
 
 def ensure_historical_android_api_compat():
     """Fix historical AOSP source/API mismatches for the API-24 static build."""
+    # SDK_AIDL_BISON_CPP_PURE_COMPAT
+    # Bison 3.x rejects api.pure when the C++ lalr1.cc skeleton does not consume it.
+    # The legacy %pure-parser directive is retained for the AIDL parser's supported
+    # Bison compatibility path and avoids the unused api.pure %define error.
+    aidl_grammar = ROOT / 'src/aidl/aidl_language_y.yy'
+    if aidl_grammar.is_file():
+        grammar = aidl_grammar.read_text()
+        grammar, count = re.subn(
+            r'(?m)^[ \t]*%define[ \t]+api\.pure(?:[ \t]+(?:true|full))?[ \t]*    # Keep VectorImpl's safe_iop.h include. The matching external/safe-iop
+    # project is fetched from the selected Google manifest snapshot.
+    zip_cmake = ROOT / 'lib/libziparchive.cmake'
+    if zip_cmake.is_file():
+        text = zip_cmake.read_text()
+        marker = '# SDK_HISTORICAL_LIBUTILS_INCLUDE_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                'if(EXISTS "' + '$' + '{SRC}/core/libutils/include/utils/Compat.h")\n'
+                '    target_include_directories(libziparchive PRIVATE "' + '$' + '{SRC}/core/libutils/include")\n'
+                'elseif(EXISTS "' + '$' + '{SRC}/libutils/include/utils/Compat.h")\n'
+                '    target_include_directories(libziparchive PRIVATE "' + '$' + '{SRC}/libutils/include")\n'
+                'endif()\n'
+            )
+            zip_cmake.write_text(text)
+
+    cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
+    if cgroup_header.is_file():
+        header = cgroup_header.read_text()
+        header, guard_count = re.subn(
+            r'(?m)^[ \t]*#if[ \t]+__ANDROID_API__[ \t]*>=[ \t]*__ANDROID_API_Q__[ \t]*\n',
+            '', header, count=1)
+        if guard_count:
+            if header.rstrip().endswith('#endif'):
+                header = header.rstrip()[:-len('#endif')].rstrip() + '\n'
+            else:
+                header, _ = re.subn(
+                    r'(?m)^[ \t]*#endif[ \t]*\n(?=[ \t]*__END_DECLS)',
+                    '', header, count=1)
+            if '__END_DECLS' not in header:
+                header = header.rstrip() + '\n\n__END_DECLS\n'
+            cgroup_header.write_text(header)
+        # These declarations are private to the in-tree libprocessgroup implementation.
+        # Remove public SDK availability attributes so the code can stay at API 24.
+        header = re.sub(r'\s*__INTRODUCED_IN\s*\([^)]*\)', '', header)
+        cgroup_header.write_text(header)
+        if '__ANDROID_API_Q__' in header and 'ACgroupFile_getVersion' in header:
+            raise RuntimeError('cgrouprc API declarations remain hidden by an API guard')
+
+    processgroup_cmake = ROOT / 'lib/libprocessgroup.cmake'
+    if processgroup_cmake.is_file():
+        text = processgroup_cmake.read_text()
+        marker = '# SDK_HISTORICAL_CGROUPRC_API_SOURCES'
+        if marker not in text:
+            anchor = 'add_library(libprocessgroup STATIC\n'
+            if anchor not in text:
+                raise RuntimeError('libprocessgroup CMake target anchor not found')
+            block = (
+                marker + '\n'
+                'set(LIBPROCESSGROUP_CGROUPRC_API_SOURCES)\n'
+                'foreach(_cgrouprc_api_source\n'
+                '    "' + '$' + '{SRC}/core/libprocessgroup/cgrouprc/a_cgroup_controller.cpp"\n'
+                '    "' + '$' + '{SRC}/core/libprocessgroup/cgrouprc/a_cgroup_file.cpp")\n'
+                '    if(EXISTS "' + '$' + '{_cgrouprc_api_source}")\n'
+                '        list(APPEND LIBPROCESSGROUP_CGROUPRC_API_SOURCES "' + '$' + '{_cgrouprc_api_source}")\n'
+                '    endif()\n'
+                'endforeach()\n\n'
+            )
+            text = text.replace(anchor, block + anchor, 1)
+            text = text.replace(
+                anchor,
+                anchor + '    ' + '$' + '{LIBPROCESSGROUP_CGROUPRC_API_SOURCES}\n',
+                1)
+            processgroup_cmake.write_text(text)
+
+    buildversion = ROOT / 'src/soong/cc/libbuildversion/libbuildversion.cpp'
+    if buildversion.is_file():
+        source = buildversion.read_text()
+        callback = re.compile(
+            r'__system_property_read_callback\s*\(\s*pi\s*,\s*'
+            r'\[\]\s*\(\s*void\s*\*\s*cookie\s*,\s*const\s+char\s*\*\s*,\s*'
+            r'const\s+char\s*\*\s*value\s*,\s*(?:unsigned|uint32_t)\s*\)\s*'
+            r'\{\s*auto\s+property_value\s*=\s*reinterpret_cast<std::string\s*\*>\(cookie\)\s*;\s*'
+            r'\*property_value\s*=\s*value\s*;\s*\}\s*,\s*&property_value\s*\)\s*;',
+            re.S)
+        source, count = callback.subn(
+            'char property_name[PROP_NAME_MAX] = {};\n'
+            '    char property_buffer[PROP_VALUE_MAX] = {};\n'
+            '    if (__system_property_read(pi, property_name, property_buffer) >= 0) {\n'
+            '        property_value = property_buffer;\n'
+            '    }',
+            source, count=1)
+        if count:
+            buildversion.write_text(source)
+        elif '__system_property_read_callback' in source:
+            raise RuntimeError('unhandled property callback in {}'.format(buildversion))
+
+    zip_archive = ROOT / 'src/libziparchive/zip_archive.cc'
+    if zip_archive.is_file():
+        source = zip_archive.read_text()
+        source = source.replace(
+            '#if defined(__BIONIC__)',
+            '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29'
+        )
+        zip_archive.write_text(source)
+
+    selinux_cmake = ROOT / 'lib/libselinux.cmake'
+    if selinux_cmake.is_file():
+        source = selinux_cmake.read_text()
+        marker = '# SDK_HISTORICAL_BORINGSSL_INCLUDE_COMPAT'
+        if marker not in source:
+            source += (
+                '\n' + marker + '\n'
+                'if(EXISTS "' + '$' + '{SRC}/boringssl/src/include/openssl/sha.h")\n'
+                '    target_include_directories(libselinux PRIVATE "' + '$' + '{SRC}/boringssl/src/include")\n'
+                'endif()\n'
+            )
+            selinux_cmake.write_text(source)
+
+
+    # ART FdFile uses fdsan APIs introduced in API 29. Keep API-24
+    # builds on ordinary close() semantics.
+    for fd_file in (ROOT / 'src/art/libartbase/base/unix_file/fd_file.cc',
+                    ROOT / 'src/art/runtime/base/unix_file/fd_file.cc'):
+        if fd_file.is_file():
+            source = fd_file.read_text()
+            source = source.replace('#if defined(__BIONIC__)',
+                                    '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29')
+            fd_file.write_text(source)
+
+    # Format the enum class as an integer in ART's fatal diagnostic.
+    for dex_file in (ROOT / 'src/art/libdexfile/dex/dex_file.cc',
+                     ROOT / 'src/art/runtime/dex_file.cc'):
+        if dex_file.is_file():
+            source = dex_file.read_text()
+            source, count = re.subn(r'(UNIMPLEMENTED\(FATAL\)\s*<<\s*": type "\s*<<\s*)type_(\s*;)',
+                                   r'\1static_cast<int>(type_)\2', source, count=1)
+            if count:
+                dex_file.write_text(source)
+
+    # Align legacy liblog headers with the message-based logger implementation.
+    for log_header in (ROOT / 'src/logging/liblog/include/android/log.h',
+                       ROOT / 'src/core/liblog/include/android/log.h'):
+        if log_header.is_file():
+            header = log_header.read_text()
+            header, _ = re.subn(r'typedef\s+void\s*\(\s*\*__android_logger_function\s*\)\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'typedef void (*__android_logger_function)(const struct __android_log_message* log_message);',
+                                header, count=1)
+            header, _ = re.subn(r'void\s+__android_log_logd_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'void __android_log_logd_logger(const struct __android_log_message* log_message);',
+                                header, count=1)
+            header, _ = re.subn(r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
+                                header, count=1)
+            log_header.write_text(header)
+
+
+def main():
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
+    args = parser.parse_args()
+
+    if args.normalize_optional_sources_only:
+        create_legacy_source_aliases()
+        normalize_optional_release_sources()
+        ensure_liblog_ndk_r27_compat()
+        ensure_art_build_defines()
+        ensure_art_memory_tool_compat()
+        normalize_release_cmake_targets()
+        ensure_historical_android_api_compat()
+        return
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources from Google manifest: {}'.format(args.tags))
+    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    create_legacy_source_aliases()
+    normalize_optional_release_sources()
+    ensure_liblog_ndk_r27_compat()
+
+    if not args.skip_patch:
+        patches()
+
+    normalize_release_cmake_targets()
+    ensure_historical_android_api_compat()
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+,
+            '%pure-parser',
+            grammar,
+            count=1,
+        )
+        if count:
+            aidl_grammar.write_text(grammar)
+        if re.search(r'(?m)^[ \t]*%define[ \t]+api\.pure\b', aidl_grammar.read_text()):
+            raise RuntimeError('AIDL Bison grammar still contains unsupported api.pure: {}'.format(aidl_grammar))
+        print('AIDL Bison: normalized legacy pure-parser directive', flush=True)
+
+    # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
+    # The pinned liblog header uses the API-30 message callback structure, while
+    # older libbase snapshots still pass the pre-API-30 two-argument callback.
+    logging = ROOT / 'src/libbase/logging.cpp'
+    if logging.is_file():
+        source_text = logging.read_text()
+        old_signature = re.compile(
+            r'\[\]\s*\(\s*const struct __android_logger_data\s*\*\s*logger_data\s*,\s*'
+            r'const char\s*\*\s*message\s*\)\s*\{'
+        )
+        new_signature = '[](const struct __android_log_message* log_message) {'
+        if old_signature.search(source_text):
+            source_text = old_signature.sub(new_signature, source_text, count=1)
+            source_text = source_text.replace('logger_data->', 'log_message->')
+            source_text = source_text.replace(
+                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, message);',
+                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, log_message->message);',
+                1,
+            )
+            logging.write_text(source_text)
+        if old_signature.search(logging.read_text()):
+            raise RuntimeError('legacy libbase logger callback signature remains in {}'.format(logging))
+        if 'log_message->message' not in logging.read_text() and '__android_log_set_logger' in logging.read_text():
+            raise RuntimeError('libbase logger callback message field was not normalized: {}'.format(logging))
+
+    # SDK_CGROUPRC_FLAGS_API24_DECLARATION_COMPAT
+    # The implementation is built from this same manifest-pinned source tree,
+    # but the public declaration may be hidden by the API-30 availability guard.
+    cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
+    if cgroup_header.is_file():
+        header = cgroup_header.read_text()
+        prototype = 'uint32_t ACgroupController_getFlags(const ACgroupController* controller);'
+        if prototype not in header:
+            anchor = '__END_DECLS'
+            if anchor not in header:
+                raise RuntimeError('cannot locate C linkage end in {}'.format(cgroup_header))
+            if 'ACgroupController' not in header:
+                raise RuntimeError('ACgroupController type is absent from {}'.format(cgroup_header))
+            header = header.replace(anchor, prototype + '\n\n' + anchor, 1)
+            cgroup_header.write_text(header)
+        if prototype not in cgroup_header.read_text():
+            raise RuntimeError('Cgroup Flags API declaration missing from {}'.format(cgroup_header))
+        print('libprocessgroup: exposed manifest-local Cgroup Flags declaration for API-24 build', flush=True)
+
     # Keep VectorImpl's safe_iop.h include. The matching external/safe-iop
     # project is fetched from the selected Google manifest snapshot.
     zip_cmake = ROOT / 'lib/libziparchive.cmake'
