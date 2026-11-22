@@ -1855,26 +1855,25 @@ def ensure_historical_android_api_compat():
                 '#endif\n'
             )
         compat_header.write_text(compat_text)
-    # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT
-    # POSIX declares link(); the generated e2fsprogs error-table source used
-    # the same identifier for its static et_list object.
+    # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT_V2
+    # prof_err.c is generated from e2fsprogs' error-table templates.  Its
+    # static object named "link" collides with the POSIX link() declaration
+    # from unistd.h on Android/Bionic.  Rename the object and every reference.
     prof_err_source = ROOT / 'src/e2fsprogs/lib/support/prof_err.c'
     if prof_err_source.is_file():
         prof_err_text = prof_err_source.read_text()
-        if 'static struct et_list link' in prof_err_text:
-            prof_err_text = prof_err_text.replace(
-                'static struct et_list link',
-                'static struct et_list prof_err_link', 1)
-            prof_err_text = re.sub(
-                r'\\blink\\.(next|table)\\b',
-                r'prof_err_link.\\1', prof_err_text)
-            prof_err_text = re.sub(
-                r'&\\s*link\\b', '&prof_err_link', prof_err_text)
-            prof_err_source.write_text(prof_err_text)
-        verified = prof_err_source.read_text()
-        if 'static struct et_list link' in verified or re.search(
-                r'\\blink\\.(?:next|table)\\b|&\\s*link\\b', verified):
-            raise RuntimeError('e2fsprogs prof_err link identifier still conflicts with POSIX link(): {}'.format(prof_err_source))
+        declaration = 'static struct et_list link = { 0, 0 };'
+        renamed_declaration = 'static struct et_list prof_err_link = { 0, 0 };'
+        if declaration in prof_err_text:
+            prof_err_text = prof_err_text.replace(declaration, renamed_declaration, 1)
+        prof_err_text = prof_err_text.replace('link.table', 'prof_err_link.table')
+        prof_err_text = prof_err_text.replace('link.next', 'prof_err_link.next')
+        prof_err_text = prof_err_text.replace('&link', '&prof_err_link')
+        if declaration in prof_err_text or 'link.table' in prof_err_text or 'link.next' in prof_err_text or '&link' in prof_err_text:
+            raise RuntimeError('failed to rename e2fsprogs prof_err static link object: {}'.format(prof_err_source))
+        if renamed_declaration not in prof_err_text:
+            raise RuntimeError('expected prof_err static link object declaration was not found: {}'.format(prof_err_source))
+        prof_err_source.write_text(prof_err_text)
 
     # SDK_AIDL_BISON_CPP_PURE_COMPAT
     # Bison's glr.cc skeleton is intrinsically pure; explicit purity directives
