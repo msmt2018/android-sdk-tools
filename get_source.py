@@ -409,6 +409,7 @@ def ensure_art_memory_tool_compat():
         '#define ATTRIBUTE_NO_SANITIZE_ADDRESS\n',
         '#define RUNNING_ON_MEMORY_TOOL 0U\n',
         'constexpr bool kMemoryToolIsAvailable = false;\n',
+        'constexpr bool kRunningOnMemoryTool = false;\n',
         'constexpr bool kMemoryToolIsValgrind = false;\n',
         'constexpr bool kMemoryToolDetectsLeaks = false;\n',
         'constexpr bool kMemoryToolAddsRedzones = false;\n',
