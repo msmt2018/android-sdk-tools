@@ -1882,7 +1882,7 @@ def ensure_historical_android_api_compat():
                 '#endif\n'
             )
         compat_header.write_text(compat_text)
-    # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT_V3
+    # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT_V4
     # prof_err.c is generated from e2fsprogs' error-table templates. Its
     # static "link" object collides with POSIX link() from unistd.h.
     prof_err_source = ROOT / 'src/e2fsprogs/lib/support/prof_err.c'
@@ -1895,7 +1895,8 @@ def ensure_historical_android_api_compat():
         prof_err_text = prof_err_text.replace('!link.table', '!prof_err_link.table')
         prof_err_text = prof_err_text.replace('link.next', 'prof_err_link.next')
         prof_err_text = prof_err_text.replace('&link', '&prof_err_link')
-        if declaration in prof_err_text or '!link.table' in prof_err_text or 'link.next' in prof_err_text or '&link' in prof_err_text:
+        old_member_reference = re.search(r'(?<![A-Za-z0-9_])link\\.(?:table|next)\\b', prof_err_text)
+        if declaration in prof_err_text or '!link.table' in prof_err_text or old_member_reference or '&link' in prof_err_text:
             raise RuntimeError('failed to rename e2fsprogs prof_err static link object: {}'.format(prof_err_source))
         if renamed_declaration not in prof_err_text:
             raise RuntimeError('expected prof_err static link object declaration was not found: {}'.format(prof_err_source))
