@@ -23,6 +23,7 @@ set(INCLUDES
     ${SRC}/logging/liblog/include
     ${SRC}/libbase/include
     ${SRC}/core/libcutils/include
+    ${SRC}/unwinding/libbacktrace/include
     ${SRC}/libziparchive/include
     )
 
