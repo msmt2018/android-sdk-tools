@@ -135,7 +135,7 @@ endif()
 # releases, so a fixed list copied from a newer tag is not valid here.
 file(GLOB_RECURSE AAPT2_ALL_CPP CONFIGURE_DEPENDS
     "${SRC}/base/tools/aapt2/*.cpp")
-list(FILTER AAPT2_ALL_CPP EXCLUDE REGEX "/(test|tests|integration-tests)/|(_test|_tests)\\.cpp$")
+list(FILTER AAPT2_ALL_CPP EXCLUDE REGEX "/(test|tests|integration-tests)/|(_test|_tests)\.cpp$")
 set(AAPT2_MAIN_SOURCE "${SRC}/base/tools/aapt2/Main.cpp")
 if(NOT EXISTS "${AAPT2_MAIN_SOURCE}")
     message(FATAL_ERROR "AAPT2 Main.cpp is missing from the selected Google source tag")
