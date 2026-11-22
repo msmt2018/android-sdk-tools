@@ -1840,6 +1840,26 @@ def ensure_historical_android_api_compat():
         ):
             raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io))
 
+    # SDK_ADB_VERSION_BUILD_NUMBER_COMPAT
+    adb_source = ROOT / 'src/adb/adb.cpp'
+    if adb_source.is_file():
+        adb_text = adb_source.read_text()
+        if 'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,' in adb_text:
+            adb_text = adb_text.replace(
+                'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,',
+                'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, android::build::GetBuildNumber().c_str(),',
+                1,
+            )
+            if '#include <build/version.h>' not in adb_text:
+                include_anchor = '#include <android-base/strings.h>'
+                if include_anchor in adb_text:
+                    adb_text = adb_text.replace(include_anchor, include_anchor + '\\n#include <build/version.h>', 1)
+                else:
+                    raise RuntimeError('cannot locate ADB standard include anchor for build/version.h')
+            adb_source.write_text(adb_text)
+        if 'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,' in adb_source.read_text():
+            raise RuntimeError('legacy ADB_VERSION macro remains unresolved in {}'.format(adb_source))
+
     # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
     logging = ROOT / 'src/libbase/logging.cpp'
     if logging.is_file():
