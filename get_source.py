@@ -379,21 +379,16 @@ def ensure_art_memory_tool_compat():
         return
 
     lines = text.splitlines(keepends=True)
-    valgrind_index = next(
-        (i for i, line in enumerate(lines)
-         if re.search(r'^\s*#\s*include\s*[<"]valgrind\.h[>"]', line)),
-        None,
-    )
     memcheck_index = next(
         (i for i, line in enumerate(lines)
-         if re.search(r'^\s*#\s*include\s*[<"]memcheck/memcheck\.h[>"]', line)),
+         if 'memcheck/memcheck.h' in line and re.search(r'^\s*#\s*include\b', line)),
         None,
     )
-    if valgrind_index is None or memcheck_index is None:
-        raise RuntimeError('cannot locate Valgrind includes in {}'.format(path))
+    if memcheck_index is None:
+        raise RuntimeError('cannot locate memcheck include in {}'.format(path))
 
     else_index = next(
-        (i for i in range(valgrind_index - 1, -1, -1)
+        (i for i in range(memcheck_index - 1, -1, -1)
          if re.match(r'^\s*#\s*else\b', lines[i])),
         None,
     )
