@@ -308,9 +308,14 @@ def ensure_art_build_defines():
     This project builds ART sources outside Soong, so provide the same
     conservative values in the shared header when they are absent.
     """
-    path = ROOT / 'src/art/libartbase/arch/instruction_set.h'
-    if not path.exists():
-        raise RuntimeError('ART instruction_set.h not found: {}'.format(path))
+    candidates = (
+        ROOT / 'src/art/libartbase/arch/instruction_set.h',
+        ROOT / 'src/art/runtime/arch/instruction_set.h',
+    )
+    path = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if path is None:
+        print('ART instruction_set.h is not present in this source layout; using target compile definitions', flush=True)
+        return
 
     text = path.read_text()
     marker = 'namespace art {'
@@ -318,14 +323,14 @@ def ensure_art_build_defines():
         raise RuntimeError('cannot locate namespace art in {}'.format(path))
 
     definitions = {
-        'ART_STACK_OVERFLOW_GAP_arm': 16384,
-        'ART_STACK_OVERFLOW_GAP_arm64': 16384,
+        'ART_STACK_OVERFLOW_GAP_arm': 8192,
+        'ART_STACK_OVERFLOW_GAP_arm64': 8192,
         'ART_STACK_OVERFLOW_GAP_mips': 16384,
         'ART_STACK_OVERFLOW_GAP_mips64': 16384,
         'ART_STACK_OVERFLOW_GAP_riscv64': 16384,
-        'ART_STACK_OVERFLOW_GAP_x86': 16384,
-        'ART_STACK_OVERFLOW_GAP_x86_64': 20480,
-        'ART_FRAME_SIZE_LIMIT': 10000,
+        'ART_STACK_OVERFLOW_GAP_x86': 8192,
+        'ART_STACK_OVERFLOW_GAP_x86_64': 8192,
+        'ART_FRAME_SIZE_LIMIT': 1736,
     }
     # Ignore commented-out Soong examples: they contain the same #define
     # spellings but do not provide macros to the C++ preprocessor.
@@ -361,52 +366,73 @@ def ensure_art_build_defines():
 
 
 def ensure_art_memory_tool_compat():
-    """Disable optional Valgrind hooks when building standalone without Valgrind headers."""
-    path = ROOT / 'src/art/libartbase/base/memory_tool.h'
-    if not path.is_file():
+    """Keep optional Valgrind annotations disabled unless explicitly requested."""
+    candidates = (
+        ROOT / 'src/art/libartbase/base/memory_tool.h',
+        ROOT / 'src/art/runtime/base/memory_tool.h',
+    )
+    path = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if path is None:
         return
 
     text = path.read_text()
     if 'ART_USE_VALGRIND' in text:
         return
 
-    text, changed = re.subn(
-        r'#else\s*\n\s*#include <valgrind\.h>\s*\n\s*#include <memcheck/memcheck\.h>',
-        '#elif defined(ART_USE_VALGRIND)\n\n#include <valgrind.h>\n#include <memcheck/memcheck.h>',
-        text,
-        count=1,
+    lines = text.splitlines(keepends=True)
+    valgrind_index = next(
+        (i for i, line in enumerate(lines)
+         if re.search(r'^\s*#\s*include\s*[<"]valgrind\.h[>"]', line)),
+        None,
     )
-    if changed != 1:
-        raise RuntimeError('cannot locate Valgrind branch in {}'.format(path))
+    memcheck_index = next(
+        (i for i, line in enumerate(lines)
+         if re.search(r'^\s*#\s*include\s*[<"]memcheck/memcheck\.h[>"]', line)),
+        None,
+    )
+    if valgrind_index is None or memcheck_index is None:
+        raise RuntimeError('cannot locate Valgrind includes in {}'.format(path))
 
-    fallback = (
-        '#else\n'
-        '#define MEMORY_TOOL_MAKE_NOACCESS(p, s) do { (void)(p); (void)(s); } while (0)\n'
-        '#define MEMORY_TOOL_MAKE_UNDEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n'
-        '#define MEMORY_TOOL_MAKE_DEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n'
-        '#define ATTRIBUTE_NO_SANITIZE_ADDRESS\n'
-        '#define RUNNING_ON_MEMORY_TOOL 0U\n'
-        'constexpr bool kMemoryToolIsAvailable = false;\n'
-        'constexpr bool kMemoryToolIsValgrind = false;\n'
-        'constexpr bool kMemoryToolDetectsLeaks = false;\n'
-        'constexpr bool kMemoryToolAddsRedzones = false;\n'
-        'constexpr size_t kMemoryToolStackGuardSizeScale = 1;\n'
+    else_index = next(
+        (i for i in range(valgrind_index - 1, -1, -1)
+         if re.match(r'^\s*#\s*else\b', lines[i])),
+        None,
     )
-    text, added = re.subn(
-        r'(?m)^#endif[ \t]*(?=\n\s*#endif\s*// ART_.*MEMORY_TOOL_H_)',
-        fallback + '#endif',
-        text,
-        count=1,
-    )
-    if added != 1:
-        raise RuntimeError('cannot add standalone no-Valgrind branch in {}'.format(path))
+    if else_index is None:
+        raise RuntimeError('cannot locate Valgrind preprocessor branch in {}'.format(path))
 
-    path.write_text(text)
-    verified = path.read_text()
-    if '#include <memcheck/memcheck.h>' not in verified:
-        raise RuntimeError('Valgrind header include was lost from {}'.format(path))
-    if 'kMemoryToolIsValgrind = false' not in verified:
-        raise RuntimeError('standalone memory-tool fallback was not written to {}'.format(path))
+    depth = 0
+    closing_index = None
+    for i in range(else_index + 1, len(lines)):
+        directive = re.match(r'^\s*#\s*(if|ifdef|ifndef|endif)\b', lines[i])
+        if directive is None:
+            continue
+        if directive.group(1) == 'endif':
+            if depth == 0:
+                closing_index = i
+                break
+            depth -= 1
+        else:
+            depth += 1
+    if closing_index is None:
+        raise RuntimeError('cannot find closing Valgrind branch in {}'.format(path))
+
+    lines[else_index] = '#elif defined(ART_USE_VALGRIND)\n'
+    fallback = [
+        '#else\n',
+        '#define MEMORY_TOOL_MAKE_NOACCESS(p, s) do { (void)(p); (void)(s); } while (0)\n',
+        '#define MEMORY_TOOL_MAKE_UNDEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n',
+        '#define MEMORY_TOOL_MAKE_DEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n',
+        '#define ATTRIBUTE_NO_SANITIZE_ADDRESS\n',
+        '#define RUNNING_ON_MEMORY_TOOL 0U\n',
+        'constexpr bool kMemoryToolIsAvailable = false;\n',
+        'constexpr bool kMemoryToolIsValgrind = false;\n',
+        'constexpr bool kMemoryToolDetectsLeaks = false;\n',
+        'constexpr bool kMemoryToolAddsRedzones = false;\n',
+        'constexpr size_t kMemoryToolStackGuardSizeScale = 1;\n',
+    ]
+    lines[closing_index:closing_index] = fallback
+    path.write_text(''.join(lines))
     print('ART memory tool: disabled optional Valgrind hooks for standalone build', flush=True)
 
 
