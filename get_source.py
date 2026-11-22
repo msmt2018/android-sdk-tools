@@ -1853,7 +1853,7 @@ def ensure_historical_android_api_compat():
             if '#include <build/version.h>' not in adb_text:
                 include_anchor = '#include <android-base/strings.h>'
                 if include_anchor in adb_text:
-                    adb_text = adb_text.replace(include_anchor, include_anchor + '\\n#include <build/version.h>', 1)
+                    adb_text = adb_text.replace(include_anchor, include_anchor + '\n#include <build/version.h>', 1)
                 else:
                     raise RuntimeError('cannot locate ADB standard include anchor for build/version.h')
             adb_source.write_text(adb_text)
