@@ -1805,6 +1805,22 @@ def ensure_historical_android_api_compat():
         if '__android_log_set_logger' in logging.read_text() and 'log_message->message' not in logging.read_text():
             raise RuntimeError('libbase logger callback message field was not normalized: {}'.format(logging))
 
+    # SDK_BORINGSSL_SIKE_FPRDC_ARRAY_PARAMETER_COMPAT
+    sike_generic = ROOT / 'src/boringssl/src/third_party/sike/asm/fp_generic.c'
+    sike_header = ROOT / 'src/boringssl/src/third_party/sike/fpx.h'
+    if sike_generic.is_file() and sike_header.is_file():
+        header_text = sike_header.read_text()
+        if re.search(r'void\s+sike_fprdc\s*\(\s*dfelm_t\s+\w+\s*,\s*felm_t\s+\w+\s*\)', header_text):
+            source_text = sike_generic.read_text()
+            source_text, count = re.subn(
+                r'(?m)^void\s+sike_fprdc\s*\(\s*felm_t\s+ma\s*,\s*felm_t\s+mc\s*\)',
+                'void sike_fprdc(dfelm_t ma, felm_t mc)', source_text, count=1)
+            if count:
+                sike_generic.write_text(source_text)
+                print('BoringSSL SIKE: corrected sike_fprdc input array bound to dfelm_t', flush=True)
+            elif not re.search(r'void\s+sike_fprdc\s*\(\s*dfelm_t\s+ma\s*,\s*felm_t\s+mc\s*\)', source_text):
+                raise RuntimeError('BoringSSL SIKE sike_fprdc signature does not match its dfelm_t prototype: {}'.format(sike_generic))
+
     # SDK_CGROUPRC_FLAGS_API24_DECLARATION_COMPAT
     cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
     if cgroup_header.is_file():
@@ -1963,6 +1979,21 @@ def ensure_historical_android_api_compat():
             header, _ = re.subn(r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
                                 'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
                                 header, count=1)
+            api24_marker = '# SDK_API24_LIBLOG_INTERNAL_DECLARATIONS'
+            if api24_marker not in header:
+                end_marker = '#ifdef __cplusplus\n}\n#endif'
+                end_index = header.rfind(end_marker)
+                if end_index < 0:
+                    raise RuntimeError('cannot locate liblog C-linkage footer in {}'.format(log_header))
+                compat_declarations = (
+                    '\n' + api24_marker + '\n'
+                    '#if defined(__ANDROID_API__) && __ANDROID_API__ < 30\n'
+                    'struct __android_log_message;\n'
+                    'int32_t __android_log_get_minimum_priority(void);\n'
+                    'void __android_log_logd_logger(const struct __android_log_message* log_message);\n'
+                    '#endif\n\n'
+                )
+                header = header[:end_index] + compat_declarations + header[end_index:]
             log_header.write_text(header)
 
 
