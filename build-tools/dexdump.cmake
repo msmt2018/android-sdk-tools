@@ -25,6 +25,8 @@ set(INCLUDES
     ${SRC}/core/libcutils/include
     ${SRC}/unwinding/libbacktrace/include
     ${SRC}/libziparchive/include
+    ${SRC}/core/libutils/include
+    ${SRC}/libutils/include
     )
 
 set(ART_COMPILER_FILTER_SOURCE)
