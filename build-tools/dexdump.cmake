@@ -72,6 +72,19 @@ add_library(libartbase STATIC
     ${SRC}/art/libartbase/base/mem_map_unix.cc
     )
 target_include_directories(libartbase PRIVATE ${INCLUDES})
+# Standalone equivalent of ART's Soong globalFlags/deviceFlags for the
+# non-sanitized Android target. PUBLIC propagates the required constants to
+# every consumer of instruction_set.h.
+target_compile_definitions(libartbase PUBLIC
+    ART_STACK_OVERFLOW_GAP_arm=8192
+    ART_STACK_OVERFLOW_GAP_arm64=8192
+    ART_STACK_OVERFLOW_GAP_mips=16384
+    ART_STACK_OVERFLOW_GAP_mips64=16384
+    ART_STACK_OVERFLOW_GAP_x86=8192
+    ART_STACK_OVERFLOW_GAP_x86_64=8192
+    ART_FRAME_SIZE_LIMIT=1736
+)
+
 
 add_library(libartpalette STATIC
     ${SRC}/art/libartpalette/apex/palette.cc
