@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SDK_SOURCE_COMPAT_CACHE_EPOCH = 20261122_02
 #
 # Copyright © 2022 Github Lzhiyong
 #
@@ -1819,7 +1820,7 @@ def ensure_historical_android_api_compat():
                 'function(log_id, severity, log_message->tag, log_message->file, log_message->line, message);',
                 'function(log_id, severity, log_message->tag, log_message->file, log_message->line, log_message->message);',
                 1)
-            compat_marker = '# SDK_API24_ANDROID_LOG_MESSAGE_COMPAT'
+            compat_marker = '// SDK_API24_ANDROID_LOG_MESSAGE_COMPAT'
             if compat_marker not in source_text:
                 include_anchor = '#include <android/log.h>'
                 compat_struct = (
