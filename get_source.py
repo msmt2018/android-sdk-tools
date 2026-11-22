@@ -316,6 +316,8 @@ def ensure_art_build_defines():
     definitions = {
         'ART_STACK_OVERFLOW_GAP_arm': 16384,
         'ART_STACK_OVERFLOW_GAP_arm64': 16384,
+        'ART_STACK_OVERFLOW_GAP_mips': 16384,
+        'ART_STACK_OVERFLOW_GAP_mips64': 16384,
         'ART_STACK_OVERFLOW_GAP_riscv64': 16384,
         'ART_STACK_OVERFLOW_GAP_x86': 16384,
         'ART_STACK_OVERFLOW_GAP_x86_64': 20480,
@@ -352,6 +354,56 @@ def ensure_art_build_defines():
     else:
         print('ART standalone build defines: already present', flush=True)
 
+
+
+def ensure_art_memory_tool_compat():
+    """Disable optional Valgrind hooks when building standalone without Valgrind headers."""
+    path = ROOT / 'src/art/libartbase/base/memory_tool.h'
+    if not path.is_file():
+        return
+
+    text = path.read_text()
+    if 'ART_USE_VALGRIND' in text:
+        return
+
+    text, changed = re.subn(
+        r'#else\s*\n\s*#include <valgrind\.h>\s*\n\s*#include <memcheck/memcheck\.h>',
+        '#elif defined(ART_USE_VALGRIND)\n\n#include <valgrind.h>\n#include <memcheck/memcheck.h>',
+        text,
+        count=1,
+    )
+    if changed != 1:
+        raise RuntimeError('cannot locate Valgrind branch in {}'.format(path))
+
+    fallback = (
+        '#else\n'
+        '#define MEMORY_TOOL_MAKE_NOACCESS(p, s) do { (void)(p); (void)(s); } while (0)\n'
+        '#define MEMORY_TOOL_MAKE_UNDEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n'
+        '#define MEMORY_TOOL_MAKE_DEFINED(p, s) do { (void)(p); (void)(s); } while (0)\n'
+        '#define ATTRIBUTE_NO_SANITIZE_ADDRESS\n'
+        '#define RUNNING_ON_MEMORY_TOOL 0U\n'
+        'constexpr bool kMemoryToolIsAvailable = false;\n'
+        'constexpr bool kMemoryToolIsValgrind = false;\n'
+        'constexpr bool kMemoryToolDetectsLeaks = false;\n'
+        'constexpr bool kMemoryToolAddsRedzones = false;\n'
+        'constexpr size_t kMemoryToolStackGuardSizeScale = 1;\n'
+    )
+    text, added = re.subn(
+        r'(?m)^#endif[ \t]*(?=\n#endif\s*// ART_.*MEMORY_TOOL_H_)',
+        fallback + '#endif',
+        text,
+        count=1,
+    )
+    if added != 1:
+        raise RuntimeError('cannot add standalone no-Valgrind branch in {}'.format(path))
+
+    path.write_text(text)
+    verified = path.read_text()
+    if '#include <memcheck/memcheck.h>' not in verified:
+        raise RuntimeError('Valgrind header include was lost from {}'.format(path))
+    if 'kMemoryToolIsValgrind = false' not in verified:
+        raise RuntimeError('standalone memory-tool fallback was not written to {}'.format(path))
+    print('ART memory tool: disabled optional Valgrind hooks for standalone build', flush=True)
 
 
 def ensure_openscreen_task_runner_compat():
@@ -1315,6 +1367,7 @@ def patches():
         print('patch {}: {}'.format(patch.relative_to(ROOT), apply_patch(patch)))
 
     run_compat_if_present('src/art/libartbase/arch/instruction_set.h', ensure_art_build_defines)
+    run_compat_if_present('src/art/libartbase/base/memory_tool.h', ensure_art_memory_tool_compat)
     run_compat_if_present('src/openscreen/platform/api/task_runner.h', ensure_openscreen_task_runner_compat)
     run_compat_if_present('src/art/libartbase/base/metrics/metrics.h', ensure_art_metrics_memory_order_compat)
     run_compat_if_present('src/art/libartbase/base/hash_set.h', ensure_art_hash_set_allocator_compat)
@@ -1819,6 +1872,8 @@ def main():
         create_legacy_source_aliases()
         normalize_optional_release_sources()
         ensure_liblog_ndk_r27_compat()
+        ensure_art_build_defines()
+        ensure_art_memory_tool_compat()
         normalize_release_cmake_targets()
         ensure_historical_android_api_compat()
         return
