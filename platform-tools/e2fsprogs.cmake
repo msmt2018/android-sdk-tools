@@ -202,6 +202,12 @@ add_library(libext2fs STATIC
     )
 target_include_directories(libext2fs PRIVATE ${INCLUDES})
 
+# ismounted.c uses GNU hasmntopt(), hidden by the strict POSIX feature macros.
+if(EXISTS "${SRC}/e2fsprogs/lib/ext2fs/ismounted.c")
+    set_source_files_properties("${SRC}/e2fsprogs/lib/ext2fs/ismounted.c"
+        PROPERTIES COMPILE_DEFINITIONS _GNU_SOURCE)
+endif()
+
 # libext2_misc
 add_library(libext2_misc STATIC 
     ${SRC}/e2fsprogs/misc/create_inode.c
