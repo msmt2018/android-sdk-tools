@@ -32,6 +32,14 @@ if(LIBPROCESSGROUP_CGROUP_MAP_SOURCE)
     endif()
 endif()
 
+# cgroup_map uses private in-tree cgrouprc implementations. Keep the NDK
+# availability target at the project's API 24 instead of exposing newer
+# bionic/libc++ APIs through a per-source API override.
+if(LIBPROCESSGROUP_CGROUP_MAP_SOURCE)
+    set_source_files_properties(${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
+        PROPERTIES COMPILE_OPTIONS "-U__ANDROID_API__;-D__ANDROID_API__=24")
+endif()
+
 add_library(libprocessgroup STATIC
     ${LIBPROCESSGROUP_CGROUP_MAP_SOURCE}
     ${SRC}/core/libprocessgroup/processgroup.cpp
