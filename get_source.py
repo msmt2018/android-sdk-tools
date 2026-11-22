@@ -1886,126 +1886,42 @@ def ensure_historical_android_api_compat():
             )
             selinux_cmake.write_text(source)
 
-    # ART FdFile uses fdsan APIs introduced in API 29. The SDK tools are
-    # compiled against API 24, so retain ordinary close() semantics there.
-    for fd_file in (
-        ROOT / 'src/art/libartbase/base/unix_file/fd_file.cc',
-        ROOT / 'src/art/runtime/base/unix_file/fd_file.cc',
-    ):
-        if not fd_file.is_file():
-            continue
-        source = fd_file.read_text()
-        source, count = re.subn(
-            r'(?m)^([ \t]*)#if[ \t]+defined\(__BIONIC__\)[ \t]*
-    version = tools_version()
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
-                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
-                             '(from patches/misc/platform_tools_version.h)'.format(version))
-    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
-    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
-    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
-    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
-    args = parser.parse_args()
 
-    if args.normalize_optional_sources_only:
-        create_legacy_source_aliases()
-        normalize_optional_release_sources()
-        ensure_liblog_ndk_r27_compat()
-        ensure_art_build_defines()
-        ensure_art_memory_tool_compat()
-        normalize_release_cmake_targets()
-        ensure_historical_android_api_compat()
-        return
-
-    # check necessary packages
-    for command in ('git', 'patch', 'go', 'bison', 'flex'):
-        check(command)
-
-    repos = json.loads((ROOT / 'repository.json').read_text())
-    print('fetching sources from Google manifest: {}'.format(args.tags))
-    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
-    errors = []
-    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
-        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
-        for future in as_completed(futures):
-            try:
-                print(future.result(), flush=True)
-            except RuntimeError as e:
-                errors.append(str(e))
-    if errors:
-        sys.exit('\n'.join(errors))
-
-    create_legacy_source_aliases()
-    normalize_optional_release_sources()
-    ensure_liblog_ndk_r27_compat()
-
-    if not args.skip_patch:
-        patches()
-
-    normalize_release_cmake_targets()
-    ensure_historical_android_api_compat()
-    print('download success!!')
-
-
-if __name__ == '__main__':
-    main()
-,
-            r'\1#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29',
-            source)
-        if count:
+    # ART FdFile uses fdsan APIs introduced in API 29. Keep API-24
+    # builds on ordinary close() semantics.
+    for fd_file in (ROOT / 'src/art/libartbase/base/unix_file/fd_file.cc',
+                    ROOT / 'src/art/runtime/base/unix_file/fd_file.cc'):
+        if fd_file.is_file():
+            source = fd_file.read_text()
+            source = source.replace('#if defined(__BIONIC__)',
+                                    '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29')
             fd_file.write_text(source)
-            print('ART FdFile: guarded API-29 fdsan calls in {}'.format(fd_file), flush=True)
 
-    # ValueType is an enum class; explicitly format its underlying integer in
-    # ART's fatal diagnostic to avoid ambiguous ostream overload resolution.
-    for dex_file in (
-        ROOT / 'src/art/libdexfile/dex/dex_file.cc',
-        ROOT / 'src/art/runtime/dex_file.cc',
-    ):
-        if not dex_file.is_file():
-            continue
-        source = dex_file.read_text()
-        source, count = re.subn(
-            r'(UNIMPLEMENTED\(FATAL\)\s*<<\s*": type "\s*<<\s*)type_(\s*;)',
-            r'\1static_cast<int>(type_)\2',
-            source,
-            count=1)
-        if count:
-            dex_file.write_text(source)
-            print('ART DexFile: made ValueType diagnostic stream-safe in {}'.format(dex_file), flush=True)
+    # Format the enum class as an integer in ART's fatal diagnostic.
+    for dex_file in (ROOT / 'src/art/libdexfile/dex/dex_file.cc',
+                     ROOT / 'src/art/runtime/dex_file.cc'):
+        if dex_file.is_file():
+            source = dex_file.read_text()
+            source, count = re.subn(r'(UNIMPLEMENTED\(FATAL\)\s*<<\s*": type "\s*<<\s*)type_(\s*;)',
+                                   r'\1static_cast<int>(type_)\2', source, count=1)
+            if count:
+                dex_file.write_text(source)
 
-    # Keep liblog's logger callback typedef and exported declarations aligned
-    # with the __android_log_message-based implementation in this snapshot.
-    for log_header in (
-        ROOT / 'src/logging/liblog/include/android/log.h',
-        ROOT / 'src/core/liblog/include/android/log.h',
-    ):
-        if not log_header.is_file():
-            continue
-        header = log_header.read_text()
-        header, typedef_count = re.subn(
-            r'typedef\s+void\s*\(\s*\*__android_logger_function\s*\)\s*'
-            r'\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*'
-            r'const\s+char\s*\*\s*\w+\s*\)\s*;',
-            'typedef void (*__android_logger_function)(const struct __android_log_message* log_message);',
-            header,
-            count=1)
-        header, logd_count = re.subn(
-            r'void\s+__android_log_logd_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*'
-            r'const\s+char\s*\*\s*\w+\s*\)\s*;',
-            'void __android_log_logd_logger(const struct __android_log_message* log_message);',
-            header,
-            count=1)
-        header, stderr_count = re.subn(
-            r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*'
-            r'const\s+char\s*\*\s*\w+\s*\)\s*;',
-            'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
-            header,
-            count=1)
-        if typedef_count or logd_count or stderr_count:
+    # Align legacy liblog headers with the message-based logger implementation.
+    for log_header in (ROOT / 'src/logging/liblog/include/android/log.h',
+                       ROOT / 'src/core/liblog/include/android/log.h'):
+        if log_header.is_file():
+            header = log_header.read_text()
+            header, _ = re.subn(r'typedef\s+void\s*\(\s*\*__android_logger_function\s*\)\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'typedef void (*__android_logger_function)(const struct __android_log_message* log_message);',
+                                header, count=1)
+            header, _ = re.subn(r'void\s+__android_log_logd_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'void __android_log_logd_logger(const struct __android_log_message* log_message);',
+                                header, count=1)
+            header, _ = re.subn(r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
+                                header, count=1)
             log_header.write_text(header)
-            print('liblog logger API declarations aligned in {}'.format(log_header), flush=True)
 
 
 def main():
