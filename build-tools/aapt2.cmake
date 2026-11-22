@@ -135,7 +135,7 @@ endif()
 # releases, so a fixed list copied from a newer tag is not valid here.
 file(GLOB_RECURSE AAPT2_ALL_CPP CONFIGURE_DEPENDS
     "${SRC}/base/tools/aapt2/*.cpp")
-list(FILTER AAPT2_ALL_CPP EXCLUDE REGEX "/(test|tests|integration-tests)/")
+list(FILTER AAPT2_ALL_CPP EXCLUDE REGEX "/(test|tests|integration-tests)/|(_test|_tests)\\.cpp$")
 # Unicode_data.cpp is generated data included by Unicode.cpp, not a translation unit.
 list(REMOVE_ITEM AAPT2_ALL_CPP "${SRC}/base/tools/aapt2/text/Unicode_data.cpp")
 set(AAPT2_MAIN_SOURCE "${SRC}/base/tools/aapt2/Main.cpp")
