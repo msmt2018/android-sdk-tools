@@ -2272,10 +2272,10 @@ def ensure_libsepol_bool_member_compat():
         return
     header_text = header.read_text()
     header_text, declaration_count = re.subn(
-        r'(?m)^(\s*uint32_t\s+)bool(\s*;)', r'\1boolean\2', header_text, count=1)
+        r'uint32_t\s+bool\b', r'uint32_t boolean', header_text, count=1)
     if declaration_count:
         header.write_text(header_text)
-    elif not re.search(r'(?m)^\s*uint32_t\s+boolean\s*;', header_text):
+    elif not re.search(r'uint32_t\s+boolean\b', header_text):
         raise RuntimeError('cannot locate legacy cond_expr bool member in {}'.format(header))
     for source in libsepol.rglob('*'):
         if source.suffix not in ('.c', '.h') or not source.is_file():
@@ -2285,10 +2285,9 @@ def ensure_libsepol_bool_member_compat():
                                  lambda match: match.group(0)[:-4] + 'boolean', text)
         if count:
             source.write_text(updated)
-    if re.search(r'(?m)^\s*uint32_t\s+bool\s*;', header.read_text()):
+    if re.search(r'uint32_t\s+bool\b', header.read_text()):
         raise RuntimeError('legacy bool member remains in {}'.format(header))
     print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
-
 
 def main():
     version = tools_version()
