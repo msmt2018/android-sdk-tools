@@ -14,7 +14,19 @@
 # limitations under the License.
 #
 
+# Keep the legacy protobuf archive complete for the pinned AOSP source tree.
+# These translation units own symbols referenced by generated AAPT2 .pb.cc files.
+set(PROTOBUF_COMPAT_SOURCES)
+foreach(_protobuf_compat_source
+    "${SRC}/protobuf/src/google/protobuf/stubs/once.cc"
+    "${SRC}/protobuf/src/google/protobuf/arenastring.cc")
+    if(EXISTS "${_protobuf_compat_source}")
+        list(APPEND PROTOBUF_COMPAT_SOURCES "${_protobuf_compat_source}")
+    endif()
+endforeach()
+
 add_library(libprotoc STATIC
+    ${PROTOBUF_COMPAT_SOURCES}
     ${SRC}/protobuf/src/google/protobuf/any_lite.cc
     ${SRC}/protobuf/src/google/protobuf/arena.cc
     ${SRC}/protobuf/src/google/protobuf/extension_set.cc
