@@ -1908,6 +1908,17 @@ def ensure_historical_android_api_compat():
                 changed_pairing_guard = True
         if changed_pairing_guard:
             pairing_header.write_text(''.join(pairing_lines))
+        # These pairing APIs are compiled from this pinned AOSP source tree,
+        # not imported from the device's API-24 NDK. Strip the API-30
+        # availability annotations from this private header for the host build.
+        pairing_text = pairing_header.read_text()
+        pairing_text, removed_api_annotations = re.subn(
+            r'\s*__INTRODUCED_IN\s*\(\s*30\s*\)', '', pairing_text)
+        if removed_api_annotations:
+            pairing_header.write_text(pairing_text)
+        if re.search(r'__INTRODUCED_IN\s*\(\s*30\s*\)', pairing_header.read_text()):
+            raise RuntimeError('API-30 availability annotations remain in private pairing header: {}'.format(
+                pairing_header))
     # SDK_ADB_USB_LINUX_SYSMACROS_COMPAT_V1
     # Bionic declares major()/minor() in sys/sysmacros.h; older AOSP
     # usb_linux.cpp snapshots relied on transitive glibc declarations.
