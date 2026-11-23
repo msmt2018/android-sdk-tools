@@ -1856,17 +1856,17 @@ def ensure_historical_android_api_compat():
             sig_start = sparse_io_text.index(sparse_marker)
             sig_end = sparse_io_text.index(')', sig_start)
             signature = sparse_io_text[sig_start:sig_end]
-            if not re.search(r'\\b(?:size_t|int)\\s+len\\b', signature):
+            if not re.search(r'\b(?:size_t|int)\s+len\b', signature):
                 raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io_source))
             # Match the exact callback ABI declared by this release's pinned
             # system/core/libsparse header. Older tags use int; newer tags
             # define SPARSE_CALLBACK_USES_SIZE_T and use size_t.
-            size_t_signature = re.sub(r'\\b(?:size_t|int)\\s+len\\b', 'size_t len', signature)
-            int_signature = re.sub(r'\\b(?:size_t|int)\\s+len\\b', 'int len', signature)
+            size_t_signature = re.sub(r'\b(?:size_t|int)\s+len\b', 'size_t len', signature)
+            int_signature = re.sub(r'\b(?:size_t|int)\s+len\b', 'int len', signature)
             conditional_signature = (
-                '#ifdef SPARSE_CALLBACK_USES_SIZE_T\\n' +
-                size_t_signature + '\\n#else\\n' +
-                int_signature + '\\n#endif'
+                '#ifdef SPARSE_CALLBACK_USES_SIZE_T\n' +
+                size_t_signature + '\n#else\n' +
+                int_signature + '\n#endif\n'
             )
             sparse_io_text = sparse_io_text[:sig_start] + conditional_signature + sparse_io_text[sig_end:]
             sparse_io_source.write_text(sparse_io_text)
