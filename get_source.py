@@ -1906,6 +1906,44 @@ def ensure_historical_android_api_compat():
             print('e2fsprogs: sparse callback length uses {} per pinned libsparse'.format(
                 callback_length_type), flush=True)
 
+    # Keep f2fs-tools' sparse import callback ABI aligned with the same
+    # manifest-pinned libsparse declaration. Do not wrap the function in new
+    # preprocessor branches; select the exact callback type for this release.
+    f2fs_io_source = ROOT / 'src/f2fs-tools/lib/libf2fs_io.c'
+    if f2fs_io_source.is_file():
+        f2fs_sparse_header = ROOT / 'src/core/libsparse/include/sparse/sparse.h'
+        if not f2fs_sparse_header.is_file():
+            raise RuntimeError('pinned libsparse callback header is missing for f2fs-tools: {}'.format(
+                f2fs_sparse_header))
+        f2fs_header_text = f2fs_sparse_header.read_text()
+        f2fs_uses_size_t = bool(re.search(
+            r'(?m)^\s*#\s*define\s+SPARSE_CALLBACK_USES_SIZE_T\b',
+            f2fs_header_text))
+        f2fs_length_type = 'size_t' if f2fs_uses_size_t else 'int'
+        f2fs_text = f2fs_io_source.read_text()
+        f2fs_marker = 'static int sparse_import_segment'
+        if f2fs_marker in f2fs_text:
+            f2fs_sig_start = f2fs_text.index(f2fs_marker)
+            f2fs_sig_end = f2fs_text.index(')', f2fs_sig_start)
+            f2fs_signature = f2fs_text[f2fs_sig_start:f2fs_sig_end]
+            f2fs_signature, f2fs_changed = re.subn(
+                r'\b(?:size_t|int)\s+len\b',
+                f2fs_length_type + ' len', f2fs_signature, count=1)
+            if f2fs_changed != 1:
+                raise RuntimeError('cannot align f2fs sparse callback with pinned libsparse ABI: {}'.format(
+                    f2fs_io_source))
+            f2fs_text = f2fs_text[:f2fs_sig_start] + f2fs_signature + f2fs_text[f2fs_sig_end:]
+            f2fs_io_source.write_text(f2fs_text)
+            f2fs_verified = f2fs_io_source.read_text()
+            f2fs_verified_start = f2fs_verified.index(f2fs_marker)
+            f2fs_verified_end = f2fs_verified.index(')', f2fs_verified_start)
+            f2fs_verified_signature = f2fs_verified[f2fs_verified_start:f2fs_verified_end]
+            if not re.search(r'\b' + f2fs_length_type + r'\s+len\b', f2fs_verified_signature):
+                raise RuntimeError('f2fs sparse callback ABI verification failed: {}'.format(
+                    f2fs_io_source))
+            print('f2fs-tools: sparse callback length uses {} per pinned libsparse'.format(
+                f2fs_length_type), flush=True)
+
     # SDK_BIONIC_HASMNTOPT_COMPAT_ENABLE_V1
     compat_header = ROOT / 'cmake/bionic_compat.h'
     if compat_header.is_file():
