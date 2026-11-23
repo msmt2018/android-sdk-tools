@@ -52,7 +52,6 @@ target_include_directories(liblog PRIVATE
     ${SRC}/libbase/include
 )
 
-# The historical C++ liblog implementation uses std::unary_function.
 set_target_properties(liblog PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
