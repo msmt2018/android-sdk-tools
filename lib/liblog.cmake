@@ -19,9 +19,10 @@
 # the SDK tools are built for Android and need the real logd/pmsg transports.
 set(LIBLOG_SOURCES)
 foreach(_name
-    log_event_list log_event_write logger_lock logger_name logger_read
-    logger_write logprint properties log_time event_tag_map
-    pmsg_reader pmsg_writer logd_reader logd_writer
+    config_read config_write log_event_list log_event_write log_ratelimit
+    logger_lock logger_name logger_read logger_write logprint stderr_write
+    properties event_tag_map log_time pmsg_reader pmsg_writer
+    logd_reader logd_writer
 )
     if(EXISTS "${SRC}/logging/liblog/${_name}.cpp")
         list(APPEND LIBLOG_SOURCES "${SRC}/logging/liblog/${_name}.cpp")
