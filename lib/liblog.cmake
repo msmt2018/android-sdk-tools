@@ -69,6 +69,15 @@ if(EXISTS "${SRC}/logging/liblog/logger_write.c" AND
     )
 endif()
 
+# Android P keeps pmsg_writer.c as C while the private debuggable
+# helper is defined by properties.c but is not declared by its old headers.
+if(EXISTS "${SRC}/logging/liblog/pmsg_writer.c")
+    set_source_files_properties(
+        "${SRC}/logging/liblog/pmsg_writer.c"
+        PROPERTIES COMPILE_FLAGS "-include ${CMAKE_SOURCE_DIR}/cmake/liblog_compat.h"
+    )
+endif()
+
 set_target_properties(liblog PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
