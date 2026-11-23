@@ -2347,6 +2347,25 @@ def ensure_libsepol_bool_member_compat():
     else:
         raise RuntimeError('expected libsepol CIL source is missing: {}'.format(cil_binary))
 
+    # SDK_LIBSEPOL_CIL_POLICY_BOOL_IDENTIFIER_COMPAT
+    # Some pinned SELinux snapshots also use "bool" as a local pointer name
+    # in cil_policy.c. stdbool.h expands that identifier to _Bool under NDK Clang.
+    cil_policy = libsepol / 'cil/src/cil_policy.c'
+    if cil_policy.is_file():
+        policy_text = cil_policy.read_text()
+        original_policy_text = policy_text
+        policy_text, _ = re.subn(
+            r'(struct\s+cil_(?:bool|booleanif)\s*\*\s*)bool\b',
+            r'\1boolean', policy_text)
+        policy_text = re.sub(r'\bbool\s*=\s*i1->data\b',
+                             'boolean = i1->data', policy_text)
+        policy_text = re.sub(r'\bbool->', 'boolean->', policy_text)
+        if re.search(r'struct\s+cil_(?:bool|booleanif)\s*\*\s*bool\b|\bbool\s*=\s*i1->data\b|\bbool->', policy_text):
+            raise RuntimeError('legacy bool local identifier remains in {}'.format(cil_policy))
+        if policy_text != original_policy_text:
+            cil_policy.write_text(policy_text)
+            print('libsepol: normalized CIL policy bool local identifiers for modern Clang', flush=True)
+
     if re.search(r'uint32_t\s+bool\b', header.read_text()):
         raise RuntimeError('legacy bool member remains in {}'.format(header))
     print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
