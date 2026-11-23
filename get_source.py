@@ -2051,8 +2051,11 @@ def ensure_historical_android_api_compat():
         sparse_source = sparse_io.read_text()
         callback_start = sparse_source.find('static int sparse_import_segment')
         if callback_start >= 0:
+            guard_start = sparse_source.rfind(
+                '#ifdef SPARSE_CALLBACK_USES_SIZE_T', 0, callback_start)
             callback_end = sparse_source.find('{', callback_start)
-            callback_signature = sparse_source[callback_start:callback_end]
+            signature_start = guard_start if guard_start >= 0 else callback_start
+            callback_signature = sparse_source[signature_start:callback_end]
             if ('#ifdef SPARSE_CALLBACK_USES_SIZE_T' not in callback_signature
                     or '#else' not in callback_signature
                     or '#endif' not in callback_signature):
