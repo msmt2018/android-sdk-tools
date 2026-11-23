@@ -26,7 +26,41 @@ endif()
 
 set(LIBBASE_LIBLOG_SYMBOLS_SOURCE)
 if(EXISTS "${SRC}/libbase/liblog_symbols.cpp")
-    list(APPEND LIBBASE_LIBLOG_SYMBOLS_SOURCE "${SRC}/libbase/liblog_symbols.cpp")
+    # This optional compatibility unit references newer private liblog APIs.
+    # Compile it only when every symbol it uses is declared by the header that
+    # wins the current target's include order; older AOSP snapshots must keep
+    # their own liblog ABI instead of mixing in a newer libbase implementation.
+    set(_libbase_liblog_symbols_compatible ON)
+    set(_libbase_liblog_header "")
+    foreach(_candidate
+        "${SRC}/core/include/android/log.h"
+        "${SRC}/logging/liblog/include/android/log.h"
+        "${SRC}/core/liblog/include/android/log.h")
+        if(EXISTS "${_candidate}")
+            set(_libbase_liblog_header "${_candidate}")
+            break()
+        endif()
+    endforeach()
+    if(_libbase_liblog_header)
+        file(READ "${_libbase_liblog_header}" _libbase_liblog_header_text)
+        file(READ "${SRC}/libbase/liblog_symbols.cpp" _libbase_liblog_source_text)
+        string(REGEX MATCHALL "__android_log_[A-Za-z0-9_]+" _libbase_liblog_symbols
+            "${_libbase_liblog_source_text}")
+        foreach(_symbol IN LISTS _libbase_liblog_symbols)
+            string(FIND "${_libbase_liblog_header_text}" "${_symbol}" _symbol_position)
+            if(_symbol_position EQUAL -1)
+                set(_libbase_liblog_symbols_compatible OFF)
+                break()
+            endif()
+        endforeach()
+    else()
+        set(_libbase_liblog_symbols_compatible OFF)
+    endif()
+    if(_libbase_liblog_symbols_compatible)
+        list(APPEND LIBBASE_LIBLOG_SYMBOLS_SOURCE "${SRC}/libbase/liblog_symbols.cpp")
+    else()
+        message(STATUS "libbase: skipping optional liblog_symbols.cpp; pinned liblog headers do not declare its complete API")
+    endif()
 endif()
 
 set(LIBBASE_ABI_COMPATIBILITY_SOURCE)
