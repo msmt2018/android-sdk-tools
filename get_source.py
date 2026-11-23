@@ -1851,6 +1851,29 @@ def ensure_historical_android_api_compat():
                 '#endif\n'
             )
         compat_header.write_text(compat_text)
+    # SDK_E2FSPROGS_EXT2_ERR_LINK_SYMBOL_COMPAT_V1
+    # ext2_err.c is generated from e2fsprogs' error-table templates. Its
+    # static "link" object collides with POSIX link() from Bionic unistd.h.
+    ext2_err_source = ROOT / 'src/e2fsprogs/lib/ext2fs/ext2_err.c'
+    if ext2_err_source.is_file():
+        ext2_err_text = ext2_err_source.read_text()
+        declaration = 'static struct et_list link = { 0, 0 };'
+        renamed_declaration = 'static struct et_list ext2_err_link = { 0, 0 };'
+        if declaration in ext2_err_text:
+            ext2_err_text = ext2_err_text.replace(declaration, renamed_declaration, 1)
+            ext2_err_text = ext2_err_text.replace('!link.table', '!ext2_err_link.table')
+            ext2_err_text = ext2_err_text.replace('&link', '&ext2_err_link')
+            if declaration in ext2_err_text or '!link.table' in ext2_err_text or '&link' in ext2_err_text:
+                raise RuntimeError('failed to rename e2fsprogs ext2_err static link object: {}'.format(ext2_err_source))
+            if renamed_declaration not in ext2_err_text:
+                raise RuntimeError('expected ext2_err static link object declaration was not found: {}'.format(ext2_err_source))
+            ext2_err_source.write_text(ext2_err_text)
+            print('e2fsprogs ext2_err: renamed Bionic-conflicting static link object', flush=True)
+        elif '!link.table' in ext2_err_text or '&link' in ext2_err_text:
+            raise RuntimeError('unrecognized e2fsprogs ext2_err link object layout: {}'.format(ext2_err_source))
+        else:
+            print('e2fsprogs ext2_err: no legacy link object in this source snapshot; skipping', flush=True)
+
     # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT_V5
     # prof_err.c is generated from e2fsprogs' error-table templates. Its
     # static "link" object collides with POSIX link() from unistd.h.
