@@ -2321,6 +2321,7 @@ def main():
 
     create_legacy_source_aliases()
     normalize_optional_release_sources()
+    ensure_libsepol_bool_member_compat()
     ensure_liblog_ndk_r27_compat()
 
     if not args.skip_patch:
