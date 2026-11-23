@@ -2283,6 +2283,15 @@ def ensure_libsepol_bool_member_compat():
         text = source.read_text()
         updated, count = re.subn(r'(?:->|\.)bool\b',
                                  lambda match: match.group(0)[:-4] + 'boolean', text)
+        # In old libsepol snapshots expand.c also uses "bool" as a local
+        # cond_bool_datum_t pointer name. That identifier is expanded by
+        # stdbool.h just like the legacy struct member, so normalize only
+        # identifier uses followed by declaration/assignment/member syntax.
+        if source.name == 'expand.c':
+            updated, local_count = re.subn(
+                r'(?<![A-Za-z0-9_])bool(?=\s*(?:,|=|->))',
+                'boolean', updated)
+            count += local_count
         if count:
             source.write_text(updated)
     if re.search(r'uint32_t\s+bool\b', header.read_text()):
