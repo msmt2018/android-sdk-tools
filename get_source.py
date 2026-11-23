@@ -1616,27 +1616,8 @@ static bool sdk_system_property_wait(
             source_text = source_text[:line_start] + replacement + source_text[position + len(call):]
             logging.write_text(source_text)
 
-    # API-30 liblog declarations are hidden by the API-24 NDK headers used
-    # for these cross-builds, although the pinned liblog source implements them.
-    # Add private forward declarations locally; this does not raise the runtime API.
-    for relative, declaration in (
-        ('src/logging/liblog/logger_write.cpp',
-         '\nextern "C" {\nstruct __android_log_message;\n'
-         'void __android_log_logd_logger(const struct __android_log_message*);\n}\n'),
-        ('src/logging/liblog/properties.cpp',
-         '\n#include <stdint.h>\nextern "C" {\n'
-         'int32_t __android_log_get_minimum_priority(void);\n}\n'),
-    ):
-        source = ROOT / relative
-        if source.is_file():
-            source_text = source.read_text()
-            if '__android_log_logd_logger(' in declaration:
-                required = 'void __android_log_logd_logger(const struct __android_log_message*);'
-            else:
-                required = 'int32_t __android_log_get_minimum_priority(void);'
-            if required not in source_text:
-                source.write_text(declaration + source_text)
-
+    # The pinned platform-tools-29.0.6 liblog uses the legacy two-argument
+    # __android_logger_data/message callback. Do not inject API-30 declarations.
     # Some historical Google manifests do not contain external/fmtlib.
     # Only link fmt when that exact release snapshot provides its target.
     androidfw_cmake = ROOT / 'lib/libandroidfw.cmake'
@@ -2234,22 +2215,6 @@ def ensure_historical_android_api_compat():
                                    r'\1static_cast<int>(type_)\2', source, count=1)
             if count:
                 dex_file.write_text(source)
-
-    # Align legacy liblog headers with the message-based logger implementation.
-    for log_header in (ROOT / 'src/logging/liblog/include/android/log.h',
-                       ROOT / 'src/core/liblog/include/android/log.h'):
-        if log_header.is_file():
-            header = log_header.read_text()
-            header, _ = re.subn(r'typedef\s+void\s*\(\s*\*__android_logger_function\s*\)\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
-                                'typedef void (*__android_logger_function)(const struct __android_log_message* log_message);',
-                                header, count=1)
-            header, _ = re.subn(r'void\s+__android_log_logd_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
-                                'void __android_log_logd_logger(const struct __android_log_message* log_message);',
-                                header, count=1)
-            header, _ = re.subn(r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
-                                'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
-                                header, count=1)
-            log_header.write_text(header)
 
 
 def main():
