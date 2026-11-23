@@ -19,7 +19,7 @@
 # the SDK tools are built for Android and need the real logd/pmsg transports.
 set(LIBLOG_SOURCES)
 foreach(_name
-    config_read config_write log_event_list log_event_write log_ratelimit
+    config_read config_write local_logger log_event_list log_event_write log_ratelimit
     logger_lock logger_name logger_read logger_write logprint stderr_write
     properties event_tag_map log_time pmsg_reader pmsg_writer
     logd_reader logd_writer
