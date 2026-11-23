@@ -22,7 +22,16 @@ if(NOT EXISTS ${SDK_ZLIB_SOURCE_DIR}/zlib.h)
     message(FATAL_ERROR "zlib source not found: ${SDK_ZLIB_SOURCE_DIR}, please run get_source.py")
 endif()
 
+# Android Q platform-tools zlib snapshots (29.0.2 through 29.0.5)
+# retain the SIMD stub that supplies the legacy x86 symbols referenced by
+# the release-pinned deflate/crc32 sources.
+set(SDK_ZLIB_SIMD_STUB_SOURCE)
+if(EXISTS "${SDK_ZLIB_SOURCE_DIR}/simd_stub.c")
+    list(APPEND SDK_ZLIB_SIMD_STUB_SOURCE "${SDK_ZLIB_SOURCE_DIR}/simd_stub.c")
+endif()
+
 add_library(sdk_zlib STATIC
+    ${SDK_ZLIB_SIMD_STUB_SOURCE}
     ${SDK_ZLIB_SOURCE_DIR}/adler32.c
     ${SDK_ZLIB_SOURCE_DIR}/compress.c
     ${SDK_ZLIB_SOURCE_DIR}/crc32.c
