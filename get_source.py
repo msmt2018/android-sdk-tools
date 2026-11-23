@@ -2240,34 +2240,29 @@ def ensure_historical_android_api_compat():
 
 
 def ensure_libsepol_bool_member_compat():
-    """Rename libsepol's legacy struct member that collides with stdbool.h's bool macro.
-
-    This is an internal AST field, not part of the serialized policy ABI.
-    Update its declaration and all member accesses within the pinned libsepol
-    source snapshot as one atomic source normalization.
-    """
+    """Rename libsepol's legacy struct member that collides with stdbool.h's bool macro."""
     libsepol = ROOT / 'src/selinux/libsepol'
     header = libsepol / 'include/sepol/policydb/conditional.h'
     if not header.is_file():
         return
     header_text = header.read_text()
-    declaration = re.compile(r'(?m)^(\\s*uint32_t\\s+)bool(\\s*;)')
-    header_text, declaration_count = declaration.subn(r'\\1boolean\\2', header_text, count=1)
+    header_text, declaration_count = re.subn(
+        r'uint32_t\s+bool\b', r'uint32_t boolean', header_text, count=1)
     if declaration_count:
         header.write_text(header_text)
-    elif not re.search(r'(?m)^\\s*uint32_t\\s+boolean\\s*;', header_text):
+    elif not re.search(r'uint32_t\s+boolean\b', header_text):
         raise RuntimeError('cannot locate legacy cond_expr bool member in {}'.format(header))
     for source in libsepol.rglob('*'):
         if source.suffix not in ('.c', '.h') or not source.is_file():
             continue
         text = source.read_text()
-        updated, count = re.subn(r'(?:->|\\.)bool\\b', lambda match: match.group(0)[:-4] + 'boolean', text)
+        updated, count = re.subn(r'(?:->|\.)bool\b',
+                                 lambda match: match.group(0)[:-4] + 'boolean', text)
         if count:
             source.write_text(updated)
-    if re.search(r'(?m)^\\s*uint32_t\\s+bool\\s*;', header.read_text()):
+    if re.search(r'uint32_t\s+bool\b', header.read_text()):
         raise RuntimeError('legacy bool member remains in {}'.format(header))
     print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
-
 
 def main():
     version = tools_version()
