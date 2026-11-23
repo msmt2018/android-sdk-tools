@@ -2052,47 +2052,9 @@ def ensure_historical_android_api_compat():
         if uses_glr_cpp:
             print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
 
-    # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
-    logging = ROOT / 'src/libbase/logging.cpp'
-    if logging.is_file():
-        source_text = logging.read_text()
-        old_signature = re.compile(
-            r'\[\]\s*\(\s*const struct __android_logger_data\s*\*\s*logger_data\s*,\s*'
-            r'const char\s*\*\s*message\s*\)\s*\{'
-        )
-        source_text, changed = old_signature.subn(
-            '[](const struct __android_log_message* log_message) {', source_text, count=1)
-        if changed:
-            source_text = source_text.replace('logger_data->', 'log_message->')
-            source_text = source_text.replace(
-                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, message);',
-                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, log_message->message);',
-                1)
-            compat_marker = '// SDK_API24_ANDROID_LOG_MESSAGE_COMPAT'
-            if compat_marker not in source_text:
-                include_anchor = '#include <android/log.h>'
-                compat_struct = (
-                    '\n' + compat_marker + '\n'
-                    '#if defined(__ANDROID_API__) && __ANDROID_API__ < 30\n'
-                    '#include <stddef.h>\n#include <stdint.h>\n'
-                    'struct __android_log_message {\n'
-                    '    size_t struct_size;\n'
-                    '    int32_t buffer_id;\n'
-                    '    int32_t priority;\n'
-                    '    const char* tag;\n'
-                    '    const char* file;\n'
-                    '    uint32_t line;\n'
-                    '    const char* message;\n'
-                    '};\n#endif\n'
-                )
-                if include_anchor not in source_text:
-                    raise RuntimeError('cannot insert API-24 libbase logger message definition: {}'.format(logging))
-                source_text = source_text.replace(include_anchor, include_anchor + compat_struct, 1)
-            logging.write_text(source_text)
-        if old_signature.search(logging.read_text()):
-            raise RuntimeError('legacy libbase logger callback signature remains in {}'.format(logging))
-        if '__android_log_set_logger' in logging.read_text() and 'log_message->message' not in logging.read_text():
-            raise RuntimeError('libbase logger callback message field was not normalized: {}'.format(logging))
+    # platform-tools-29.0.6 uses the Android Q two-argument
+    # __android_logger_data/message callback. Preserve the pinned Google
+    # libbase implementation and header ABI without API-30 conversion.
 
     # SDK_BORINGSSL_SIKE_FPRDC_ARRAY_PARAMETER_COMPAT
     sike_generic = ROOT / 'src/boringssl/src/third_party/sike/asm/fp_generic.c'
