@@ -2296,6 +2296,26 @@ def ensure_libsepol_bool_member_compat():
             count += local_count
         if count:
             source.write_text(updated)
+    # cil_binary.c contains a separate local variable named "bool" in
+    # __cil_bool_val_array_insert. Some historical source layouts expose CIL
+    # through a symlinked directory, which pathlib.rglob() does not traverse.
+    # Patch this known translation unit directly and validate the whole block.
+    cil_binary = libsepol / 'cil/src/cil_binary.c'
+    if cil_binary.is_file():
+        cil_text = cil_binary.read_text()
+        start = cil_text.find('int __cil_bool_val_array_insert')
+        end = cil_text.find('int __cil_level_val_array_insert', start)
+        if start < 0 or end < 0:
+            raise RuntimeError('cannot locate boolean array insertion function in {}'.format(cil_binary))
+        block = cil_text[start:end]
+        block, local_count = re.subn(r'\\bbool\\b', 'boolean', block)
+        if local_count:
+            cil_binary.write_text(cil_text[:start] + block + cil_text[end:])
+        if re.search(r'\\bbool\\b', block):
+            raise RuntimeError('legacy bool identifier remains in {}'.format(cil_binary))
+    else:
+        raise RuntimeError('expected libsepol CIL source is missing: {}'.format(cil_binary))
+
     if re.search(r'uint32_t\s+bool\b', header.read_text()):
         raise RuntimeError('legacy bool member remains in {}'.format(header))
     print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
