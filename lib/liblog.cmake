@@ -14,14 +14,14 @@
 # limitations under the License.
 #
 
-# Build the Android.bp host/fake-device liblog source set used by standalone
-# tools. Do not mix in the target logd/pmsg transports: those define the same
-# transport globals as fake_writer and produce duplicate symbols.
+# Match the Android.bp device source set for the pinned AOSP release.
+# Host-only fake_writer/fake_log_device sources are intentionally excluded:
+# the SDK tools are built for Android and need the real logd/pmsg transports.
 set(LIBLOG_SOURCES)
 foreach(_name
-    config_read config_write local_logger log_event_list log_event_write
-    log_ratelimit logger_lock logger_name logger_read logger_write log_time
-    logprint stderr_write fake_log_device fake_writer event_tag_map
+    log_event_list log_event_write logger_lock logger_name logger_read
+    logger_write logprint properties log_time event_tag_map
+    pmsg_reader pmsg_writer logd_reader logd_writer
 )
     if(EXISTS "${SRC}/logging/liblog/${_name}.cpp")
         list(APPEND LIBLOG_SOURCES "${SRC}/logging/liblog/${_name}.cpp")
@@ -30,26 +30,8 @@ foreach(_name
     endif()
 endforeach()
 
-# AAPT from Android 10 and adjacent historical releases references
-# android_log_clockid() and __android_log_security(). Depending on the
-# selected AOSP tag these implementations live in properties.c/.cpp or
-# log_is_loggable.c. Add exactly one implementation when present.
-set(LIBLOG_PROPERTY_SOURCE)
-foreach(_name properties log_is_loggable)
-    if(EXISTS "${SRC}/logging/liblog/${_name}.cpp")
-        set(LIBLOG_PROPERTY_SOURCE "${SRC}/logging/liblog/${_name}.cpp")
-        break()
-    elseif(EXISTS "${SRC}/logging/liblog/${_name}.c")
-        set(LIBLOG_PROPERTY_SOURCE "${SRC}/logging/liblog/${_name}.c")
-        break()
-    endif()
-endforeach()
-if(LIBLOG_PROPERTY_SOURCE)
-    list(APPEND LIBLOG_SOURCES "${LIBLOG_PROPERTY_SOURCE}")
-endif()
-
 if(NOT LIBLOG_SOURCES)
-    message(FATAL_ERROR "No host/fake-device liblog sources found in pinned AOSP tree")
+    message(FATAL_ERROR "No Android-target liblog sources found in pinned AOSP tree")
 endif()
 
 add_library(liblog STATIC ${LIBLOG_SOURCES})
@@ -57,13 +39,11 @@ add_library(liblog STATIC ${LIBLOG_SOURCES})
 target_compile_definitions(liblog PRIVATE
     LIBLOG_LOG_TAG=1006
     _XOPEN_SOURCE=700
-    FAKE_LOG_DEVICE=1
     SNET_EVENT_LOG_TAG=1397638484
     ANDROID_DEBUGGABLE=0
 )
 
-# The Android P C liblog sources use tentative globals from logger.h.
-# Match the historical Android build's common-symbol semantics under NDK clang.
+# Android P C liblog sources contain tentative globals from logger.h.
 target_compile_options(liblog PRIVATE
     $<$<COMPILE_LANGUAGE:C>:-fcommon>
 )
@@ -75,8 +55,7 @@ target_include_directories(liblog PRIVATE
     ${SRC}/libbase/include
 )
 
-# API-24 is the toolchain baseline, but logger_write in the pinned source uses
-# liblog's in-tree length-aware private interface. Keep the declaration visible.
+# Some historical logger_write implementations use the private loggable API.
 if(EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
     target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE=2)
 endif()
