@@ -44,6 +44,12 @@ target_compile_definitions(liblog PRIVATE
     ANDROID_DEBUGGABLE=0
 )
 
+# The Android P C liblog sources use tentative globals from logger.h.
+# Match the historical Android build's common-symbol semantics under NDK clang.
+target_compile_options(liblog PRIVATE
+    $<$<COMPILE_LANGUAGE:C>:-fcommon>
+)
+
 target_include_directories(liblog PRIVATE
     ${SRC}/core/include
     ${SRC}/logging/liblog/include
