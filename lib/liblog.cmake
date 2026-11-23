@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 
-# liblog changed its source extensions and host/device source partition
-# between Android 9 and Android 10. Resolve each file against the pinned
-# manifest tree instead of assuming the newer C++ filenames exist.
+# Build the Android.bp host/fake-device liblog source set used by standalone
+# tools. Do not mix in the target logd/pmsg transports: those define the same
+# transport globals as fake_writer and produce duplicate symbols.
 set(LIBLOG_SOURCES)
 foreach(_name
     config_read config_write local_logger log_event_list log_event_write
     log_ratelimit logger_lock logger_name logger_read logger_write
     logprint stderr_write fake_log_device fake_writer event_tag_map
-    log_time properties pmsg_reader pmsg_writer logd_reader logd_writer
 )
     if(EXISTS "${SRC}/logging/liblog/${_name}.cpp")
         list(APPEND LIBLOG_SOURCES "${SRC}/logging/liblog/${_name}.cpp")
@@ -32,34 +31,10 @@ foreach(_name
 endforeach()
 
 if(NOT LIBLOG_SOURCES)
-    message(FATAL_ERROR "No liblog sources found in pinned AOSP source tree")
+    message(FATAL_ERROR "No host/fake-device liblog sources found in pinned AOSP tree")
 endif()
 
 add_library(liblog STATIC ${LIBLOG_SOURCES})
-
-# The standalone tools compile against API 24, while this private in-tree
-# liblog implementation requires the length-aware internal interface (v2).
-if(EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
-    # Expose the in-tree private debuggable query even though the toolchain
-# targets API 24; the matching pinned pmsg writer is compiled from this tree.
-if(EXISTS "${SRC}/logging/liblog/include/log/log_properties.h")
-    target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_IS_DEBUGGABLE_INTERFACE=1)
-endif()
-
-# The legacy pmsg writer uses the private debuggable query declared in
-# log/log_properties.h but does not include that header itself.
-foreach(_pmsg_source
-    "${SRC}/logging/liblog/pmsg_writer.c"
-    "${SRC}/logging/liblog/pmsg_writer.cpp"
-)
-    if(EXISTS "${_pmsg_source}" AND EXISTS "${SRC}/logging/liblog/include/log/log_properties.h")
-        set_source_files_properties("${_pmsg_source}" PROPERTIES
-            COMPILE_FLAGS "-include ${SRC}/logging/liblog/include/log/log_properties.h")
-    endif()
-endforeach()
-
-target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE=2)
-endif()
 
 target_compile_definitions(liblog PRIVATE
     LIBLOG_LOG_TAG=1006
@@ -75,6 +50,19 @@ target_include_directories(liblog PRIVATE
     ${SRC}/core/libcutils/include
     ${SRC}/libbase/include
 )
+
+# API-24 is the toolchain baseline, but logger_write in the pinned source uses
+# liblog's in-tree length-aware private interface. Keep the declaration visible.
+if(EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
+    target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE=2)
+endif()
+if(EXISTS "${SRC}/logging/liblog/logger_write.c" AND
+   EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
+    set_source_files_properties(
+        "${SRC}/logging/liblog/logger_write.c"
+        PROPERTIES COMPILE_FLAGS "-include ${SRC}/logging/liblog/include/log/log_main.h"
+    )
+endif()
 
 set_target_properties(liblog PROPERTIES
     CXX_STANDARD 17
