@@ -2341,7 +2341,6 @@ def main():
     if args.normalize_optional_sources_only:
         create_legacy_source_aliases()
         normalize_optional_release_sources()
-    ensure_libsepol_bool_member_compat()
         ensure_libsepol_bool_member_compat()
         ensure_liblog_ndk_r27_compat()
         ensure_art_build_defines()
@@ -2370,6 +2369,7 @@ def main():
 
     create_legacy_source_aliases()
     normalize_optional_release_sources()
+    ensure_libsepol_bool_member_compat()
     ensure_liblog_ndk_r27_compat()
     ensure_liblog_ndk_r27_compat()
 
