@@ -122,5 +122,6 @@ target_link_libraries(aidl
 # The generated parser header exposes YYSTYPE members to the Flex scanner.
 # Use one wrapper pre-include so paired compiler arguments cannot be de-duplicated.
 target_compile_options(aidl PRIVATE
-    -include ${CMAKE_SOURCE_DIR}/cmake/aidl_parser_compat.h
+    # Keep -include and its path together during CMake option de-duplication.
+    "SHELL:-include ${CMAKE_SOURCE_DIR}/cmake/aidl_parser_compat.h"
 )
