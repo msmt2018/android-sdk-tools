@@ -30,6 +30,24 @@ foreach(_name
     endif()
 endforeach()
 
+# AAPT from Android 10 and adjacent historical releases references
+# android_log_clockid() and __android_log_security(). Depending on the
+# selected AOSP tag these implementations live in properties.c/.cpp or
+# log_is_loggable.c. Add exactly one implementation when present.
+set(LIBLOG_PROPERTY_SOURCE)
+foreach(_name properties log_is_loggable)
+    if(EXISTS "\${SRC}/logging/liblog/\${_name}.cpp")
+        set(LIBLOG_PROPERTY_SOURCE "\${SRC}/logging/liblog/\${_name}.cpp")
+        break()
+    elseif(EXISTS "\${SRC}/logging/liblog/\${_name}.c")
+        set(LIBLOG_PROPERTY_SOURCE "\${SRC}/logging/liblog/\${_name}.c")
+        break()
+    endif()
+endforeach()
+if(LIBLOG_PROPERTY_SOURCE)
+    list(APPEND LIBLOG_SOURCES "\${LIBLOG_PROPERTY_SOURCE}")
+endif()
+
 if(NOT LIBLOG_SOURCES)
     message(FATAL_ERROR "No host/fake-device liblog sources found in pinned AOSP tree")
 endif()
