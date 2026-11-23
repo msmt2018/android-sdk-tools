@@ -36,6 +36,13 @@ set(LIBCUTILS_SRC
     ${SRC}/core/libcutils/strlcpy.c
     )
 
+# Android 9 keeps set_sched_policy() in libcutils; later releases move
+# the implementation to libprocessgroup. Include it only when this pinned
+# source snapshot provides the legacy file.
+if(EXISTS "${SRC}/core/libcutils/sched_policy.cpp")
+    list(APPEND LIBCUTILS_SRC "${SRC}/core/libcutils/sched_policy.cpp")
+endif()
+
 # see core/libcutils/Android.bp
 if(SDK_TARGET_ANDROID)
     list(APPEND LIBCUTILS_SRC
