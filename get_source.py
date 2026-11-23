@@ -2283,10 +2283,10 @@ def ensure_libsepol_bool_member_compat():
         if start < 0 or end < 0:
             raise RuntimeError('cannot locate boolean array insertion function in {}'.format(cil_binary))
         block = cil_text[start:end]
-        block, local_count = re.subn(r'\\bbool\\b', 'boolean', block)
+        block, local_count = re.subn(r'\bbool\b', 'boolean', block)
         if local_count:
             cil_binary.write_text(cil_text[:start] + block + cil_text[end:])
-        if re.search(r'\\bbool\\b', block):
+        if re.search(r'\bbool\b', block):
             raise RuntimeError('legacy bool identifier remains in {}'.format(cil_binary))
     else:
         raise RuntimeError('expected libsepol CIL source is missing: {}'.format(cil_binary))
