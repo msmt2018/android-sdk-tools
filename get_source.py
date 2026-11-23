@@ -1946,7 +1946,7 @@ def ensure_historical_android_api_compat():
         single_argument_callback = 'typedef void (*__android_logger_function)(const struct __android_log_message*'
         old_callback_call = 'logger_function(logger_data, msg);'
         if single_argument_callback in log_header_text and old_callback_call in logger_write_text:
-            if 'const char* message;' not in log_header_text:
+            if not re.search(r'\b(?:const\s+)?char\s*\*\s*message\s*;', log_header_text):
                 raise RuntimeError('single-argument liblog callback has no message field in {}'.format(log_header))
             logger_write_text = logger_write_text.replace(old_callback_call, 'logger_function(logger_data);', 1)
             logger_write.write_text(logger_write_text)
