@@ -1882,6 +1882,48 @@ def ensure_historical_android_api_compat():
                 '#endif\n'
             )
         compat_header.write_text(compat_text)
+    # SDK_HISTORICAL_E2FSPROGS_SPARSE_CALLBACK_COMPAT_V1
+    sparse_io_source = ROOT / 'src/e2fsprogs/lib/ext2fs/sparse_io.c'
+    if sparse_io_source.is_file():
+        sparse_io_text = sparse_io_source.read_text()
+        sparse_marker = 'static int sparse_import_segment'
+        if sparse_marker in sparse_io_text:
+            sig_start = sparse_io_text.index(sparse_marker)
+            sig_end = sparse_io_text.index(')', sig_start)
+            signature = sparse_io_text[sig_start:sig_end]
+            if 'size_t len' in signature:
+                sparse_io_text = sparse_io_text[:sig_start] + signature.replace('size_t len', 'int len', 1) + sparse_io_text[sig_end:]
+                sparse_io_source.write_text(sparse_io_text)
+            elif 'int len' not in signature:
+                raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io_source))
+
+    # SDK_BIONIC_HASMNTOPT_COMPAT_ENABLE_V1
+    compat_header = ROOT / 'cmake/bionic_compat.h'
+    if compat_header.is_file():
+        compat_text = compat_header.read_text()
+        old_guard = '#if defined(SDK_USE_HASMNTOPT_COMPAT) && defined(__ANDROID_API__) && __ANDROID_API__ < 26 && !defined(__cplusplus)'
+        new_guard = '#if (defined(__BIONIC__) || defined(__ANDROID__)) && defined(__ANDROID_API__) && __ANDROID_API__ < 26 && !defined(__cplusplus)'
+        if old_guard in compat_text:
+            compat_header.write_text(compat_text.replace(old_guard, new_guard, 1))
+        elif new_guard not in compat_text and 'sdk_hasmntopt' in compat_text:
+            raise RuntimeError('hasmntopt compatibility guard has an unrecognized form: {}'.format(compat_header))
+
+    # SDK_ADB_PAIRING_INTERNAL_TYPES_API24_COMPAT_V1
+    pairing_header = ROOT / 'src/adb/pairing_connection/include/adb/pairing/pairing_connection.h'
+    if pairing_header.is_file():
+        pairing_text = pairing_header.read_text()
+        pairing_lines = pairing_text.splitlines(keepends=True)
+        changed_pairing_guard = False
+        for index, line in enumerate(pairing_lines):
+            stripped = line.strip()
+            if stripped == '#if !defined(__ANDROID__) || __ANDROID_API__ >= 30':
+                pairing_lines[index] = ''
+                changed_pairing_guard = True
+            elif stripped.startswith('#endif') and '__ANDROID_API__ >= 30' in stripped:
+                pairing_lines[index] = ''
+                changed_pairing_guard = True
+        if changed_pairing_guard:
+            pairing_header.write_text(''.join(pairing_lines))
     # SDK_ADB_USB_LINUX_SYSMACROS_COMPAT_V1
     # Bionic declares major()/minor() in sys/sysmacros.h; older AOSP
     # usb_linux.cpp snapshots relied on transitive glibc declarations.
