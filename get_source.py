@@ -2038,24 +2038,22 @@ def ensure_historical_android_api_compat():
         if uses_glr_cpp:
             print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
 
-    # SDK_E2FSPROGS_SPARSE_WRITE_SIZE_T_COMPAT
+    # SDK_E2FSPROGS_SPARSE_CALLBACK_ABI_COMPAT
+    # The callback declaration is already selected by the preceding
+    # SPARSE_CALLBACK_USES_SIZE_T conditional. Do not rewrite its legacy int
+    # branch: Android-P libsparse still declares int length.
     sparse_io = ROOT / 'src/e2fsprogs/lib/ext2fs/sparse_io.c'
     if sparse_io.is_file():
         sparse_source = sparse_io.read_text()
-        sparse_source, sparse_count = re.subn(
-            r'(sparse_import_segment\s*\(\s*void\s*\*\s*\w+\s*,\s*const\s+void\s*\*\s*\w+\s*,\s*)int(\s+\w+\s*,)',
-            r'\1size_t\2',
-            sparse_source,
-            count=1,
-        )
-        if sparse_count:
-            sparse_io.write_text(sparse_source)
-            print('e2fsprogs: aligned sparse write callback length with libsparse size_t API', flush=True)
-        elif re.search(r'sparse_import_segment\s*\(', sparse_source) and not re.search(
-            r'sparse_import_segment\s*\(\s*void\s*\*\s*\w+\s*,\s*const\s+void\s*\*\s*\w+\s*,\s*size_t\s+\w+',
-            sparse_source,
-        ):
-            raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io))
+        callback_start = sparse_source.find('static int sparse_import_segment')
+        if callback_start >= 0:
+            callback_end = sparse_source.find('{', callback_start)
+            callback_signature = sparse_source[callback_start:callback_end]
+            if ('#ifdef SPARSE_CALLBACK_USES_SIZE_T' not in callback_signature
+                    or '#else' not in callback_signature
+                    or '#endif' not in callback_signature):
+                raise RuntimeError('e2fsprogs sparse callback does not match the pinned libsparse ABI: {}'.format(sparse_io))
+            print('e2fsprogs: sparse callback follows the pinned Android-P libsparse ABI', flush=True)
 
     # SDK_ADB_VERSION_BUILD_NUMBER_COMPAT
     adb_source = ROOT / 'src/adb/adb.cpp'
