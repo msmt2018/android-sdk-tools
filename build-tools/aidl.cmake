@@ -124,3 +124,13 @@ target_link_libraries(aidl
     fmt::fmt
     sdk_system_libs
     )
+
+# Flex compiles the generated scanner as a separate translation unit.
+# The AOSP grammar's %{...%} prologue is emitted into the parser implementation,
+# not the generated parser header. Flex includes that header from the scanner,
+# where the YYSTYPE union needs the AIDL AST declarations and std::map.
+# Pre-include the same declarations for all AIDL translation units.
+target_compile_options(aidl PRIVATE
+    -include ${SRC}/aidl/aidl_language.h
+    -include map
+)
