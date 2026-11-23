@@ -66,6 +66,8 @@ add_executable(aidl
     ${FLEX_LangScanner_OUTPUTS}
 )
 target_include_directories(aidl PRIVATE
+    ${SRC}/aidl
+    ${SRC}/googletest/googletest/include
     ${SRC}/libbase/include
     ${SRC}/core/libcutils/include
     ${SRC}/core/include
@@ -84,6 +86,8 @@ add_executable(aidl-cpp
     ${SRC}/aidl/main_cpp.cpp
 )
 target_include_directories(aidl-cpp PRIVATE
+    ${SRC}/aidl
+    ${SRC}/googletest/googletest/include
     ${SRC}/libbase/include
     ${SRC}/core/libcutils/include
     ${SRC}/core/include
