@@ -134,6 +134,7 @@ target_include_directories(fastboot PRIVATE
     ${SRC}/googletest/googletest/include
     )
 target_compile_definitions(fastboot PRIVATE
+    "FASTBOOT_VERSION=\"${TOOLS_VERSION}\""
     -D_GNU_SOURCE
     -D_XOPEN_SOURCE=700
     -DUSE_F2FS
