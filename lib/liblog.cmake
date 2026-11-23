@@ -52,6 +52,16 @@ target_include_directories(liblog PRIVATE
     ${SRC}/libbase/include
 )
 
+# Android 9's logger_write.c uses the private length-aware predicate
+# declared in log/log_main.h, but its translation unit omits that include.
+if(EXISTS "${SRC}/logging/liblog/logger_write.c" AND
+   EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
+    set_source_files_properties(
+        "${SRC}/logging/liblog/logger_write.c"
+        PROPERTIES COMPILE_FLAGS "-include ${SRC}/logging/liblog/include/log/log_main.h"
+    )
+endif()
+
 # The historical C++ liblog implementation uses std::unary_function.
 set_target_properties(liblog PROPERTIES
     CXX_STANDARD 17
