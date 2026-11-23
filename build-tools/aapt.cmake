@@ -69,16 +69,25 @@ target_compile_definitions(aapt PRIVATE
     -DSTATIC_ANDROIDFW_FOR_TOOLS
     )
 target_include_directories(aapt PRIVATE ${INCLUDES} )
+# These targets are absent from some historical Google manifests. Link only
+# when the exact pinned source snapshot actually created the target.
+set(AAPT_OPTIONAL_LIBS)
+if(TARGET libincfs)
+    list(APPEND AAPT_OPTIONAL_LIBS libincfs)
+endif()
+if(TARGET libpackagelistparser)
+    list(APPEND AAPT_OPTIONAL_LIBS libpackagelistparser)
+endif()
+
 target_link_libraries(aapt
     libaapt
     libandroidfw
-    libincfs
+    ${AAPT_OPTIONAL_LIBS}
     libutils
     libcutils
     libselinux
     libsepol
     libziparchive
-    libpackagelistparser
     libbase
     libbuildversion
     libprocessgroup
