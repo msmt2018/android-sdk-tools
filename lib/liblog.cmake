@@ -49,8 +49,10 @@ target_compile_options(liblog PRIVATE
 )
 
 target_include_directories(liblog PRIVATE
-    ${SRC}/core/include
+    # Prefer this release's own liblog public/private headers over older
+    # compatibility headers exposed by system/core/include.
     ${SRC}/logging/liblog/include
+    ${SRC}/core/include
     ${SRC}/core/libcutils/include
     ${SRC}/libbase/include
 )
