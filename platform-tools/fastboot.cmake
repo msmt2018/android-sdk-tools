@@ -110,6 +110,17 @@ add_executable(fastboot
     ${SRC}/core/fastboot/util.cpp
     )
 
+# The Android 9/Q source snapshots keep mkbootimg inside system/core,
+# while later manifests may provide system/tools/mkbootimg as a separate repo.
+# Select the header directory from the exact checked-out release tree.
+if(EXISTS "${SRC}/mkbootimg/include/bootimg/bootimg.h")
+    set(FASTBOOT_BOOTIMG_INCLUDE_DIR "${SRC}/mkbootimg/include/bootimg")
+elseif(EXISTS "${SRC}/core/mkbootimg/include/bootimg/bootimg.h")
+    set(FASTBOOT_BOOTIMG_INCLUDE_DIR "${SRC}/core/mkbootimg/include/bootimg")
+else()
+    message(FATAL_ERROR "Pinned AOSP mkbootimg bootimg.h not found in either release layout")
+endif()
+
 target_include_directories(fastboot PRIVATE
     ${SRC}/avb
     ${SRC}/libbase/include
@@ -122,7 +133,7 @@ target_include_directories(fastboot PRIVATE
     ${SRC}/libziparchive/include
     ${SRC}/extras/ext4_utils/include
     ${SRC}/extras/f2fs_utils
-    ${SRC}/mkbootimg/include/bootimg
+    ${FASTBOOT_BOOTIMG_INCLUDE_DIR}
     ${SRC}/core/diagnose_usb/include
     ${SRC}/googletest/googletest/include
     )
