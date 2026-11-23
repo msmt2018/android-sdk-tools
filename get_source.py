@@ -2291,6 +2291,37 @@ def ensure_historical_android_api_compat():
             )
             selinux_cmake.write_text(source)
 
+
+def ensure_libsepol_bool_member_compat():
+    """Rename libsepol's legacy struct member that collides with stdbool.h's bool macro.
+
+    This is an internal AST field, not part of the serialized policy ABI.
+    Update its declaration and all member accesses within the pinned libsepol
+    source snapshot as one atomic source normalization.
+    """
+    libsepol = ROOT / 'src/selinux/libsepol'
+    header = libsepol / 'include/sepol/policydb/conditional.h'
+    if not header.is_file():
+        return
+    header_text = header.read_text()
+    declaration = re.compile(r'(?m)^(\\s*uint32_t\\s+)bool(\\s*;)')
+    header_text, declaration_count = declaration.subn(r'\\1boolean\\2', header_text, count=1)
+    if declaration_count:
+        header.write_text(header_text)
+    elif not re.search(r'(?m)^\\s*uint32_t\\s+boolean\\s*;', header_text):
+        raise RuntimeError('cannot locate legacy cond_expr bool member in {}'.format(header))
+    for source in libsepol.rglob('*'):
+        if source.suffix not in ('.c', '.h') or not source.is_file():
+            continue
+        text = source.read_text()
+        updated, count = re.subn(r'(?:->|\\.)bool\\b', lambda match: match.group(0)[:-4] + 'boolean', text)
+        if count:
+            source.write_text(updated)
+    if re.search(r'(?m)^\\s*uint32_t\\s+bool\\s*;', header.read_text()):
+        raise RuntimeError('legacy bool member remains in {}'.format(header))
+    print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
+
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -2306,6 +2337,8 @@ def main():
     if args.normalize_optional_sources_only:
         create_legacy_source_aliases()
         normalize_optional_release_sources()
+    ensure_libsepol_bool_member_compat()
+        ensure_libsepol_bool_member_compat()
         ensure_liblog_ndk_r27_compat()
         ensure_art_build_defines()
         ensure_art_memory_tool_compat()
