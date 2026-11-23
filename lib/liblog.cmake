@@ -14,26 +14,28 @@
 # limitations under the License.
 #
 
-set(LIBLOG_EVENT_LIST_SOURCE)
-if(EXISTS "${SRC}/logging/liblog/log_event_list.cpp")
-    list(APPEND LIBLOG_EVENT_LIST_SOURCE "${SRC}/logging/liblog/log_event_list.cpp")
+# liblog changed its source extensions and host/device source partition
+# between Android 9 and Android 10. Resolve each file against the pinned
+# manifest tree instead of assuming the newer C++ filenames exist.
+set(LIBLOG_SOURCES)
+foreach(_name
+    config_read config_write local_logger log_event_list log_event_write
+    log_ratelimit logger_lock logger_name logger_read logger_write
+    logprint stderr_write fake_log_device fake_writer event_tag_map
+    log_time properties pmsg_reader pmsg_writer logd_reader logd_writer
+)
+    if(EXISTS "${SRC}/logging/liblog/${_name}.cpp")
+        list(APPEND LIBLOG_SOURCES "${SRC}/logging/liblog/${_name}.cpp")
+    elseif(EXISTS "${SRC}/logging/liblog/${_name}.c")
+        list(APPEND LIBLOG_SOURCES "${SRC}/logging/liblog/${_name}.c")
+    endif()
+endforeach()
+
+if(NOT LIBLOG_SOURCES)
+    message(FATAL_ERROR "No liblog sources found in pinned AOSP source tree")
 endif()
 
-add_library(liblog STATIC
-    ${LIBLOG_EVENT_LIST_SOURCE}
-    ${SRC}/logging/liblog/log_event_write.cpp
-    ${SRC}/logging/liblog/logger_name.cpp
-    ${SRC}/logging/liblog/logger_read.cpp
-    ${SRC}/logging/liblog/logger_write.cpp
-    ${SRC}/logging/liblog/properties.cpp
-    ${SRC}/logging/liblog/logprint.cpp
-    ${SRC}/logging/liblog/event_tag_map.cpp
-    ${SRC}/logging/liblog/log_time.cpp
-    ${SRC}/logging/liblog/pmsg_reader.cpp
-    ${SRC}/logging/liblog/pmsg_writer.cpp
-    ${SRC}/logging/liblog/logd_reader.cpp
-    ${SRC}/logging/liblog/logd_writer.cpp
-    )
+add_library(liblog STATIC ${LIBLOG_SOURCES})
 
 target_compile_definitions(liblog PRIVATE
     LIBLOG_LOG_TAG=1006
@@ -41,17 +43,18 @@ target_compile_definitions(liblog PRIVATE
     FAKE_LOG_DEVICE=1
     SNET_EVENT_LOG_TAG=1397638686
     ANDROID_DEBUGGABLE=0
+)
 
-    )
-    
 target_include_directories(liblog PRIVATE
     ${SRC}/core/include
     ${SRC}/logging/liblog/include
     ${SRC}/core/libcutils/include
     ${SRC}/libbase/include
-    )
-    
-# Historical liblog relies on std::unary_function, removed in C++20.
-# Bionic does not expose this legacy annotation in every NDK API level.
-# Quote the attribute so the shell does not parse its parentheses.
-set_target_properties(liblog PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+)
+
+# The historical C++ liblog implementation uses std::unary_function.
+set_target_properties(liblog PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
