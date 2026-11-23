@@ -30,8 +30,46 @@ if(EXISTS "${SDK_ZLIB_SOURCE_DIR}/simd_stub.c")
     list(APPEND SDK_ZLIB_SIMD_STUB_SOURCE "${SDK_ZLIB_SOURCE_DIR}/simd_stub.c")
 endif()
 
+# Match the SIMD source set and compiler feature flags from the pinned
+# platform/external/zlib Android.bp for the active Android ABI.
+set(SDK_ZLIB_ARCH_SOURCES)
+set(SDK_ZLIB_ARCH_DEFINITIONS)
+set(SDK_ZLIB_ARCH_OPTIONS)
+set(SDK_ZLIB_ABI "${ANDROID_ABI}")
+if(NOT SDK_ZLIB_ABI)
+    set(SDK_ZLIB_ABI "${CMAKE_ANDROID_ARCH_ABI}")
+endif()
+
+if(EXISTS "${SDK_ZLIB_SOURCE_DIR}/cpu_features.c")
+    if(SDK_ZLIB_ABI MATCHES "^(x86|i686|x86_64|amd64)$")
+        foreach(_source adler32_simd.c cpu_features.c crc32_simd.c crc_folding.c fill_window_sse.c)
+            if(NOT EXISTS "${SDK_ZLIB_SOURCE_DIR}/${_source}")
+                message(FATAL_ERROR "Pinned zlib x86 SIMD source is missing: ${_source}")
+            endif()
+            list(APPEND SDK_ZLIB_ARCH_SOURCES "${SDK_ZLIB_SOURCE_DIR}/${_source}")
+        endforeach()
+        list(APPEND SDK_ZLIB_ARCH_DEFINITIONS
+            X86_NOT_WINDOWS ADLER32_SIMD_SSSE3 CRC32_SIMD_SSE42_PCLMUL)
+        list(APPEND SDK_ZLIB_ARCH_OPTIONS -mssse3 -mpclmul)
+        if(SDK_ZLIB_ABI MATCHES "^(x86_64|amd64)$")
+            list(APPEND SDK_ZLIB_ARCH_DEFINITIONS INFLATE_CHUNK_READ_64LE)
+        endif()
+    elseif(SDK_ZLIB_ABI MATCHES "^(arm64-v8a|aarch64)$")
+        foreach(_source adler32_simd.c cpu_features.c crc32_simd.c)
+            if(NOT EXISTS "${SDK_ZLIB_SOURCE_DIR}/${_source}")
+                message(FATAL_ERROR "Pinned zlib ARM64 SIMD source is missing: ${_source}")
+            endif()
+            list(APPEND SDK_ZLIB_ARCH_SOURCES "${SDK_ZLIB_SOURCE_DIR}/${_source}")
+        endforeach()
+        list(APPEND SDK_ZLIB_ARCH_DEFINITIONS
+            ARMV8_OS_LINUX ADLER32_SIMD_NEON CRC32_ARMV8_CRC32 INFLATE_CHUNK_READ_64LE)
+        list(APPEND SDK_ZLIB_ARCH_OPTIONS -O3)
+    endif()
+endif()
+
 add_library(sdk_zlib STATIC
     ${SDK_ZLIB_SIMD_STUB_SOURCE}
+    ${SDK_ZLIB_ARCH_SOURCES}
     ${SDK_ZLIB_SOURCE_DIR}/adler32.c
     ${SDK_ZLIB_SOURCE_DIR}/compress.c
     ${SDK_ZLIB_SOURCE_DIR}/crc32.c
@@ -50,6 +88,8 @@ add_library(sdk_zlib STATIC
     )
 set_target_properties(sdk_zlib PROPERTIES OUTPUT_NAME z)
 target_compile_options(sdk_zlib PRIVATE -w)
+target_compile_definitions(sdk_zlib PRIVATE ${SDK_ZLIB_ARCH_DEFINITIONS})
+target_compile_options(sdk_zlib PRIVATE ${SDK_ZLIB_ARCH_OPTIONS})
 
 # export only the public headers, so that the zlib internal headers
 # (deflate.h, inflate.h, trees.h ...) never shadow headers of other projects
