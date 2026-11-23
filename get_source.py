@@ -1794,17 +1794,17 @@ def ensure_historical_android_api_compat():
         # to each real AIDL target; do not add nonexistent targets.
         for aidl_target in ('aidl', 'aidl-cpp'):
             include_pattern = re.compile(
-                r'(target_include_directories\\(' + re.escape(aidl_target) +
-                r'\\s+PRIVATE\\n)([\\s\\S]*?\\n\\))'
+                r'(target_include_directories\(' + re.escape(aidl_target) +
+                r'\s+PRIVATE\n)([\s\S]*?\n\))'
             )
             include_match = include_pattern.search(cmake_text)
             if include_match:
                 include_block = include_match.group(2)
                 additions = []
                 if '${SRC}/aidl' not in include_block:
-                    additions.append('    ${SRC}/aidl\\n')
+                    additions.append('    ${SRC}/aidl\n')
                 if '${SRC}/googletest/googletest/include' not in include_block:
-                    additions.append('    ${SRC}/googletest/googletest/include\\n')
+                    additions.append('    ${SRC}/googletest/googletest/include\n')
                 if additions:
                     cmake_text = (
                         cmake_text[:include_match.start(2)] +
@@ -1874,17 +1874,17 @@ def ensure_historical_android_api_compat():
             sig_start = sparse_io_text.index(sparse_marker)
             sig_end = sparse_io_text.index(')', sig_start)
             signature = sparse_io_text[sig_start:sig_end]
-            if not re.search(r'\\b(?:size_t|int)\\s+len\\b', signature):
+            if not re.search(r'\b(?:size_t|int)\\s+len\\b', signature):
                 raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io_source))
             # Match the exact callback ABI declared by this release's pinned
             # system/core/libsparse header. Older tags use int; newer tags
             # define SPARSE_CALLBACK_USES_SIZE_T and use size_t.
-            size_t_signature = re.sub(r'\\b(?:size_t|int)\\s+len\\b', 'size_t len', signature)
-            int_signature = re.sub(r'\\b(?:size_t|int)\\s+len\\b', 'int len', signature)
+            size_t_signature = re.sub(r'\b(?:size_t|int)\\s+len\\b', 'size_t len', signature)
+            int_signature = re.sub(r'\b(?:size_t|int)\\s+len\\b', 'int len', signature)
             conditional_signature = (
-                '#ifdef SPARSE_CALLBACK_USES_SIZE_T\\n' +
-                size_t_signature + '\\n#else\\n' +
-                int_signature + '\\n#endif'
+                '#ifdef SPARSE_CALLBACK_USES_SIZE_T\n' +
+                size_t_signature + '\n#else\n' +
+                int_signature + '\n#endif'
             )
             sparse_io_text = sparse_io_text[:sig_start] + conditional_signature + sparse_io_text[sig_end:]
             sparse_io_source.write_text(sparse_io_text)
