@@ -39,3 +39,28 @@ static inline char *sdk_hasmntopt(const struct mntent *mnt, const char *opt) {
 #define hasmntopt sdk_hasmntopt
 #endif
 
+
+/*
+ * __system_property_read_callback was added to the public NDK surface at API 26.
+ * The API-24 toolchain still provides __system_property_read; adapt it for
+ * release-generated sysprop code that uses the callback form.
+ */
+#if defined(__ANDROID_API__) && __ANDROID_API__ < 26
+#include <sys/system_properties.h>
+#include <stdint.h>
+typedef void (*sdk_system_property_read_callback_fn)(
+    void* cookie, const char* name, const char* value, uint32_t serial);
+static inline int sdk_compat_system_property_read_callback(
+    const prop_info* pi,
+    sdk_system_property_read_callback_fn callback,
+    void* cookie) {
+    char name[PROP_NAME_MAX] = {};
+    char value[PROP_VALUE_MAX] = {};
+    int serial = __system_property_read(pi, name, value);
+    if (serial >= 0 && callback != NULL) {
+        callback(cookie, name, value, (uint32_t)serial);
+    }
+    return serial < 0 ? serial : 0;
+}
+#define __system_property_read_callback sdk_compat_system_property_read_callback
+#endif
