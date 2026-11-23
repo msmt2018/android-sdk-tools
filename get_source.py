@@ -1957,11 +1957,11 @@ def ensure_historical_android_api_compat():
             pairing_header.write_text(''.join(pairing_lines))
         pairing_text = pairing_header.read_text()
         pairing_text, removed_api_annotations = re.subn(
-            r'\\s*__INTRODUCED_IN\\s*\\(\\s*30\\s*\\)', '', pairing_text)
+            r'\s*__INTRODUCED_IN\s*\(\s*30\s*\)', '', pairing_text)
         if removed_api_annotations:
             pairing_header.write_text(pairing_text)
         final_pairing_text = pairing_header.read_text()
-        if re.search(r'__INTRODUCED_IN\\s*\\(\\s*30\\s*\\)', final_pairing_text):
+        if re.search(r'__INTRODUCED_IN\s*\(\s*30\s*\)', final_pairing_text):
             raise RuntimeError('API-30 availability annotations remain in private pairing header: {}'.format(
                 pairing_header))
         if pairing_header.name == 'pairing_auth.h' and 'struct PairingAuthCtx' not in final_pairing_text:
