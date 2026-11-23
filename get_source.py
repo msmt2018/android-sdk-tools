@@ -1906,6 +1906,19 @@ def ensure_historical_android_api_compat():
                 changed_pairing_guard = True
         if changed_pairing_guard:
             pairing_header.write_text(''.join(pairing_lines))
+    # SDK_LIBLOG_SINGLE_ARGUMENT_CALLBACK_COMPAT_V1
+    log_header = ROOT / 'src/logging/liblog/include/android/log.h'
+    logger_write = ROOT / 'src/logging/liblog/logger_write.cpp'
+    if log_header.is_file() and logger_write.is_file():
+        log_header_text = log_header.read_text()
+        logger_write_text = logger_write.read_text()
+        single_argument_callback = 'typedef void (*__android_logger_function)(const struct __android_log_message*'
+        old_callback_call = 'logger_function(logger_data, msg);'
+        if single_argument_callback in log_header_text and old_callback_call in logger_write_text:
+            if 'const char* message;' not in log_header_text:
+                raise RuntimeError('single-argument liblog callback has no message field in {}'.format(log_header))
+            logger_write_text = logger_write_text.replace(old_callback_call, 'logger_function(logger_data);', 1)
+            logger_write.write_text(logger_write_text)
     # SDK_ADB_USB_LINUX_SYSMACROS_COMPAT_V1
     # Bionic declares major()/minor() in sys/sysmacros.h; older AOSP
     # usb_linux.cpp snapshots relied on transitive glibc declarations.
