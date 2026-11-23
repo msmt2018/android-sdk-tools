@@ -1917,7 +1917,7 @@ def ensure_historical_android_api_compat():
         f2fs_marker = 'static int sparse_import_segment'
         if f2fs_marker in f2fs_text:
             f2fs_sig_start = f2fs_text.index(f2fs_marker)
-            f2fs_sig_end = f2fs_text.index(')', f2fs_sig_start)
+            f2fs_sig_end = f2fs_text.index('{', f2fs_sig_start)
             f2fs_signature = f2fs_text[f2fs_sig_start:f2fs_sig_end]
             f2fs_signature, f2fs_changed = re.subn(
                 r'\b(?:size_t|int)\s+len\b',
@@ -1929,7 +1929,7 @@ def ensure_historical_android_api_compat():
             f2fs_io_source.write_text(f2fs_text)
             f2fs_verified = f2fs_io_source.read_text()
             f2fs_verified_start = f2fs_verified.index(f2fs_marker)
-            f2fs_verified_end = f2fs_verified.index(')', f2fs_verified_start)
+            f2fs_verified_end = f2fs_verified.index('{', f2fs_verified_start)
             f2fs_verified_signature = f2fs_verified[f2fs_verified_start:f2fs_verified_end]
             if not re.search(r'\b' + f2fs_length_type + r'\s+len\b', f2fs_verified_signature):
                 raise RuntimeError('f2fs sparse callback ABI verification failed: {}'.format(
