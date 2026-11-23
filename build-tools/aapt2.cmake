@@ -165,13 +165,20 @@ target_compile_options(libaapt2 PRIVATE ${COMPILE_FLAGS})
 add_executable(aapt2 ${AAPT2_MAIN_SOURCE})
 target_include_directories(aapt2 PRIVATE ${INCLUDES})
 target_compile_options(aapt2 PRIVATE ${COMPILE_FLAGS})
+set(AAPT2_OPTIONAL_LIBS)
+if(TARGET libincfs)
+    list(APPEND AAPT2_OPTIONAL_LIBS libincfs)
+endif()
+if(TARGET libpackagelistparser)
+    list(APPEND AAPT2_OPTIONAL_LIBS libpackagelistparser)
+endif()
+
 target_link_libraries(aapt2
     libaapt2
     libandroidfw
-    libincfs
+    ${AAPT2_OPTIONAL_LIBS}
     libselinux
     libsepol
-    libpackagelistparser
     libutils
     libcutils
     libziparchive
