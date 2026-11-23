@@ -1908,29 +1908,39 @@ def ensure_historical_android_api_compat():
                 '#endif\n'
             )
         compat_header.write_text(compat_text)
-    # SDK_HISTORICAL_E2FSPROGS_SPARSE_CALLBACK_COMPAT_V1
+    # SDK_E2FSPROGS_SPARSE_CALLBACK_ABI_FROM_PINNED_LIBSPARSE_V2
+    # Match e2fsprogs to the callback ABI in this exact manifest snapshot.
+    # Older libsparse tags use int; newer tags define SPARSE_CALLBACK_USES_SIZE_T.
     sparse_io_source = ROOT / 'src/e2fsprogs/lib/ext2fs/sparse_io.c'
+    sparse_header = ROOT / 'src/core/libsparse/include/sparse/sparse.h'
     if sparse_io_source.is_file():
+        if not sparse_header.is_file():
+            raise RuntimeError('pinned libsparse callback header is missing: {}'.format(sparse_header))
+        sparse_header_text = sparse_header.read_text()
+        callback_uses_size_t = bool(re.search(
+            r'(?m)^\s*#\s*define\s+SPARSE_CALLBACK_USES_SIZE_T\b',
+            sparse_header_text))
+        callback_length_type = 'size_t' if callback_uses_size_t else 'int'
         sparse_io_text = sparse_io_source.read_text()
         sparse_marker = 'static int sparse_import_segment'
         if sparse_marker in sparse_io_text:
             sig_start = sparse_io_text.index(sparse_marker)
             sig_end = sparse_io_text.index(')', sig_start)
             signature = sparse_io_text[sig_start:sig_end]
-            if not re.search(r'\b(?:size_t|int)\s+len\b', signature):
-                raise RuntimeError('unrecognized sparse_import_segment callback signature: {}'.format(sparse_io_source))
-            # Match the exact callback ABI declared by this release's pinned
-            # system/core/libsparse header. Older tags use int; newer tags
-            # define SPARSE_CALLBACK_USES_SIZE_T and use size_t.
-            size_t_signature = re.sub(r'\b(?:size_t|int)\s+len\b', 'size_t len', signature)
-            int_signature = re.sub(r'\b(?:size_t|int)\s+len\b', 'int len', signature)
-            conditional_signature = (
-                '#ifdef SPARSE_CALLBACK_USES_SIZE_T\n' +
-                size_t_signature + '\n#else\n' +
-                int_signature + '\n#endif\n'
-            )
-            sparse_io_text = sparse_io_text[:sig_start] + conditional_signature + sparse_io_text[sig_end:]
+            signature, changed = re.subn(
+                r'\b(?:size_t|int)\s+len\b',
+                callback_length_type + ' len', signature, count=1)
+            if changed != 1:
+                raise RuntimeError(
+                    'cannot align sparse_import_segment length type with pinned libsparse header: {}'.format(
+                        sparse_io_source))
+            sparse_io_text = sparse_io_text[:sig_start] + signature + sparse_io_text[sig_end:]
             sparse_io_source.write_text(sparse_io_text)
+            verified_signature = sparse_io_source.read_text()[sig_start:sig_end]
+            if not re.search(r'\b' + callback_length_type + r'\s+len\b', verified_signature):
+                raise RuntimeError('sparse callback ABI verification failed: {}'.format(sparse_io_source))
+            print('e2fsprogs: sparse callback length uses {} per pinned libsparse'.format(
+                callback_length_type), flush=True)
 
     # SDK_BIONIC_HASMNTOPT_COMPAT_ENABLE_V1
     compat_header = ROOT / 'cmake/bionic_compat.h'
@@ -2041,26 +2051,6 @@ def ensure_historical_android_api_compat():
             raise RuntimeError('AIDL GLR C++ grammar still contains an unused purity directive: {}'.format(aidl_grammar))
         if uses_glr_cpp:
             print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
-
-    # SDK_E2FSPROGS_SPARSE_CALLBACK_ABI_COMPAT
-    # The callback declaration is already selected by the preceding
-    # SPARSE_CALLBACK_USES_SIZE_T conditional. Do not rewrite its legacy int
-    # branch: Android-P libsparse still declares int length.
-    sparse_io = ROOT / 'src/e2fsprogs/lib/ext2fs/sparse_io.c'
-    if sparse_io.is_file():
-        sparse_source = sparse_io.read_text()
-        callback_start = sparse_source.find('static int sparse_import_segment')
-        if callback_start >= 0:
-            guard_start = sparse_source.rfind(
-                '#ifdef SPARSE_CALLBACK_USES_SIZE_T', 0, callback_start)
-            callback_end = sparse_source.find('{', callback_start)
-            signature_start = guard_start if guard_start >= 0 else callback_start
-            callback_signature = sparse_source[signature_start:callback_end]
-            if ('#ifdef SPARSE_CALLBACK_USES_SIZE_T' not in callback_signature
-                    or '#else' not in callback_signature
-                    or '#endif' not in callback_signature):
-                raise RuntimeError('e2fsprogs sparse callback does not match the pinned libsparse ABI: {}'.format(sparse_io))
-            print('e2fsprogs: sparse callback follows the pinned Android-P libsparse ABI', flush=True)
 
     # SDK_ADB_VERSION_BUILD_NUMBER_COMPAT
     adb_source = ROOT / 'src/adb/adb.cpp'
