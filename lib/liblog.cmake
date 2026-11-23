@@ -37,6 +37,12 @@ endif()
 
 add_library(liblog STATIC ${LIBLOG_SOURCES})
 
+# The standalone tools compile against API 24, while this private in-tree
+# liblog implementation requires the length-aware internal interface (v2).
+if(EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
+    target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE=2)
+endif()
+
 target_compile_definitions(liblog PRIVATE
     LIBLOG_LOG_TAG=1006
     _XOPEN_SOURCE=700
