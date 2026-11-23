@@ -20,7 +20,7 @@
 set(LIBLOG_SOURCES)
 foreach(_name
     config_read config_write local_logger log_event_list log_event_write
-    log_ratelimit logger_lock logger_name logger_read logger_write properties log_time
+    log_ratelimit logger_lock logger_name logger_read logger_write log_time
     logprint stderr_write fake_log_device fake_writer event_tag_map
 )
     if(EXISTS "${SRC}/logging/liblog/${_name}.cpp")
