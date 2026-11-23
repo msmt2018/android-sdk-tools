@@ -40,7 +40,19 @@ add_library(liblog STATIC ${LIBLOG_SOURCES})
 # The standalone tools compile against API 24, while this private in-tree
 # liblog implementation requires the length-aware internal interface (v2).
 if(EXISTS "${SRC}/logging/liblog/include/log/log_main.h")
-    target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE=2)
+    # The legacy pmsg writer uses the private debuggable query declared in
+# log/log_properties.h but does not include that header itself.
+foreach(_pmsg_source
+    "${SRC}/logging/liblog/pmsg_writer.c"
+    "${SRC}/logging/liblog/pmsg_writer.cpp"
+)
+    if(EXISTS "${_pmsg_source}" AND EXISTS "${SRC}/logging/liblog/include/log/log_properties.h")
+        set_source_files_properties("${_pmsg_source}" PROPERTIES
+            COMPILE_FLAGS "-include ${SRC}/logging/liblog/include/log/log_properties.h")
+    endif()
+endforeach()
+
+target_compile_definitions(liblog PRIVATE __ANDROID_USE_LIBLOG_LOGGABLE_INTERFACE=2)
 endif()
 
 target_compile_definitions(liblog PRIVATE
