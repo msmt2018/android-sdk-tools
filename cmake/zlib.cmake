@@ -88,8 +88,12 @@ add_library(sdk_zlib STATIC
     )
 set_target_properties(sdk_zlib PROPERTIES OUTPUT_NAME z)
 target_compile_options(sdk_zlib PRIVATE -w)
-target_compile_definitions(sdk_zlib PRIVATE ${SDK_ZLIB_ARCH_DEFINITIONS})
-target_compile_options(sdk_zlib PRIVATE ${SDK_ZLIB_ARCH_OPTIONS})
+if(SDK_ZLIB_ARCH_DEFINITIONS)
+    target_compile_definitions(sdk_zlib PRIVATE ${SDK_ZLIB_ARCH_DEFINITIONS})
+endif()
+if(SDK_ZLIB_ARCH_OPTIONS)
+    target_compile_options(sdk_zlib PRIVATE ${SDK_ZLIB_ARCH_OPTIONS})
+endif()
 
 # export only the public headers, so that the zlib internal headers
 # (deflate.h, inflate.h, trees.h ...) never shadow headers of other projects
