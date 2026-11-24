@@ -234,6 +234,11 @@ target_link_libraries(mke2fs
     libbase
     sdk_system_libs
     )
+# The historical source manifest may omit libpackagelistparser.
+# Link it only when lib/CMakeLists.txt created the target for this tag.
+if(TARGET libpackagelistparser)
+    target_link_libraries(e2fsdroid libpackagelistparser)
+endif()
 
 # e2fsdroid
 add_executable(e2fsdroid
@@ -252,7 +257,6 @@ target_link_libraries(e2fsdroid
     libext2fs
     libselinux
     libsepol
-    libpackagelistparser
     libsparse
     libcutils
     libbase
