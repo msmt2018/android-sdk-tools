@@ -2348,21 +2348,23 @@ def ensure_aidl_bison_header_requires():
             grammar.write_text(text)
             print('AIDL Bison header: added release-safe semantic type declarations', flush=True)
 
-    # The scanner includes the generated Bison header. Match current AOSP
-    # ordering so Parser is complete before the generated header is parsed.
+    # BISON_TARGET below generates aidl_language_y.h, not parser.h.
+    # The grammar's %code requires section supplies aidl_language.h to that
+    # generated header, so a separate parser.h include is unnecessary and
+    # invalid for these release source trees.
     scanner = ROOT / 'src/aidl/aidl_language_l.ll'
     if scanner.is_file():
-        text = scanner.read_text()
-        header = re.search(r'(?m)^[ \t]*#include[ \t]+"aidl_language_y\.h"[ \t]*$', text)
-        parser = re.search(r'(?m)^[ \t]*#include[ \t]+"parser\.h"[ \t]*\n?', text)
-        if header is not None and (parser is None or parser.start() > header.start()):
-            if parser is not None:
-                text = text[:parser.start()] + text[parser.end():]
-                header = re.search(r'(?m)^[ \t]*#include[ \t]+"aidl_language_y\.h"[ \t]*$', text)
-            text = text[:header.start()] + '#include "parser.h"\n' + text[header.start():]
+        original = scanner.read_text()
+        text = re.sub(
+            r'(?m)^[ \t]*#include[ \t]+"parser\.h"[ \t]*\n?',
+            '',
+            original,
+        )
+        if not re.search(r'(?m)^[ \t]*#include[ \t]+"aidl_language_y\.h"[ \t]*$', text):
+            raise RuntimeError('AIDL Flex scanner does not include the generated aidl_language_y.h')
+        if text != original:
             scanner.write_text(text)
-            print('AIDL Flex scanner: include parser.h before generated Bison header', flush=True)
-
+            print('AIDL Flex scanner: removed nonexistent parser.h include', flush=True)
 
 def ensure_aidl_main_cpp_excluded():
     """Keep main_cpp.cpp in the legacy aidl-cpp target, not the default aidl target."""
