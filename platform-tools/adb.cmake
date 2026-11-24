@@ -151,6 +151,10 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/sysdeps/errno.cpp
     ${SRC}/adb/transport.cpp
     ${SRC}/adb/transport_fd.cpp
+    # Android Q's system/core checkout keeps these core transport units
+    # under core/adb; the standalone adb client repo contains only client/.
+    ${SRC}/core/adb/transport_local.cpp
+    ${SRC}/core/adb/transport_usb.cpp
     ${SRC}/adb/types.cpp
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
@@ -182,6 +186,7 @@ target_compile_definitions(libadb PRIVATE
 target_include_directories(libadb PRIVATE
     ${SRC}/adb
     ${SRC}/adb/proto
+    ${SRC}/core/adb
     ${SRC}/adb/crypto/include
     ${SRC}/adb/pairing_auth/include
     ${SRC}/adb/pairing_connection/include
