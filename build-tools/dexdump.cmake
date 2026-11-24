@@ -105,6 +105,7 @@ set(ART_DEXFILE_OPERATOR_SOURCE)
 if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     set(ART_DEXFILE_OPERATOR_HEADERS)
+    set(ART_DEXFILE_OPERATOR_DEPENDS)
     foreach(_header
         dex/dex_file.h
         dex/dex_file_layout.h
@@ -114,7 +115,11 @@ if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
         dex/method_reference.h
     )
         if(EXISTS "${SRC}/art/libdexfile/${_header}")
+            # The generator consumes paths relative to SRC, but Ninja resolves
+            # DEPENDS relative to this CMake directory. Keep separate path lists
+            # so generated-file dependencies point at the actual AOSP checkout.
             list(APPEND ART_DEXFILE_OPERATOR_HEADERS "art/libdexfile/${_header}")
+            list(APPEND ART_DEXFILE_OPERATOR_DEPENDS "${SRC}/art/libdexfile/${_header}")
         endif()
     endforeach()
     if(ART_DEXFILE_OPERATOR_HEADERS)
@@ -125,7 +130,7 @@ if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
                 art/libdexfile ${ART_DEXFILE_OPERATOR_HEADERS}
             WORKING_DIRECTORY "${SRC}"
             DEPENDS "${SRC}/art/tools/generate_operator_out.py"
-                ${ART_DEXFILE_OPERATOR_HEADERS}
+                ${ART_DEXFILE_OPERATOR_DEPENDS}
             VERBATIM
         )
         list(APPEND ART_DEXFILE_OPERATOR_SOURCE "${ART_DEXFILE_OPERATOR_OUTPUT}")
