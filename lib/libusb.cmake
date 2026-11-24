@@ -18,6 +18,12 @@ set(LIBUSB_EVENTS_POSIX_SOURCE)
 if(EXISTS "${SRC}/libusb/libusb/os/events_posix.c")
     list(APPEND LIBUSB_EVENTS_POSIX_SOURCE "${SRC}/libusb/libusb/os/events_posix.c")
 endif()
+# AOSP's Android libusb build also compiles poll_posix.c, which implements
+# usbi_pipe() used by io.c and linux_netlink.c.
+set(LIBUSB_POLL_POSIX_SOURCE)
+if(EXISTS "${SRC}/libusb/libusb/os/poll_posix.c")
+    list(APPEND LIBUSB_POLL_POSIX_SOURCE "${SRC}/libusb/libusb/os/poll_posix.c")
+endif()
 
 add_library(libusb STATIC
     ${SRC}/libusb/libusb/core.c
@@ -28,6 +34,7 @@ add_library(libusb STATIC
     ${SRC}/libusb/libusb/strerror.c
     ${SRC}/libusb/libusb/os/linux_usbfs.c
     ${LIBUSB_EVENTS_POSIX_SOURCE}
+    ${LIBUSB_POLL_POSIX_SOURCE}
     ${SRC}/libusb/libusb/os/threads_posix.c
     ${SRC}/libusb/libusb/os/linux_netlink.c
     )
