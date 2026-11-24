@@ -126,13 +126,15 @@ if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
         set(ART_DEXFILE_OPERATOR_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/dexfile_operator_out.cc")
         add_custom_command(
             OUTPUT "${ART_DEXFILE_OPERATOR_OUTPUT}"
-            COMMAND "${Python3_EXECUTABLE}" "${SRC}/art/tools/generate_operator_out.py"
+            # generate_operator_out.py writes its generated C++ to stdout
+            # (Soong uses shell redirection for this exact reason). Capture
+            # stdout directly into the declared build-tree output; do not
+            # expect the generator to create a source-tree file.
+            COMMAND "${Python3_EXECUTABLE}" -c
+                "import subprocess,sys; subprocess.run(sys.argv[1:-2], cwd=sys.argv[-1], stdout=open(sys.argv[-2], 'w'), check=True)"
+                "${SRC}/art/tools/generate_operator_out.py"
                 art/libdexfile ${ART_DEXFILE_OPERATOR_HEADERS}
-            # ART's generator writes dexfile_operator_out.cc in its working
-            # directory (SRC). Stage that file at the binary-tree OUTPUT path
-            # declared above so Ninja compiles the generated translation unit.
-            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-                "${SRC}/dexfile_operator_out.cc" "${ART_DEXFILE_OPERATOR_OUTPUT}"
+                "${ART_DEXFILE_OPERATOR_OUTPUT}" "${SRC}"
             WORKING_DIRECTORY "${SRC}"
             DEPENDS "${SRC}/art/tools/generate_operator_out.py"
                 ${ART_DEXFILE_OPERATOR_DEPENDS}
