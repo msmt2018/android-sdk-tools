@@ -282,18 +282,20 @@ endif()
 
 # Android 11-era system/core snapshots use android_pubkey.c, while
 # newer snapshots renamed the implementation to android_pubkey.cpp.
+set(ADB_ANDROID_PUBKEY_SOURCE)
 if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
-    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+    set(ADB_ANDROID_PUBKEY_SOURCE "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
 elseif(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.c")
-    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.c")
-else()
-    add_library(libcrypto INTERFACE)
+    set(ADB_ANDROID_PUBKEY_SOURCE "${SRC}/core/libcrypto_utils/android_pubkey.c")
 endif()
-if(TARGET libcrypto AND NOT "${SRC}/core/libcrypto_utils/android_pubkey.cpp" STREQUAL "")
+if(ADB_ANDROID_PUBKEY_SOURCE)
+    add_library(libcrypto STATIC ${ADB_ANDROID_PUBKEY_SOURCE})
     target_include_directories(libcrypto PRIVATE
         ${SRC}/core/libcrypto_utils/include
         ${SRC}/boringssl/include
     )
+else()
+    add_library(libcrypto INTERFACE)
 endif()
 
 append_existing_sources(ADB_EXECUTABLE_SOURCES
