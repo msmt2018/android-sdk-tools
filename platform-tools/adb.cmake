@@ -286,17 +286,24 @@ if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
         ${SRC}/boringssl/include)
 endif()
 
-if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
-    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+set(ADB_ANDROID_PUBKEY_SOURCES)
+foreach(_pubkey_source
+    "${SRC}/core/libcrypto_utils/android_pubkey.cpp"
+    "${SRC}/libcrypto_utils/android_pubkey.cpp"
+    "${SRC}/libcrypto_utils/android_pubkey.c")
+    if(EXISTS "${_pubkey_source}")
+        list(APPEND ADB_ANDROID_PUBKEY_SOURCES "${_pubkey_source}")
+    endif()
+endforeach()
+if(ADB_ANDROID_PUBKEY_SOURCES)
+    add_library(libcrypto STATIC ${ADB_ANDROID_PUBKEY_SOURCES})
     target_include_directories(libcrypto PRIVATE
         ${SRC}/core/libcrypto_utils/include
+        ${SRC}/libcrypto_utils/include
         ${SRC}/boringssl/include
     )
 else()
-    # Older platform-tools snapshots do not ship android_pubkey.cpp as a
-    # separate libcrypto_utils source. Keep the target interface available;
-    # BoringSSL remains the crypto implementation linked below.
-    add_library(libcrypto INTERFACE)
+    message(FATAL_ERROR "ADB requires android_pubkey_encode, but no AOSP libcrypto_utils implementation was found")
 endif()
 
 append_existing_sources(ADB_EXECUTABLE_SOURCES
