@@ -2257,6 +2257,14 @@ def ensure_historical_android_api_compat():
                     'struct __android_log_message;\n'
                     'int32_t __android_log_get_minimum_priority(void);\n'
                     'void __android_log_logd_logger(const struct __android_log_message* log_message);\n'
+                    'void __android_log_set_logger(void (*logger)(const struct __android_log_message*));\n'
+                    'void __android_log_write_log_message(struct __android_log_message* log_message);\n'
+                    'void __android_log_stderr_logger(const struct __android_log_message* log_message);\n'
+                    'void __android_log_set_aborter(void (*aborter)(const char*));\n'
+                    'void __android_log_call_aborter(const char* abort_message);\n'
+                    'void __android_log_default_aborter(const char* abort_message) __attribute__((noreturn));\n'
+                    'int32_t __android_log_set_minimum_priority(int32_t priority);\n'
+                    'void __android_log_set_default_tag(const char* tag);\n'
                     '#endif\n\n'
                 )
                 header = header[:end_index] + compat_declarations + header[end_index:]
