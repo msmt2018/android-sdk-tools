@@ -257,6 +257,7 @@ target_link_libraries(e2fsdroid
     libbase
     liblog
     pcre2-8
+    crypto
     sdk_system_libs
     )
 # The historical source manifest may omit libpackagelistparser.
