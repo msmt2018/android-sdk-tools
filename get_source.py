@@ -2370,6 +2370,50 @@ def ensure_libsepol_bool_member_compat():
         raise RuntimeError('legacy bool member remains in {}'.format(header))
     print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
 
+
+def ensure_aidl_bison_header_requires():
+    """Make AIDL semantic types and Parser visible to Bison-generated headers."""
+    grammar = ROOT / 'src/aidl/aidl_language_y.yy'
+    if not grammar.is_file():
+        return
+    text = grammar.read_text()
+    if '%parse-param { Parser* ps }' not in text:
+        return
+
+    required = ['#include "aidl_language.h"', 'class Parser;']
+    code_requires = re.search(r'(?m)^%code requires\s*\{([\s\S]*?)^\}', text)
+    if code_requires:
+        body = code_requires.group(1)
+        missing = [line for line in required if line not in body]
+        if missing:
+            body = '\n'.join(missing) + '\n' + body
+            text = text[:code_requires.start(1)] + body + text[code_requires.end(1):]
+    else:
+        prologue_end = text.find('%}\n')
+        if prologue_end < 0:
+            raise RuntimeError('AIDL grammar has no prologue terminator: {}'.format(grammar))
+        block = '\n%code requires {\n#include "aidl_language.h"\nclass Parser;\n}\n'
+        text = text[:prologue_end + len('%}\n')] + block + text[prologue_end + len('%}\n'):]
+    grammar.write_text(text)
+
+
+def ensure_aidl_main_cpp_excluded():
+    """Keep main_cpp.cpp in the legacy aidl-cpp target, not the default aidl target."""
+    aidl_cmake = ROOT / 'build-tools/aidl.cmake'
+    if not aidl_cmake.is_file():
+        return
+    text = aidl_cmake.read_text()
+    if 'AIDL_CPP_SOURCES' not in text:
+        return
+    filter_line = r'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/main_cpp\\.cpp$")'
+    if filter_line in text:
+        return
+    glob_line = 'file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")'
+    if glob_line not in text:
+        raise RuntimeError('cannot locate AIDL source glob in {}'.format(aidl_cmake))
+    text = text.replace(glob_line, glob_line + '\n' + filter_line, 1)
+    aidl_cmake.write_text(text)
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -2390,6 +2434,8 @@ def main():
         ensure_art_build_defines()
         ensure_art_memory_tool_compat()
         normalize_release_cmake_targets()
+        ensure_aidl_bison_header_requires()
+        ensure_aidl_main_cpp_excluded()
         ensure_historical_android_api_compat()
         return
 
@@ -2421,6 +2467,8 @@ def main():
         patches()
 
     normalize_release_cmake_targets()
+    ensure_aidl_bison_header_requires()
+    ensure_aidl_main_cpp_excluded()
     ensure_historical_android_api_compat()
     print('download success!!')
 
