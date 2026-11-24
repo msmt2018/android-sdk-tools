@@ -30,6 +30,11 @@ endif()
 set(LIBBASE_LIBLOG_SYMBOLS_SOURCE)
 if(EXISTS "${SRC}/libbase/liblog_symbols.cpp")
     list(APPEND LIBBASE_LIBLOG_SYMBOLS_SOURCE "${SRC}/libbase/liblog_symbols.cpp")
+else()
+    # The 30.x pinned libbase logging.cpp references this accessor, but its
+    # source snapshot does not include liblog_symbols.cpp. Use the legacy
+    # liblog fallback instead of dropping the required implementation.
+    list(APPEND LIBBASE_LIBLOG_SYMBOLS_SOURCE "${CMAKE_CURRENT_LIST_DIR}/libbase_liblog_compat.cpp")
 endif()
 
 set(LIBBASE_ABI_COMPATIBILITY_SOURCE)
@@ -60,6 +65,7 @@ add_library(libbase STATIC
 
 target_include_directories(libbase PRIVATE
     ${SRC}/libbase/include
+    ${SRC}/libbase
     # Prefer the pinned release liblog header over the legacy core/include copy.
     ${SRC}/logging/liblog/include
     ${SRC}/core/include
