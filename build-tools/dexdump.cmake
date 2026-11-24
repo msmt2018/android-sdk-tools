@@ -128,6 +128,11 @@ if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
             OUTPUT "${ART_DEXFILE_OPERATOR_OUTPUT}"
             COMMAND "${Python3_EXECUTABLE}" "${SRC}/art/tools/generate_operator_out.py"
                 art/libdexfile ${ART_DEXFILE_OPERATOR_HEADERS}
+            # ART's generator writes dexfile_operator_out.cc in its working
+            # directory (SRC). Stage that file at the binary-tree OUTPUT path
+            # declared above so Ninja compiles the generated translation unit.
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${SRC}/dexfile_operator_out.cc" "${ART_DEXFILE_OPERATOR_OUTPUT}"
             WORKING_DIRECTORY "${SRC}"
             DEPENDS "${SRC}/art/tools/generate_operator_out.py"
                 ${ART_DEXFILE_OPERATOR_DEPENDS}
