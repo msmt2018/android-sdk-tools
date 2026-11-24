@@ -26,12 +26,19 @@ endif()
 # retain the SIMD stub that supplies the legacy x86 symbols referenced by
 # the release-pinned deflate/crc32 sources.
 set(SDK_ZLIB_SIMD_STUB_SOURCE)
+# Android 10's pinned zlib snapshot provides cpu_features.c rather than
+# the older simd_stub.c; deflate.c references x86_cpu_enable_simd from it.
+set(SDK_ZLIB_CPU_FEATURES_SOURCE)
+if(EXISTS "${SDK_ZLIB_SOURCE_DIR}/cpu_features.c")
+    list(APPEND SDK_ZLIB_CPU_FEATURES_SOURCE "${SDK_ZLIB_SOURCE_DIR}/cpu_features.c")
+endif()
 if(EXISTS "${SDK_ZLIB_SOURCE_DIR}/simd_stub.c")
     list(APPEND SDK_ZLIB_SIMD_STUB_SOURCE "${SDK_ZLIB_SOURCE_DIR}/simd_stub.c")
 endif()
 
 add_library(sdk_zlib STATIC
     ${SDK_ZLIB_SIMD_STUB_SOURCE}
+    ${SDK_ZLIB_CPU_FEATURES_SOURCE}
     ${SDK_ZLIB_SOURCE_DIR}/adler32.c
     ${SDK_ZLIB_SOURCE_DIR}/compress.c
     ${SDK_ZLIB_SOURCE_DIR}/crc32.c
