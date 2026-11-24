@@ -60,9 +60,10 @@ add_library(libbase STATIC
 
 target_include_directories(libbase PRIVATE
     ${SRC}/libbase/include
-    ${SRC}/core/include
-    ${SRC}/fmtlib/include 
+    # Prefer the pinned release liblog header over the legacy core/include copy.
     ${SRC}/logging/liblog/include
+    ${SRC}/core/include
+    ${SRC}/fmtlib/include
     )
 # fdsan functions are weak imports; expose their API-29 declarations while
 # preserving the Android 24 target triple and runtime fallback on older devices.
