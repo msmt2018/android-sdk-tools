@@ -161,8 +161,8 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/client/usb_libusb.cpp
     ${SRC}/adb/client/transport_local.cpp
     # AOSP 28/29 keeps these implementations at adb/ rather than adb/client/.
-    ${SRC}/adb/transport_local.cpp
-    ${SRC}/adb/transport_usb.cpp
+    ${SRC}/core/adb/transport_local.cpp
+    ${SRC}/core/adb/transport_usb.cpp
     ${SRC}/adb/client/mdns_utils.cpp
     ${SRC}/adb/client/transport_mdns.cpp
     ${SRC}/adb/client/transport_usb.cpp
