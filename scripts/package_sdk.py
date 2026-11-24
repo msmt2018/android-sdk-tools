@@ -99,6 +99,11 @@ def main():
             # but no 33.0.4 binary packages. Repack the latest official 33.0.3
             # base while retaining this branch's native binaries and metadata.
             build_tools_version = "33.0.3"
+        elif args.version in ("30.0.4", "30.0.5"):
+            # Google did not publish Build Tools 30.0.4 or 30.0.5.
+            # Use the latest official 30.x base (30.0.3), while the
+            # branch-specific Platform Tools binaries retain their own version.
+            build_tools_version = "30.0.3"
         else:
             build_tools_version = args.version
     args.output.mkdir(parents=True, exist_ok=True)
@@ -189,6 +194,27 @@ def main():
 
             bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
             create_build_tools_zip(bt_root, bt_output, build_tools_version)
+
+            # Validate every compressed stream before uploading. Checking only
+            # member names does not detect truncated/corrupt DEFLATE payloads.
+            with zipfile.ZipFile(bt_output) as archive:
+                bad_member = archive.testzip()
+                if bad_member:
+                    raise RuntimeError(f"{abi}: corrupt Build Tools ZIP member: {bad_member}")
+                for info in archive.infolist():
+                    if not info.is_dir():
+                        with archive.open(info, "r") as member:
+                            while member.read(1024 * 1024):
+                                pass
+
+            with tarfile.open(pt_output, "r:gz") as archive:
+                for member in archive.getmembers():
+                    if member.isfile():
+                        stream = archive.extractfile(member)
+                        if stream is None:
+                            raise RuntimeError(f"{abi}: unreadable Platform Tools member: {member.name}")
+                        while stream.read(1024 * 1024):
+                            pass
 
             with tarfile.open(pt_output, "r:gz") as archive:
                 members = set(archive.getnames())
