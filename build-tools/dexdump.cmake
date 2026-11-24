@@ -117,6 +117,29 @@ add_library(libdexfile STATIC
     ${SRC}/art/libdexfile/dex/type_lookup_table.cc
     ${SRC}/art/libdexfile/dex/utf.cc
     )
+# ART generates enum stream operators from dex_file.h in Soong. The
+# standalone CMake build must generate the same translation unit or dexdump
+# fails to link with undefined EncodedArrayValueIterator::ValueType operator<<.
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(ART_DEXFILE_OPERATOR_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/dexfile_operator_out.cc")
+set(ART_OPERATOR_GENERATOR "${SRC}/art/tools/generate_operator_out.py")
+if(NOT EXISTS "${ART_OPERATOR_GENERATOR}")
+    message(FATAL_ERROR "ART enum operator generator not found: ${ART_OPERATOR_GENERATOR}")
+endif()
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${ART_OPERATOR_GENERATOR}"
+        "${SRC}/art/libdexfile"
+        "${SRC}/art/libdexfile/dex/dex_file.h"
+        "${SRC}/art/libdexfile/dex/dex_instruction.h"
+    OUTPUT_FILE "${ART_DEXFILE_OPERATOR_SOURCE}"
+    RESULT_VARIABLE ART_OPERATOR_GENERATOR_RESULT
+)
+if(NOT ART_OPERATOR_GENERATOR_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to generate ART dexfile enum stream operators")
+endif()
+set_source_files_properties("${ART_DEXFILE_OPERATOR_SOURCE}" PROPERTIES GENERATED TRUE)
+target_sources(libdexfile PRIVATE "${ART_DEXFILE_OPERATOR_SOURCE}")
+
 target_include_directories(libdexfile PRIVATE ${INCLUDES})
 
 add_executable(dexdump
