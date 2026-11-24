@@ -284,14 +284,22 @@ if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
         ${SRC}/boringssl/include)
 endif()
 
-if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
-    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+set(ADB_ANDROID_PUBKEY_SOURCE)
+foreach(_pubkey_source
+    "${SRC}/core/libcrypto_utils/android_pubkey.cpp"
+    "${SRC}/core/libcrypto_utils/android_pubkey.c")
+    if(EXISTS "${_pubkey_source}")
+        list(APPEND ADB_ANDROID_PUBKEY_SOURCE "${_pubkey_source}")
+    endif()
+endforeach()
+if(ADB_ANDROID_PUBKEY_SOURCE)
+    add_library(libcrypto STATIC ${ADB_ANDROID_PUBKEY_SOURCE})
     target_include_directories(libcrypto PRIVATE
         ${SRC}/core/libcrypto_utils/include
         ${SRC}/boringssl/include
     )
 else()
-    add_library(libcrypto INTERFACE)
+    message(FATAL_ERROR "ADB requires android_pubkey_encode, but the pinned system/core libcrypto_utils source is missing")
 endif()
 
 append_existing_sources(ADB_EXECUTABLE_SOURCES
