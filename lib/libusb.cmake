@@ -14,6 +14,11 @@
 # limitations under the License.
 #
 
+set(LIBUSB_POLL_POSIX_SOURCE)
+if(EXISTS "${SRC}/libusb/libusb/os/poll_posix.c")
+    list(APPEND LIBUSB_POLL_POSIX_SOURCE "${SRC}/libusb/libusb/os/poll_posix.c")
+endif()
+
 set(LIBUSB_EVENTS_POSIX_SOURCE)
 if(EXISTS "${SRC}/libusb/libusb/os/events_posix.c")
     list(APPEND LIBUSB_EVENTS_POSIX_SOURCE "${SRC}/libusb/libusb/os/events_posix.c")
@@ -28,6 +33,7 @@ add_library(libusb STATIC
     ${SRC}/libusb/libusb/strerror.c
     ${SRC}/libusb/libusb/os/linux_usbfs.c
     ${LIBUSB_EVENTS_POSIX_SOURCE}
+    ${LIBUSB_POLL_POSIX_SOURCE}
     ${SRC}/libusb/libusb/os/threads_posix.c
     ${SRC}/libusb/libusb/os/linux_netlink.c
     )
