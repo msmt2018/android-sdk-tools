@@ -85,25 +85,27 @@ target_link_libraries(aidl
 # Build the legacy C++ CLI from the complete source inventory of this exact
 # Google tag. The hand-maintained legacy list omits implementations required by
 # the Android Q preview source (for example aidl_to_cpp_common.cpp).
-set(AIDL_CPP_LEGACY_SOURCES ${AIDL_CPP_SOURCES})
-list(FILTER AIDL_CPP_LEGACY_SOURCES EXCLUDE REGEX "/main\\.cpp$")
-add_executable(aidl-cpp
-    ${AIDL_CPP_LEGACY_SOURCES}
-    ${SRC}/aidl/main_cpp.cpp
-    ${BISON_LangParser_OUTPUTS}
-    ${FLEX_LangScanner_OUTPUTS}
-)
-target_include_directories(aidl-cpp PRIVATE
-    ${SRC}/aidl
-    ${SRC}/googletest/googletest/include
-    ${SRC}/libbase/include
-    ${SRC}/core/libcutils/include
-    ${SRC}/core/include
-    ${SRC}/logging/liblog/include
-)
-target_link_libraries(aidl-cpp
-    libbase
-    libcutils
-    liblog
-    sdk_system_libs
-)
+if(EXISTS "${SRC}/aidl/main_cpp.cpp")
+    set(AIDL_CPP_LEGACY_SOURCES ${AIDL_CPP_SOURCES})
+    list(FILTER AIDL_CPP_LEGACY_SOURCES EXCLUDE REGEX "/main\\.cpp$")
+    add_executable(aidl-cpp
+        ${AIDL_CPP_LEGACY_SOURCES}
+        ${SRC}/aidl/main_cpp.cpp
+        ${BISON_LangParser_OUTPUTS}
+        ${FLEX_LangScanner_OUTPUTS}
+    )
+    target_include_directories(aidl-cpp PRIVATE
+        ${SRC}/aidl
+        ${SRC}/googletest/googletest/include
+        ${SRC}/libbase/include
+        ${SRC}/core/libcutils/include
+        ${SRC}/core/include
+        ${SRC}/logging/liblog/include
+    )
+    target_link_libraries(aidl-cpp
+        libbase
+        libcutils
+        liblog
+        sdk_system_libs
+    )
+endif()
