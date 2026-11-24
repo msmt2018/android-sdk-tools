@@ -38,17 +38,15 @@ target_include_directories(split-select PRIVATE
     ${SRC}/base/tools
     ${SRC}/incremental_delivery/incfs/util/include 
     )
-target_link_libraries(split-select
+set(SPLIT_SELECT_LINK_LIBRARIES
     libaapt
     libandroidfw
     libselinux
     libsepol
     libutils
     libcutils
-    libincfs
     libbase
     libziparchive
-    libpackagelistparser
     libprocessgroup
     liblog
     expat
@@ -58,4 +56,12 @@ target_link_libraries(split-select
     png_static
     sdk_system_libs
     )
+# These libraries are absent from some historical Platform Tools manifests.
+# Link them only when their source-backed CMake targets were actually created.
+foreach(_optional_target libincfs libpackagelistparser)
+    if(TARGET ${_optional_target})
+        list(APPEND SPLIT_SELECT_LINK_LIBRARIES ${_optional_target})
+    endif()
+endforeach()
+target_link_libraries(split-select ${SPLIT_SELECT_LINK_LIBRARIES})
     
