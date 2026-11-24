@@ -155,6 +155,8 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/client/auth.cpp
     ${SRC}/adb/client/adb_wifi.cpp
     ${SRC}/adb/client/usb_libusb.cpp
+    # Android 11-era ADB keeps transport_local.cpp at the module root.
+    ${SRC}/adb/transport_local.cpp
     ${SRC}/adb/client/transport_local.cpp
     ${SRC}/adb/client/mdns_utils.cpp
     ${SRC}/adb/client/transport_mdns.cpp
