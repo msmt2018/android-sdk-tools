@@ -61,7 +61,9 @@ file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")
 # Unit tests are not part of the distributable AIDL compiler executable.
 list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/aidl_unittest\\.cpp$")
 # main_cpp.cpp is a separate CLI entry point; it must not be linked into aidl.
-list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "main_cpp[.]cpp$")
+# Remove the alternate C++ CLI entry point by its exact source path.
+# CMake regex filtering here was not effective on every pinned CMake/source combination.
+list(REMOVE_ITEM AIDL_CPP_SOURCES "${SRC}/aidl/main_cpp.cpp")
 add_executable(aidl
     ${AIDL_CPP_SOURCES}
     ${BISON_LangParser_OUTPUTS}
@@ -87,7 +89,7 @@ target_link_libraries(aidl
 # the Android Q preview source (for example aidl_to_cpp_common.cpp).
 if(EXISTS "${SRC}/aidl/main_cpp.cpp")
     set(AIDL_CPP_LEGACY_SOURCES ${AIDL_CPP_SOURCES})
-    list(FILTER AIDL_CPP_LEGACY_SOURCES EXCLUDE REGEX "/main\\.cpp$")
+    list(REMOVE_ITEM AIDL_CPP_LEGACY_SOURCES "${SRC}/aidl/main.cpp")
     add_executable(aidl-cpp
         ${AIDL_CPP_LEGACY_SOURCES}
         ${SRC}/aidl/main_cpp.cpp
