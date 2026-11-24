@@ -2319,28 +2319,53 @@ def ensure_libsepol_bool_member_compat():
 
 
 def ensure_aidl_bison_header_requires():
-    """Make AIDL semantic types and Parser visible to Bison-generated headers."""
+    """Make AIDL semantic types and Parser visible to generated Bison/Flex headers."""
     grammar = ROOT / 'src/aidl/aidl_language_y.yy'
-    if not grammar.is_file():
-        return
-    text = grammar.read_text()
-    if '%parse-param { Parser* ps }' not in text:
-        return
-    required = ['#include "aidl_language.h"', 'class Parser;']
-    code_requires = re.search(r'(?m)^%code requires\s*\{([\s\S]*?)^\}', text)
-    if code_requires:
-        body = code_requires.group(1)
-        missing = [line for line in required if line not in body]
-        if missing:
-            body = '\n'.join(missing) + '\n' + body
-            text = text[:code_requires.start(1)] + body + text[code_requires.end(1):]
-    else:
-        prologue_end = text.find('%}\n')
-        if prologue_end < 0:
-            raise RuntimeError('AIDL grammar has no prologue terminator: {}'.format(grammar))
-        block = '\n%code requires {\n#include "aidl_language.h"\nclass Parser;\n}\n'
-        text = text[:prologue_end + len('%}\n')] + block + text[prologue_end + len('%}\n'):]
-    grammar.write_text(text)
+    if grammar.is_file():
+        original = grammar.read_text()
+        text = original
+        needs_parser = re.search(r'(?m)^\s*%parse-param\s*\{[^}]*\bParser\b', text) is not None
+        required = ['#include "aidl_language.h"']
+        if needs_parser:
+            required.append('class Parser;')
+
+        code_requires = re.search(r'(?m)^\s*%code requires\s*\{([\s\S]*?)^\s*\}', text)
+        if code_requires:
+            body = code_requires.group(1)
+            missing = [line for line in required if line not in body]
+            if missing:
+                body = '\n'.join(missing) + '\n' + body
+                text = text[:code_requires.start(1)] + body + text[code_requires.end(1):]
+        else:
+            # Place %code requires before the semantic union so Bison emits
+            # the AIDL declarations into the generated public parser header.
+            anchor = re.search(r'(?m)^\s*%(?:union|parse-param)\b', text)
+            if anchor is None:
+                raise RuntimeError('cannot locate AIDL Bison union/parse-param in {}'.format(grammar))
+            block = '%code requires {\n' + '\n'.join(required) + '\n}\n\n'
+            text = text[:anchor.start()] + block + text[anchor.start():]
+
+        verified = re.search(r'(?m)^\s*%code requires\s*\{([\s\S]*?)^\s*\}', text)
+        if verified is None or any(line not in verified.group(1) for line in required):
+            raise RuntimeError('AIDL Bison header requirements were not installed in {}'.format(grammar))
+        if text != original:
+            grammar.write_text(text)
+            print('AIDL Bison header: added release-safe semantic type declarations', flush=True)
+
+    # The scanner includes the generated Bison header. Match current AOSP
+    # ordering so Parser is complete before the generated header is parsed.
+    scanner = ROOT / 'src/aidl/aidl_language_l.ll'
+    if scanner.is_file():
+        text = scanner.read_text()
+        header = re.search(r'(?m)^[ \t]*#include[ \t]+"aidl_language_y\.h"[ \t]*$', text)
+        parser = re.search(r'(?m)^[ \t]*#include[ \t]+"parser\.h"[ \t]*\n?', text)
+        if header is not None and (parser is None or parser.start() > header.start()):
+            if parser is not None:
+                text = text[:parser.start()] + text[parser.end():]
+                header = re.search(r'(?m)^[ \t]*#include[ \t]+"aidl_language_y\.h"[ \t]*$', text)
+            text = text[:header.start()] + '#include "parser.h"\n' + text[header.start():]
+            scanner.write_text(text)
+            print('AIDL Flex scanner: include parser.h before generated Bison header', flush=True)
 
 
 def ensure_aidl_main_cpp_excluded():
@@ -2351,14 +2376,23 @@ def ensure_aidl_main_cpp_excluded():
     text = aidl_cmake.read_text()
     if 'AIDL_CPP_SOURCES' not in text:
         return
-    filter_line = r'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/main_cpp\\.cpp$")'
-    if filter_line in text:
-        return
-    glob_line = 'file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")'
-    if glob_line not in text:
-        raise RuntimeError('cannot locate AIDL source glob in {}'.format(aidl_cmake))
-    text = text.replace(glob_line, glob_line + '\n' + filter_line, 1)
-    aidl_cmake.write_text(text)
+
+    # Remove the older escaped-quote form: CMake treated the quotes as part
+    # of the regular expression, so main_cpp.cpp remained in the production
+    # aidl target and introduced a second main() and __asan_default_options.
+    text = re.sub(
+        r'(?m)^[ \t]*list\(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX [^\n]*main_cpp[^\n]*\n?',
+        '',
+        text,
+    )
+    filter_line = 'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/main_cpp[.]cpp$")'
+    if filter_line not in text:
+        glob = re.search(r'(?m)^[ \t]*file\(GLOB AIDL_CPP_SOURCES[^\n]*\)\s*$', text)
+        if glob is None:
+            raise RuntimeError('cannot locate AIDL source glob in {}'.format(aidl_cmake))
+        text = text[:glob.end()] + '\n' + filter_line + text[glob.end():]
+        aidl_cmake.write_text(text)
+        print('AIDL CMake: excluded main_cpp.cpp from the production aidl target', flush=True)
 
 def main():
     version = tools_version()
