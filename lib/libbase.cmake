@@ -24,10 +24,13 @@ if(EXISTS "${SRC}/libbase/posix_strerror_r.cpp")
     list(APPEND LIBBASE_POSIX_STRERROR_SOURCE "${SRC}/libbase/posix_strerror_r.cpp")
 endif()
 
-# Platform-tools 30.x pins an older liblog ABI. The optional liblog_symbols.cpp
-# shim references newer private __android_log_* entry points that are absent
-# from this release's headers; do not compile it for this release family.
+# logging.cpp calls GetLibLogFunctions(); compile the AOSP implementation.
+# With the API-24 target exposing API 29 declarations, liblog_symbols.cpp
+# uses dlsym for newer liblog entry points and preserves the older runtime ABI.
 set(LIBBASE_LIBLOG_SYMBOLS_SOURCE)
+if(EXISTS "${SRC}/libbase/liblog_symbols.cpp")
+    list(APPEND LIBBASE_LIBLOG_SYMBOLS_SOURCE "${SRC}/libbase/liblog_symbols.cpp")
+endif()
 
 set(LIBBASE_ABI_COMPATIBILITY_SOURCE)
 if(EXISTS "${SRC}/libbase/abi_compatibility.cpp")
