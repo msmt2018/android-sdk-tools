@@ -98,6 +98,40 @@ add_library(libartpalette STATIC
     )
 target_include_directories(libartpalette PRIVATE ${INCLUDES})
 
+# Soong generates enum stream operators for libdexfile headers. The
+# standalone CMake build must run the same pinned ART generator or clients
+# such as dexdump retain unresolved operator<< references.
+set(ART_DEXFILE_OPERATOR_SOURCE)
+if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    set(ART_DEXFILE_OPERATOR_HEADERS)
+    foreach(_header
+        dex/dex_file.h
+        dex/dex_file_layout.h
+        dex/dex_instruction.h
+        dex/dex_instruction_utils.h
+        dex/invoke_type.h
+        dex/method_reference.h
+    )
+        if(EXISTS "${SRC}/art/libdexfile/${_header}")
+            list(APPEND ART_DEXFILE_OPERATOR_HEADERS "art/libdexfile/${_header}")
+        endif()
+    endforeach()
+    if(ART_DEXFILE_OPERATOR_HEADERS)
+        set(ART_DEXFILE_OPERATOR_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/dexfile_operator_out.cc")
+        add_custom_command(
+            OUTPUT "${ART_DEXFILE_OPERATOR_OUTPUT}"
+            COMMAND "${Python3_EXECUTABLE}" "${SRC}/art/tools/generate_operator_out.py"
+                art/libdexfile ${ART_DEXFILE_OPERATOR_HEADERS}
+            WORKING_DIRECTORY "${SRC}"
+            DEPENDS "${SRC}/art/tools/generate_operator_out.py"
+                ${ART_DEXFILE_OPERATOR_HEADERS}
+            VERBATIM
+        )
+        list(APPEND ART_DEXFILE_OPERATOR_SOURCE "${ART_DEXFILE_OPERATOR_OUTPUT}")
+    endif()
+endif()
+
 add_library(libdexfile STATIC
     ${SRC}/art/libdexfile/dex/art_dex_file_loader.cc
     ${SRC}/art/libdexfile/dex/compact_dex_file.cc
@@ -116,6 +150,7 @@ add_library(libdexfile STATIC
     ${SRC}/art/libdexfile/dex/standard_dex_file.cc
     ${SRC}/art/libdexfile/dex/type_lookup_table.cc
     ${SRC}/art/libdexfile/dex/utf.cc
+    ${ART_DEXFILE_OPERATOR_SOURCE}
     )
 target_include_directories(libdexfile PRIVATE ${INCLUDES})
 
