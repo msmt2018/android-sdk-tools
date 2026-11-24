@@ -109,7 +109,6 @@ target_link_libraries(sload_f2fs
     libext2_uuid
     libselinux
     libsepol
-    libpackagelistparser
     libsparse
     libbase
     libcutils
