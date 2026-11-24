@@ -1,7 +1,11 @@
 #pragma once
 
-// The generated Flex scanner includes aidl_language_y.h, whose YYSTYPE union
-// uses AIDL AST declarations and std::map. Keep those declarations visible
-// without relying on repeated -include options that CMake may de-duplicate.
+// The generated Flex scanner's semantic union uses declarations from the
+// parser-facing AIDL header. Newer AIDL revisions moved AidlToken from
+// aidl_language.h into parser.h; prefer that header when present.
 #include <map>
+#if __has_include("parser.h")
+#include "parser.h"
+#else
 #include "aidl_language.h"
+#endif
