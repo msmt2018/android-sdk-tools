@@ -131,7 +131,7 @@ if(EXISTS "${SRC}/art/tools/generate_operator_out.py")
             # stdout directly into the declared build-tree output; do not
             # expect the generator to create a source-tree file.
             COMMAND "${Python3_EXECUTABLE}" -c
-                "import subprocess,sys; subprocess.run(sys.argv[1:-2], cwd=sys.argv[-1], stdout=open(sys.argv[-2], 'w'), check=True)"
+                "import subprocess,sys; subprocess.run(sys.argv[:-2], cwd=sys.argv[-1], stdout=open(sys.argv[-2], 'w'), check=True)"
                 "${SRC}/art/tools/generate_operator_out.py"
                 art/libdexfile ${ART_DEXFILE_OPERATOR_HEADERS}
                 "${ART_DEXFILE_OPERATOR_OUTPUT}" "${SRC}"
