@@ -53,7 +53,7 @@ MANIFEST_TAG_OVERRIDES = {
     '28.0.0': 'android-p-preview-4',
     '28.0.1': 'android-9.0.0_r1',
     '28.0.2': 'android-9.0.0_r33',
-    '29.0.0': 'android-q-preview-5',
+    '29.0.0': 'android-q-preview-4',
 }
 
 
