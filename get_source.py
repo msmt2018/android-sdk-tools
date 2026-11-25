@@ -1442,13 +1442,1365 @@ def ensure_f2fs_ndk_r27_compat():
     header = f2fs_root / 'include/f2fs_fs.h'
     if header.is_file():
         text = header.read_text()
-        old = 'typedef u8              bool;'
         guarded = '#if !defined(__cplusplus) && !defined(bool)\ntypedef u8 bool;\n#endif'
-        if old in text:
-            text = text.replace(old, guarded, 1)
-            header.write_text(text)
-        elif 'typedef u8 bool;' in text and guarded not in text:
-            raise RuntimeError('f2fs bool typedef has an unrecognized form: {}'.format(header))
+        pattern = r'(?m)^[ \t]*typedef\s+u8\s+bool\s*;[ \t]*$'
+        if guarded not in text:
+            text, changed = re.subn(pattern, guarded, text, count=1)
+            if changed:
+                header.write_text(text)
+            elif re.search(r'\btypedef\s+u8\s+bool\b', text):
+                raise RuntimeError('f2fs bool typedef was not guarded: {}'.format(header))
+        verified = header.read_text()
+        if re.search(pattern, verified) and guarded not in verified:
+            raise RuntimeError('f2fs bool typedef validation failed: {}'.format(header))
+    if not f2fs_root.is_dir():
+        return
+    for source in f2fs_root.rglob('*.c'):
+        text = source.read_text()
+        if not re.search(r'\b(?:major|minor)\s*\(', text):
+            continue
+        if '#include <sys/sysmacros.h>' in text:
+            continue
+        lines = text.splitlines(keepends=True)
+        include_index = next((i for i, line in enumerate(lines) if line.lstrip().startswith('#include ')), None)
+        if include_index is None:
+            raise RuntimeError('cannot find include anchor for f2fs sysmacros: {}'.format(source))
+        lines.insert(include_index, '#include <sys/sysmacros.h>\n')
+        source.write_text(''.join(lines))
+        if '#include <sys/sysmacros.h>' not in source.read_text():
+            raise RuntimeError('f2fs sysmacros include was not applied: {}'.format(source))
+    print('f2fs-tools: guarded legacy bool typedef and included Bionic sysmacros', flush=True)
+
+def ensure_libpng_genout_target_compat():
+    """Preserve the NDK target/sysroot when libpng preprocesses pnglibconf.c."""
+    template = ROOT / 'src/libpng/scripts/genout.cmake.in'
+    if not template.is_file():
+        return
+    text = template.read_text()
+    marker = 'set(CMAKE_C_FLAGS @CMAKE_C_FLAGS@)\n'
+    if marker not in text:
+        raise RuntimeError('libpng genout.cmake.in CMAKE_C_FLAGS anchor not found')
+    if 'CMAKE_C_COMPILER_TARGET' not in text:
+        addition = (
+            'set(CMAKE_C_COMPILER_TARGET "@CMAKE_C_COMPILER_TARGET@")\n'
+            'set(CMAKE_SYSROOT "@CMAKE_SYSROOT@")\n'
+            'if(CMAKE_C_COMPILER_TARGET)\n'
+            '    list(APPEND CMAKE_C_FLAGS "--target=${CMAKE_C_COMPILER_TARGET}")\n'
+            'endif()\n'
+            'if(CMAKE_SYSROOT)\n'
+            '    list(APPEND CMAKE_C_FLAGS "--sysroot=${CMAKE_SYSROOT}")\n'
+            'endif()\n'
+        )
+        text = text.replace(marker, marker + addition, 1)
+        template.write_text(text)
+        print('libpng genout: preserved cross compiler target and sysroot', flush=True)
+
+
+def patches():
+    ensure_libpng_genout_target_compat()
+    run_compat_if_present(
+        'src/abseil-cpp/absl/meta/type_traits.h',
+        ensure_abseil_result_of_cxx20_compat)
+    run_compat_if_present(
+        'src/libziparchive/zip_archive_common.h',
+        ensure_libziparchive_cxx20_aggregate_compat)
+
+    # These files only exist in snapshots that include Incremental FS and
+    # fastdeploy. Do not manufacture partial source trees for older releases.
+    inc_source = ROOT / 'src/incremental_delivery'
+    if inc_source.is_dir():
+        inc = inc_source / 'sysprop/include'
+        inc.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.h', inc)
+        shutil.copy2(ROOT / 'patches/misc/IncrementalProperties.sysprop.cpp', inc_source / 'sysprop')
+    deployagent = ROOT / 'src/adb/fastdeploy/deployagent'
+    if deployagent.is_dir():
+        shutil.copy2(ROOT / 'patches/misc/deployagent.inc', deployagent)
+        shutil.copy2(ROOT / 'patches/misc/deployagentscript.inc', deployagent)
+
+    soong_include = ROOT / 'src/soong/cc/libbuildversion/include'
+    soong_include.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(VERSION_HEADER, soong_include)
+
+    aapt2 = 'src/base/tools/aapt2/'
+    replace_in_file(aapt2 + 'ApkInfo.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
+    replace_in_file(aapt2 + 'Resources.proto', 'frameworks/base/tools/aapt2/Configuration.proto', 'Configuration.proto')
+    replace_in_file(aapt2 + 'ResourcesInternal.proto', 'frameworks/base/tools/aapt2/Configuration.proto', 'Configuration.proto')
+    replace_in_file(aapt2 + 'ResourcesInternal.proto', 'frameworks/base/tools/aapt2/Resources.proto', 'Resources.proto')
+
+    replace_in_file('src/abseil-cpp/CMakeLists.txt', '/usr/src/googletest', '${CMAKE_SOURCE_DIR}/src/googletest')
+
+    # BoringSSL snapshots use two GoogleTest layouts; follow its own CMake.
+    boringssl_cmake = ROOT / 'src/boringssl/src/CMakeLists.txt'
+    if boringssl_cmake.is_file():
+        cmake_text = boringssl_cmake.read_text()
+        dest = ROOT / 'src/boringssl/src/third_party/googletest'
+        if 'third_party/googletest/src/gtest-all.cc' in cmake_text:
+            googletest_target = ROOT / 'src/googletest/googletest'
+        else:
+            googletest_target = ROOT / 'src/googletest'
+        if googletest_target.is_dir():
+            if dest.is_symlink():
+                try:
+                    if dest.resolve() != googletest_target.resolve():
+                        dest.unlink()
+                except FileNotFoundError:
+                    dest.unlink()
+            if dest.parent.exists() and not dest.exists():
+                dest.symlink_to(googletest_target)
+
+    # The source patches only apply to specific versions. Apply only when the
+    # corresponding source file exists in the pinned release snapshot.
+    for patch in sorted((ROOT / 'patches').rglob('*.patch')):
+        print('patch {}: {}'.format(patch.relative_to(ROOT), apply_patch(patch)))
+
+    run_compat_if_present('src/art/libartbase/arch/instruction_set.h', ensure_art_build_defines)
+    run_compat_if_present('src/art/libartbase/base/memory_tool.h', ensure_art_memory_tool_compat)
+    run_compat_if_present('src/openscreen/platform/api/task_runner.h', ensure_openscreen_task_runner_compat)
+    run_compat_if_present('src/art/libartbase/base/metrics/metrics.h', ensure_art_metrics_memory_order_compat)
+    run_compat_if_present('src/art/libartbase/base/hash_set.h', ensure_art_hash_set_allocator_compat)
+    run_compat_if_present('src/base/libs/androidfw/include/androidfw/AssetManager2.h', ensure_androidfw_theme_entry_definition)
+    run_compat_if_present('src/libziparchive/zip_archive.cc', ensure_libziparchive_span_compat)
+    run_compat_if_present('src/aidl/aidl_language_l.ll', ensure_aidl_flex_parser_types)
+    run_compat_if_present('src/core/fastboot/fastboot.cpp', ensure_fastboot_unique_fd_compat)
+    ensure_diagnose_usb_group_member_compat()
+    run_compat_if_present('src/adb/adb_mdns.h', ensure_adb_mdns_function_include)
+    run_compat_if_present('src/adb/tls/include/adb/tls/tls_connection.h', ensure_adb_tls_function_include)
+    ensure_sdk_sandbox_aid_compat()
+    run_compat_if_present('src/core/libutils/include/utils/LruCache.h', ensure_lru_cache_cxx17_compat)
+    run_compat_if_present('src/art/libartbase/base/safe_map.h', ensure_art_safe_map_invoke_result_compat)
+    run_compat_if_present('src/art/libartbase/base/string_view_cpp20.h', ensure_art_string_view_cpp20_compat)
+    run_compat_if_present('src/art/runtime/runtime.h', ensure_art_experimental_flags_cxx20_compat)
+    ensure_f2fs_ndk_r27_compat()
+    run_compat_if_present('src/boringssl/src/crypto/x509/t_x509.c', ensure_boringssl_x509_name_print_compat)
+    run_compat_if_present('src/libbase/include/android-base/result.h', ensure_libbase_fmt_format_string_compat)
+    run_compat_if_present('src/boringssl/src/crypto/fipsmodule/bn/internal.h', ensure_boringssl_bn_comba8_decl_compat)
+    run_compat_if_present('src/base/tools/aapt2/io/Util.h', ensure_aapt2_protobuf_limit_compat)
+
+
+def normalize_release_cmake_targets():
+    """Apply narrowly scoped CMake compatibility for older official snapshots."""
+    base_cmake = ROOT / 'lib/libbase.cmake'
+    if base_cmake.is_file():
+        text = base_cmake.read_text()
+        text = re.sub(
+            r'\n?# fdsan is introduced.*?target_compile_options\(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29\)\s*endif\(\)\s*',
+            '\n', text, flags=re.S)
+        text = re.sub(
+            r'\n?if\(ANDROID\)\s*target_compile_options\(libbase PUBLIC -U__ANDROID_API__ -D__ANDROID_API__=29\)\s*endif\(\)\s*',
+            '\n', text)
+        marker = '# SDK_API24_LIBBASE_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                '# Keep the API-24 runtime baseline. fdsan is guarded by the target API in unique_fd.h.\n'
+                '# C++17 avoids libc++20 locale wrappers unavailable before API 26; disabling\n'
+                '# fortify for this header-heavy target avoids __sendto_chk (also API 26+).\n'
+                'if(ANDROID)\n'
+                '    set_property(TARGET libbase PROPERTY CXX_STANDARD 17)\n'
+                '    target_compile_options(libbase PRIVATE -U_FORTIFY_SOURCE)\n'
+                'endif()\n'
+            )
+        base_cmake.write_text(text)
+
+    for relative in (
+        'src/libbase/include/android-base/unique_fd.h',
+        'src/core/base/include/android-base/unique_fd.h',
+    ):
+        path = ROOT / relative
+        if not path.is_file():
+            continue
+        text = path.read_text()
+        text = re.sub(
+            r'#if defined\(__BIONIC__\)(?!\s*&&)',
+            '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29',
+            text)
+        path.write_text(text)
+
+    root_cmake = ROOT / 'CMakeLists.txt'
+    if root_cmake.is_file():
+        text = root_cmake.read_text()
+        marker = '# SDK_GTEST_DEPRECATED_COPY_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                '# Older AOSP BoringSSL DES macros intentionally fall through between cases.\n'
+                'if(TARGET fipsmodule)\n'
+                '    target_compile_options(fipsmodule PRIVATE -Wno-error=implicit-fallthrough)\n'
+                'endif()\n'
+                '# Older GoogleTest snapshots trigger sign-conversion in towlower(wchar_t).\n'
+                'if(TARGET gtest)\n'
+                '    target_compile_options(gtest PRIVATE -Wno-error=sign-conversion)\n'
+                'endif()\n'
+                '# Older AOSP GoogleTest snapshots trigger deprecated-copy under -Werror.\n'
+                'foreach(_sdk_gtest_target IN ITEMS gmock gmock_main)\n'
+                '    if(TARGET ${_sdk_gtest_target})\n'
+                '        target_compile_options(${_sdk_gtest_target} PRIVATE -Wno-error=deprecated-copy)\n'
+                '    endif()\n'
+                'endforeach()\n'
+            )
+        root_cmake.write_text(text)
+
+    fastboot_cmake = ROOT / 'platform-tools/fastboot.cmake'
+    if fastboot_cmake.is_file():
+        text = fastboot_cmake.read_text()
+        marker = 'set(FASTBOOT_EXT4_SOURCES)'
+        if marker not in text:
+            text, count = re.subn(
+                r'add_library\(libext4 STATIC\s+.*?\)\s*target_include_directories\(libext4 PRIVATE\s+.*?\)\s*',
+                (
+                    'set(FASTBOOT_EXT4_SOURCES)\n'
+                    'foreach(_sdk_ext4_source IN ITEMS ext4_utils.cpp wipe.cpp ext4_sb.cpp)\n'
+                    '    foreach(_sdk_ext4_dir IN ITEMS "${SRC}/extras/ext4_utils" "${SRC}/core/fs_mgr/libext4_utils")\n'
+                    '        if(EXISTS "${_sdk_ext4_dir}/${_sdk_ext4_source}")\n'
+                    '            list(APPEND FASTBOOT_EXT4_SOURCES "${_sdk_ext4_dir}/${_sdk_ext4_source}")\n'
+                    '            break()\n'
+                    '        endif()\n'
+                    '    endforeach()\n'
+                    'endforeach()\n'
+                    'if(FASTBOOT_EXT4_SOURCES)\n'
+                    '    add_library(libext4 STATIC ${FASTBOOT_EXT4_SOURCES})\n'
+                    '    target_include_directories(libext4 PRIVATE\n'
+                    '        ${SRC}/core/libsparse/include\n'
+                    '        ${SRC}/core/include\n'
+                    '        ${SRC}/selinux/libselinux/include\n'
+                    '        ${SRC}/extras/ext4_utils/include\n'
+                    '        ${SRC}/core/fs_mgr/libext4_utils/include\n'
+                    '        ${SRC}/libbase/include\n'
+                    '    )\n'
+                    'else()\n'
+                    '    # This release snapshot has no standalone ext4_utils sources.\n'
+                    '    add_library(libext4 INTERFACE)\n'
+                    'endif()\n\n'
+                ),
+                text, count=1, flags=re.S)
+            if count:
+                fastboot_cmake.write_text(text)
+
+    dexdump_cmake = ROOT / 'build-tools/dexdump.cmake'
+    if dexdump_cmake.is_file():
+        text = dexdump_cmake.read_text()
+        if '${SRC}/art/runtime' not in text:
+            text = text.replace('set(INCLUDES\n', 'set(INCLUDES\n    ${SRC}/art/runtime\n', 1)
+        marker = 'if(ART_PALETTE_APEX_SOURCE OR ART_PALETTE_FAKE_SOURCE)'
+        if marker not in text:
+            text, count = re.subn(
+                r'add_library\(libartpalette STATIC\s+.*?\)\s*target_include_directories\(libartpalette PRIVATE \$\{INCLUDES\}\)\s*',
+                (
+                    'if(ART_PALETTE_APEX_SOURCE OR ART_PALETTE_FAKE_SOURCE)\n'
+                    '    add_library(libartpalette STATIC\n'
+                    '        ${ART_PALETTE_APEX_SOURCE}\n'
+                    '        ${ART_PALETTE_FAKE_SOURCE}\n'
+                    '    )\n'
+                    '    target_include_directories(libartpalette PRIVATE ${INCLUDES})\n'
+                    'else()\n'
+                    '    add_library(libartpalette INTERFACE)\n'
+                    '    target_include_directories(libartpalette INTERFACE ${INCLUDES})\n'
+                    'endif()\n'
+                ),
+                text, count=1, flags=re.S)
+        dexdump_cmake.write_text(text)
+
+    
+    
+    # SDK_API24_SYSTEM_PROPERTY_COMPAT
+    # Android 7.0 headers do not expose the API-26 property callback/wait APIs.
+    # Preserve the API-24 target and emulate those operations with legacy property APIs.
+    properties = ROOT / 'src/libbase/properties.cpp'
+    if properties.is_file():
+        source_text = properties.read_text()
+        if 'sdk_system_property_read_callback' not in source_text:
+            if '#include <thread>' not in source_text:
+                source_text = source_text.replace(
+                    '#include <chrono>', '#include <chrono>\n#include <thread>', 1)
+            helper = r'''#if defined(__BIONIC__) && defined(__ANDROID__) && defined(__ANDROID_API__) && __ANDROID_API__ < 26
+static void sdk_system_property_read_callback(
+    const prop_info* pi,
+    void (*callback)(void*, const char*, const char*, uint32_t),
+    void* cookie) {
+    char name[PROP_NAME_MAX] = {};
+    char value[PROP_VALUE_MAX] = {};
+    __system_property_read(pi, name, value);
+    callback(cookie, name, value, __system_property_serial(pi));
+}
+
+static bool sdk_system_property_wait(
+    const prop_info* pi, uint32_t old_serial, uint32_t* new_serial_ptr,
+    const timespec* relative_timeout) {
+    using Clock = std::chrono::steady_clock;
+    const auto timeout = relative_timeout == nullptr
+        ? std::chrono::nanoseconds::zero()
+        : std::chrono::seconds(relative_timeout->tv_sec) +
+              std::chrono::nanoseconds(relative_timeout->tv_nsec);
+    const auto deadline = Clock::now() + timeout;
+    for (;;) {
+        const uint32_t current_serial =
+            pi == nullptr ? __system_property_area_serial() : __system_property_serial(pi);
+        if (current_serial != old_serial) {
+            if (new_serial_ptr != nullptr) *new_serial_ptr = current_serial;
+            return true;
+        }
+        if (Clock::now() >= deadline) return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+}
+#else
+#define sdk_system_property_read_callback __system_property_read_callback
+#define sdk_system_property_wait __system_property_wait
+#endif
+'''
+            if 'namespace android {' not in source_text:
+                raise RuntimeError('cannot locate namespace android in libbase properties.cpp')
+            source_text = source_text.replace('namespace android {', helper + '\nnamespace android {', 1)
+            source_text = source_text.replace(
+                '__system_property_read_callback(', 'sdk_system_property_read_callback(')
+            source_text = source_text.replace(
+                '__system_property_wait(', 'sdk_system_property_wait(')
+            source_text = source_text.replace(
+                'instance->read_only_property_ = value;',
+                'strlcpy(instance->cached_value_, value, PROP_VALUE_MAX);\n                    instance->read_only_property_ = instance->cached_value_;',
+                1)
+            properties.write_text(source_text)
+
+    # API-30 liblog declarations are hidden when compiling against API 24.
+    # Keep the release source's runtime baseline and use libbase's Q fallback.
+    logging = ROOT / 'src/libbase/logging.cpp'
+    if logging.is_file():
+        source_text = logging.read_text()
+        call = 'return __android_log_is_loggable(priority, tag, ANDROID_LOG_INFO);'
+        position = source_text.find(call)
+        if position >= 0:
+            line_start = source_text.rfind('\n', 0, position) + 1
+            indent = source_text[line_start:position]
+            if 'gMinimumLogSeverity =' in source_text:
+                fallback = (
+                    '#if defined(__ANDROID_API__) && __ANDROID_API__ >= 30',
+                    '    return __android_log_is_loggable(priority, tag, ANDROID_LOG_INFO);',
+                    '#else',
+                    '    (void)priority;',
+                    '    (void)tag;',
+                    '    return severity >= gMinimumLogSeverity;',
+                    '#endif',
+                )
+            else:
+                fallback = (
+                    '#if defined(__ANDROID_API__) && __ANDROID_API__ >= 30',
+                    '    return __android_log_is_loggable(priority, tag, ANDROID_LOG_INFO);',
+                    '#else',
+                    '    (void)tag;',
+                    '    return priority >= ANDROID_LOG_INFO;',
+                    '#endif',
+                )
+            replacement = '\n'.join(indent + line for line in fallback)
+            source_text = source_text[:line_start] + replacement + source_text[position + len(call):]
+            logging.write_text(source_text)
+
+    # API-24 NDK headers do not expose the newer debuggable query. This
+    # build explicitly sets ANDROID_DEBUGGABLE=0, so preserve that build policy
+    # without introducing an API-30 symbol dependency.
+    event_tag_map = ROOT / 'src/logging/liblog/event_tag_map.cpp'
+    if event_tag_map.is_file():
+        source_text = event_tag_map.read_text()
+        source_text = source_text.replace(
+            '__android_log_is_debuggable()', '(ANDROID_DEBUGGABLE != 0)')
+        event_tag_map.write_text(source_text)
+
+    # Some historical Google manifests do not contain external/fmtlib.
+    # Only link fmt when that exact release snapshot provides its target.
+    androidfw_cmake = ROOT / 'lib/libandroidfw.cmake'
+    if androidfw_cmake.is_file():
+        source_text = androidfw_cmake.read_text()
+        fmt_link = 'target_link_libraries(libandroidfw PUBLIC fmt::fmt)'
+        if fmt_link in source_text and 'if(TARGET fmt::fmt)' not in source_text:
+            source_text = source_text.replace(
+                fmt_link,
+                'if(TARGET fmt::fmt)\n    ' + fmt_link + '\nendif()',
+                1)
+            androidfw_cmake.write_text(source_text)
+
+    veridex_cmake = ROOT / 'others/veridex.cmake'
+    if veridex_cmake.is_file():
+        source_text = veridex_cmake.read_text()
+        if 'fmt::fmt' in source_text:
+            source_text = source_text.replace('    fmt::fmt\n', '', 1)
+            if 'if(TARGET fmt::fmt)' not in source_text:
+                source_text += (
+                    '\n# SDK_OPTIONAL_FMT_TARGET_COMPAT\n'
+                    'if(TARGET fmt::fmt)\n'
+                    '    target_link_libraries(veridex fmt::fmt)\n'
+                    'endif()\n'
+                )
+            veridex_cmake.write_text(source_text)
+
+
+    # SDK_ZLIB_PRIVATE_HEADERS_COMPAT
+    # zlib's implementation files include zutil.h from their own source directory.
+    zlib_cmake = ROOT / 'cmake/zlib.cmake'
+    if zlib_cmake.is_file():
+        source_text = zlib_cmake.read_text()
+        public_include = 'target_include_directories(sdk_zlib PUBLIC ' + '$' + '{SDK_ZLIB_INCLUDE_DIR}' + ')'
+        private_include = 'target_include_directories(sdk_zlib PRIVATE ' + '$' + '{SDK_ZLIB_SOURCE_DIR}' + ')'
+        if public_include in source_text and private_include not in source_text:
+            source_text = source_text.replace(
+                public_include, public_include + '\n' + private_include, 1)
+            zlib_cmake.write_text(source_text)
+
+    
+    # SDK_SKIP_UPSTREAM_CMAKE_PACKAGE_EXPORTS
+    # This repository ships executable archives, not CMake packages. Some AOSP
+    # subprojects inherit the top-level project name and emit unbound export sets.
+    cmake_files = set(ROOT.rglob('CMakeLists.txt')) | set(ROOT.rglob('*.cmake'))
+    export_pattern = re.compile(r'(?im)^[ \t]*install\s*\(\s*EXPORT\b')
+    for cmake_file in sorted(cmake_files):
+        if any(part in ('.git', 'build', 'host-tools') for part in cmake_file.parts):
+            continue
+        if cmake_file == ROOT / 'CMakeLists.txt' or not cmake_file.is_file():
+            continue
+        source_text = cmake_file.read_text()
+        if 'install(EXPORT' not in source_text:
+            continue
+        changed = False
+        while True:
+            match = export_pattern.search(source_text)
+            if match is None:
+                break
+            command_start = match.start()
+            open_pos = source_text.find('(', command_start)
+            depth = 0
+            in_quote = False
+            escaped = False
+            command_end = None
+            for index in range(open_pos, len(source_text)):
+                char = source_text[index]
+                if char == '"' and not escaped:
+                    in_quote = not in_quote
+                if not in_quote:
+                    if char == '(':
+                        depth += 1
+                    elif char == ')':
+                        depth -= 1
+                        if depth == 0:
+                            command_end = index + 1
+                            break
+                if char == '\\' and not escaped:
+                    escaped = True
+                else:
+                    escaped = False
+            if command_end is None:
+                break
+            source_text = (
+                source_text[:command_start] +
+                '# SDK: upstream CMake package export omitted; this build ships binaries only.\n' +
+                source_text[command_end:]
+            )
+            changed = True
+        if changed:
+            cmake_file.write_text(source_text)
+            print('release CMake: removed upstream install(EXPORT) from {}'.format(
+                cmake_file.relative_to(ROOT)), flush=True)
+
+    # SDK_FILTER_MISSING_RELEASE_SOURCES
+    # The shared CMake lists are newer than some official release snapshots.
+    # Keep the exact checked-out sources and omit only source paths absent from
+    # that snapshot; later releases retain their files and therefore retain them.
+    source_extensions = ('.c', '.cc', '.cpp', '.cxx', '.s', '.m', '.mm')
+    for directory in ('lib', 'build-tools', 'platform-tools'):
+        for cmake_file in sorted((ROOT / directory).glob('*.cmake')):
+            lines = cmake_file.read_text().splitlines(keepends=True)
+            output = []
+            in_target = False
+            depth = 0
+            removed = []
+            for original_line in lines:
+                line = original_line
+                if not in_target and re.search(r'\badd_(?:library|executable)\s*\(', original_line):
+                    in_target = True
+                    depth = 0
+                if in_target and not original_line.lstrip().startswith('#'):
+                    matches = list(re.finditer(r'\$\{SRC\}/([^\s\")]+)', line))
+                    for match in reversed(matches):
+                        relative = match.group(1)
+                        if not relative.lower().endswith(source_extensions):
+                            continue
+                        if (ROOT / 'src' / relative).is_file():
+                            continue
+                        token = match.group(0)
+                        normalized_line = line.strip().rstrip(',').strip()
+                        if normalized_line in (token, '"' + token + '"', "'" + token + "'"):
+                            line = ''
+                            removed.append(relative)
+                            break
+                        line = line.replace(token, '')
+                        removed.append(relative)
+                if line:
+                    output.append(line)
+                if in_target:
+                    depth += original_line.count('(') - original_line.count(')')
+                    if depth <= 0:
+                        in_target = False
+            if removed:
+                cmake_file.write_text(''.join(output))
+                print('release CMake source filter {}: removed {}'.format(
+                    cmake_file.relative_to(ROOT), ', '.join(sorted(set(removed)))), flush=True)
+
+
+
+def ensure_historical_android_api_compat():
+    """Fix historical AOSP source/API mismatches for the API-24 static build."""
+
+    # SDK_HISTORICAL_LIBLP_UUID_COMPAT
+    # The Android-P liblp sources include <uuid/uuid.h>, while the same
+    # manifest already builds e2fsprogs' compatible libext2_uuid target.
+    fastboot_cmake = ROOT / 'platform-tools/fastboot.cmake'
+    if fastboot_cmake.is_file():
+        cmake_text = fastboot_cmake.read_text()
+        include_anchor = '    ${SRC}/core/libcutils/include\n'
+        uuid_include = '    ${SRC}/e2fsprogs/lib\n'
+        if uuid_include not in cmake_text and include_anchor in cmake_text:
+            cmake_text = cmake_text.replace(include_anchor, include_anchor + uuid_include, 1)
+        if 'target_link_libraries(libfsmgr PUBLIC libext2_uuid)' not in cmake_text:
+            target_anchor = 'add_library(libfsmgr STATIC ${LIBFSMGR_SRC})\n'
+            if target_anchor in cmake_text:
+                cmake_text = cmake_text.replace(
+                    target_anchor,
+                    target_anchor +
+                    'if(EXISTS "${SRC}/e2fsprogs/lib/uuid/uuid.h")\n'
+                    '    target_include_directories(libfsmgr PRIVATE "${SRC}/e2fsprogs/lib")\n'
+                    'endif()\n'
+                    'if(TARGET libext2_uuid)\n'
+                    '    target_link_libraries(libfsmgr PUBLIC libext2_uuid)\n'
+                    'endif()\n',
+                    1)
+        fastboot_cmake.write_text(cmake_text)
+
+    # SDK_AIDL_RELEASE_EXCLUDES_UNIT_TESTS
+    # The historical AIDL release executable must not compile *_unittest.cpp.
+    aidl_cmake = ROOT / 'build-tools/aidl.cmake'
+    if aidl_cmake.is_file():
+        cmake_text = aidl_cmake.read_text()
+        # AIDL headers include sibling headers by their basename and legacy
+        # options.h includes gtest/gtest_prod.h. Supply both release-tree roots
+        # to each real AIDL target; do not add nonexistent targets.
+        for aidl_target in ('aidl', 'aidl-cpp'):
+            include_pattern = re.compile(
+                r'(target_include_directories\(' + re.escape(aidl_target) +
+                r'\s+PRIVATE\n)([\s\S]*?\n\))'
+            )
+            include_match = include_pattern.search(cmake_text)
+            if include_match:
+                include_block = include_match.group(2)
+                additions = []
+                if '${SRC}/aidl' not in include_block:
+                    additions.append('    ${SRC}/aidl\n')
+                if '${SRC}/googletest/googletest/include' not in include_block:
+                    additions.append('    ${SRC}/googletest/googletest/include\n')
+                if additions:
+                    cmake_text = (
+                        cmake_text[:include_match.start(2)] +
+                        ''.join(additions) + include_block +
+                        cmake_text[include_match.end(2):]
+                    )
+        if 'AIDL_CPP_SOURCES' in cmake_text:
+            if 'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX' in cmake_text:
+                cmake_text, _ = re.subn(
+                    r'list\(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX [^\n]+\)',
+                    'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/[^/]*_unittest\\\\.cpp$")',
+                    cmake_text, count=1)
+            else:
+                glob = re.search(r'(?m)^file\(GLOB AIDL_CPP_SOURCES[^\n]*\)$', cmake_text)
+                if glob is not None:
+                    cmake_text = cmake_text[:glob.end()] + (
+                        '\nlist(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/[^/]*_unittest\\\\.cpp$")'
+                    ) + cmake_text[glob.end():]
+        # Bison 3.8 emits the legacy counter_type initializer for this parser.
+        # Keep the compatibility warning scoped to generated parser sources.
+        parser_marker = 'add_flex_bison_dependency(LangScanner LangParser)\n'
+        parser_option = (
+            'set_source_files_properties(${BISON_LangParser_OUTPUTS} '
+            'PROPERTIES COMPILE_OPTIONS "-Wno-c++11-narrowing")\n'
+        )
+        if parser_marker in cmake_text and parser_option not in cmake_text:
+            cmake_text = cmake_text.replace(parser_marker, parser_marker + parser_option, 1)
+        aidl_cmake.write_text(cmake_text)
+
+    # SDK_BIONIC_GETLOGIN_R_COMPAT
+    # Bionic does not expose getlogin_r(); resolve the current UID through
+    # getpwuid_r() without changing the API-24 runtime baseline.
+    compat_header = ROOT / 'cmake/bionic_compat.h'
+    if compat_header.is_file():
+        compat_text = compat_header.read_text()
+        compat_marker = 'SDK_BIONIC_GETLOGIN_R_COMPAT'
+        if compat_marker not in compat_text:
+            compat_text += (
+                '\n/* ' + compat_marker + ' */\n'
+                '#if defined(__BIONIC__) || defined(__ANDROID__)\n'
+                '#include <errno.h>\n'
+                '#include <pwd.h>\n'
+                '#include <stddef.h>\n'
+                '#include <string.h>\n'
+                '#include <sys/types.h>\n'
+                '#include <unistd.h>\n'
+                'static inline int sdk_getlogin_r(char *buffer, size_t buffer_size) {\n'
+                '    if (buffer == NULL || buffer_size == 0) return EINVAL;\n'
+                '    struct passwd entry;\n'
+                '    struct passwd *found = NULL;\n'
+                '    char storage[1024];\n'
+                '    int status = getpwuid_r(getuid(), &entry, storage, sizeof(storage), &found);\n'
+                '    if (status != 0) return status;\n'
+                '    if (found == NULL || entry.pw_name == NULL) return ENOENT;\n'
+                '    size_t length = strlen(entry.pw_name);\n'
+                '    if (length >= buffer_size) return ERANGE;\n'
+                '    memcpy(buffer, entry.pw_name, length + 1);\n'
+                '    return 0;\n'
+                '}\n'
+                '#ifndef getlogin_r\n'
+                '#define getlogin_r sdk_getlogin_r\n'
+                '#endif\n'
+                '#endif\n'
+            )
+        compat_header.write_text(compat_text)
+    # SDK_E2FSPROGS_SPARSE_CALLBACK_ABI_FROM_PINNED_LIBSPARSE_V2
+    # Match e2fsprogs to the callback ABI in this exact manifest snapshot.
+    # Older libsparse tags use int; newer tags define SPARSE_CALLBACK_USES_SIZE_T.
+    sparse_io_source = ROOT / 'src/e2fsprogs/lib/ext2fs/sparse_io.c'
+    sparse_header = ROOT / 'src/core/libsparse/include/sparse/sparse.h'
+    if sparse_io_source.is_file():
+        if not sparse_header.is_file():
+            raise RuntimeError('pinned libsparse callback header is missing: {}'.format(sparse_header))
+        sparse_header_text = sparse_header.read_text()
+        callback_uses_size_t = bool(re.search(
+            r'(?m)^\s*#\s*define\s+SPARSE_CALLBACK_USES_SIZE_T\b',
+            sparse_header_text))
+        callback_length_type = 'size_t' if callback_uses_size_t else 'int'
+        sparse_io_text = sparse_io_source.read_text()
+        sparse_marker = 'static int sparse_import_segment'
+        if sparse_marker in sparse_io_text:
+            sig_start = sparse_io_text.index(sparse_marker)
+            sig_end = sparse_io_text.index(')', sig_start)
+            signature = sparse_io_text[sig_start:sig_end]
+            signature, changed = re.subn(
+                r'\b(?:size_t|int)\s+len\b',
+                callback_length_type + ' len', signature, count=1)
+            if changed != 1:
+                raise RuntimeError(
+                    'cannot align sparse_import_segment length type with pinned libsparse header: {}'.format(
+                        sparse_io_source))
+            sparse_io_text = sparse_io_text[:sig_start] + signature + sparse_io_text[sig_end:]
+            sparse_io_source.write_text(sparse_io_text)
+            verified_signature = sparse_io_source.read_text()[sig_start:sig_end]
+            if not re.search(r'\b' + callback_length_type + r'\s+len\b', verified_signature):
+                raise RuntimeError('sparse callback ABI verification failed: {}'.format(sparse_io_source))
+            print('e2fsprogs: sparse callback length uses {} per pinned libsparse'.format(
+                callback_length_type), flush=True)
+
+    # Keep f2fs-tools' sparse import callback ABI aligned with the same
+    # manifest-pinned libsparse declaration. Do not wrap the function in new
+    # preprocessor branches; select the exact callback type for this release.
+    f2fs_io_source = ROOT / 'src/f2fs-tools/lib/libf2fs_io.c'
+    if f2fs_io_source.is_file():
+        f2fs_sparse_header = ROOT / 'src/core/libsparse/include/sparse/sparse.h'
+        if not f2fs_sparse_header.is_file():
+            raise RuntimeError('pinned libsparse callback header is missing for f2fs-tools: {}'.format(
+                f2fs_sparse_header))
+        f2fs_header_text = f2fs_sparse_header.read_text()
+        f2fs_uses_size_t = bool(re.search(
+            r'(?m)^\s*#\s*define\s+SPARSE_CALLBACK_USES_SIZE_T\b',
+            f2fs_header_text))
+        f2fs_length_type = 'size_t' if f2fs_uses_size_t else 'int'
+        f2fs_text = f2fs_io_source.read_text()
+        f2fs_marker = 'static int sparse_import_segment'
+        if f2fs_marker in f2fs_text:
+            f2fs_sig_start = f2fs_text.index(f2fs_marker)
+            f2fs_sig_end = f2fs_text.index('{', f2fs_sig_start)
+            f2fs_signature = f2fs_text[f2fs_sig_start:f2fs_sig_end]
+            f2fs_signature, f2fs_changed = re.subn(
+                r'\b(?:size_t|int)\s+len\b',
+                f2fs_length_type + ' len', f2fs_signature, count=1)
+            if f2fs_changed != 1:
+                raise RuntimeError('cannot align f2fs sparse callback with pinned libsparse ABI: {}'.format(
+                    f2fs_io_source))
+            f2fs_text = f2fs_text[:f2fs_sig_start] + f2fs_signature + f2fs_text[f2fs_sig_end:]
+            f2fs_io_source.write_text(f2fs_text)
+            f2fs_verified = f2fs_io_source.read_text()
+            f2fs_verified_start = f2fs_verified.index(f2fs_marker)
+            f2fs_verified_end = f2fs_verified.index('{', f2fs_verified_start)
+            f2fs_verified_signature = f2fs_verified[f2fs_verified_start:f2fs_verified_end]
+            if not re.search(r'\b' + f2fs_length_type + r'\s+len\b', f2fs_verified_signature):
+                raise RuntimeError('f2fs sparse callback ABI verification failed: {}'.format(
+                    f2fs_io_source))
+            print('f2fs-tools: sparse callback length uses {} per pinned libsparse'.format(
+                f2fs_length_type), flush=True)
+
+    # SDK_BIONIC_HASMNTOPT_COMPAT_ENABLE_V1
+    compat_header = ROOT / 'cmake/bionic_compat.h'
+    if compat_header.is_file():
+        compat_text = compat_header.read_text()
+        old_guard = '#if defined(SDK_USE_HASMNTOPT_COMPAT) && defined(__ANDROID_API__) && __ANDROID_API__ < 26 && !defined(__cplusplus)'
+        new_guard = '#if (defined(__BIONIC__) || defined(__ANDROID__)) && defined(__ANDROID_API__) && __ANDROID_API__ < 26 && !defined(__cplusplus)'
+        if old_guard in compat_text:
+            compat_header.write_text(compat_text.replace(old_guard, new_guard, 1))
+        elif new_guard not in compat_text and 'sdk_hasmntopt' in compat_text:
+            raise RuntimeError('hasmntopt compatibility guard has an unrecognized form: {}'.format(compat_header))
+
+    # SDK_ADB_PAIRING_INTERNAL_TYPES_API24_COMPAT_V1
+    pairing_header = ROOT / 'src/adb/pairing_connection/include/adb/pairing/pairing_connection.h'
+    if pairing_header.is_file():
+        pairing_text = pairing_header.read_text()
+        pairing_lines = pairing_text.splitlines(keepends=True)
+        changed_pairing_guard = False
+        for index, line in enumerate(pairing_lines):
+            stripped = line.strip()
+            if stripped == '#if !defined(__ANDROID__) || __ANDROID_API__ >= 30':
+                pairing_lines[index] = ''
+                changed_pairing_guard = True
+            elif stripped.startswith('#endif') and '__ANDROID_API__ >= 30' in stripped:
+                pairing_lines[index] = ''
+                changed_pairing_guard = True
+        if changed_pairing_guard:
+            pairing_header.write_text(''.join(pairing_lines))
+    # SDK_ADB_USB_LINUX_SYSMACROS_COMPAT_V1
+    # Bionic declares major()/minor() in sys/sysmacros.h; older AOSP
+    # usb_linux.cpp snapshots relied on transitive glibc declarations.
+    usb_linux_source = ROOT / 'src/adb/client/usb_linux.cpp'
+    if usb_linux_source.is_file():
+        usb_linux_text = usb_linux_source.read_text()
+        uses_device_number_macros = 'major(st.st_rdev)' in usb_linux_text or 'minor(st.st_rdev)' in usb_linux_text
+        if uses_device_number_macros and '#include <sys/sysmacros.h>' not in usb_linux_text:
+            include_lines = usb_linux_text.splitlines(keepends=True)
+            include_index = next((i for i, line in enumerate(include_lines) if line.lstrip().startswith('#include ')), None)
+            if include_index is None:
+                raise RuntimeError('cannot locate include anchor for Bionic sysmacros in {}'.format(usb_linux_source))
+            include_lines.insert(include_index, '#include <sys/sysmacros.h>' + chr(10))
+            usb_linux_text = ''.join(include_lines)
+            usb_linux_source.write_text(usb_linux_text)
+        if uses_device_number_macros and '#include <sys/sysmacros.h>' not in usb_linux_text:
+            raise RuntimeError('Bionic sysmacros include was not applied: {}'.format(usb_linux_source))
+    # SDK_E2FSPROGS_EXT2_ERR_LINK_SYMBOL_COMPAT_V1
+    # ext2_err.c is generated from e2fsprogs' error-table templates. Its
+    # static "link" object collides with POSIX link() from Bionic unistd.h.
+    ext2_err_source = ROOT / 'src/e2fsprogs/lib/ext2fs/ext2_err.c'
+    if ext2_err_source.is_file():
+        ext2_err_text = ext2_err_source.read_text()
+        declaration = 'static struct et_list link = { 0, 0 };'
+        renamed_declaration = 'static struct et_list ext2_err_link = { 0, 0 };'
+        if declaration in ext2_err_text:
+            ext2_err_text = ext2_err_text.replace(declaration, renamed_declaration, 1)
+            ext2_err_text = ext2_err_text.replace('!link.table', '!ext2_err_link.table')
+            ext2_err_text = ext2_err_text.replace('&link', '&ext2_err_link')
+            if declaration in ext2_err_text or '!link.table' in ext2_err_text or '&link' in ext2_err_text:
+                raise RuntimeError('failed to rename e2fsprogs ext2_err static link object: {}'.format(ext2_err_source))
+            if renamed_declaration not in ext2_err_text:
+                raise RuntimeError('expected ext2_err static link object declaration was not found: {}'.format(ext2_err_source))
+            ext2_err_source.write_text(ext2_err_text)
+            print('e2fsprogs ext2_err: renamed Bionic-conflicting static link object', flush=True)
+        elif '!link.table' in ext2_err_text or '&link' in ext2_err_text:
+            raise RuntimeError('unrecognized e2fsprogs ext2_err link object layout: {}'.format(ext2_err_source))
+        else:
+            print('e2fsprogs ext2_err: no legacy link object in this source snapshot; skipping', flush=True)
+
+    # SDK_E2FSPROGS_PROF_ERR_LINK_SYMBOL_COMPAT_V5
+    # prof_err.c is generated from e2fsprogs' error-table templates. Its
+    # static "link" object collides with POSIX link() from unistd.h.
+    prof_err_source = ROOT / 'src/e2fsprogs/lib/support/prof_err.c'
+    if prof_err_source.is_file():
+        prof_err_text = prof_err_source.read_text()
+        declaration = 'static struct et_list link = { 0, 0 };'
+        renamed_declaration = 'static struct et_list prof_err_link = { 0, 0 };'
+        if declaration in prof_err_text:
+            prof_err_text = prof_err_text.replace(declaration, renamed_declaration, 1)
+        prof_err_text = prof_err_text.replace('!link.table', '!prof_err_link.table')
+        prof_err_text = prof_err_text.replace('&link', '&prof_err_link')
+        if declaration in prof_err_text or '!link.table' in prof_err_text or '&link' in prof_err_text:
+            raise RuntimeError('failed to rename e2fsprogs prof_err static link object: {}'.format(prof_err_source))
+        if renamed_declaration not in prof_err_text:
+            raise RuntimeError('expected prof_err static link object declaration was not found: {}'.format(prof_err_source))
+        prof_err_source.write_text(prof_err_text)
+
+    # SDK_AIDL_BISON_CPP_PURE_COMPAT
+    # Bison's glr.cc skeleton is intrinsically pure; explicit purity directives
+    # are unused and rejected by Bison 3.8.2, so remove them only for glr.cc.
+    aidl_grammar = ROOT / 'src/aidl/aidl_language_y.yy'
+    if aidl_grammar.is_file():
+        grammar_lines = aidl_grammar.read_text().splitlines()
+        uses_glr_cpp = any(line.strip() == '%skeleton "glr.cc"' for line in grammar_lines)
+        changed = False
+        if uses_glr_cpp:
+            for index, line in enumerate(grammar_lines):
+                directive = line.strip()
+                if directive.startswith('%define api.pure') or directive == '%pure-parser':
+                    grammar_lines[index] = ''
+                    changed = True
+        if changed:
+            aidl_grammar.write_text('\n'.join(grammar_lines) + '\n')
+        verified = aidl_grammar.read_text().splitlines()
+        if uses_glr_cpp and any(
+            line.strip().startswith('%define api.pure') or line.strip() == '%pure-parser'
+            for line in verified
+        ):
+            raise RuntimeError('AIDL GLR C++ grammar still contains an unused purity directive: {}'.format(aidl_grammar))
+        if uses_glr_cpp:
+            print('AIDL Bison: removed unused purity directive from GLR C++ grammar', flush=True)
+
+    # SDK_ADB_VERSION_BUILD_NUMBER_COMPAT
+    adb_source = ROOT / 'src/adb/adb.cpp'
+    if adb_source.is_file():
+        adb_text = adb_source.read_text()
+        if 'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,' in adb_text:
+            adb_text = adb_text.replace(
+                'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,',
+                'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, android::build::GetBuildNumber().c_str(),',
+                1,
+            )
+            if '#include <build/version.h>' not in adb_text:
+                include_anchor = '#include <android-base/strings.h>'
+                if include_anchor in adb_text:
+                    adb_text = adb_text.replace(include_anchor, include_anchor + '\n#include <build/version.h>', 1)
+                else:
+                    raise RuntimeError('cannot locate ADB standard include anchor for build/version.h')
+            adb_source.write_text(adb_text)
+        if 'ADB_VERSION_MAJOR, ADB_VERSION_MINOR, ADB_SERVER_VERSION, ADB_VERSION,' in adb_source.read_text():
+            raise RuntimeError('legacy ADB_VERSION macro remains unresolved in {}'.format(adb_source))
+
+    # SDK_LIBBASE_LOGGER_CALLBACK_COMPAT
+    logging = ROOT / 'src/libbase/logging.cpp'
+    if logging.is_file():
+        source_text = logging.read_text()
+        old_signature = re.compile(
+            r'\[\]\s*\(\s*const struct __android_logger_data\s*\*\s*logger_data\s*,\s*'
+            r'const char\s*\*\s*message\s*\)\s*\{'
+        )
+        source_text, changed = old_signature.subn(
+            '[](const struct __android_log_message* log_message) {', source_text, count=1)
+        if changed:
+            source_text = source_text.replace('logger_data->', 'log_message->')
+            source_text = source_text.replace(
+                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, message);',
+                'function(log_id, severity, log_message->tag, log_message->file, log_message->line, log_message->message);',
+                1)
+            logging.write_text(source_text)
+        if old_signature.search(logging.read_text()):
+            raise RuntimeError('legacy libbase logger callback signature remains in {}'.format(logging))
+        if '__android_log_set_logger' in logging.read_text() and 'log_message->message' not in logging.read_text():
+            raise RuntimeError('libbase logger callback message field was not normalized: {}'.format(logging))
+
+    # SDK_CGROUPRC_FLAGS_API24_DECLARATION_COMPAT
+    cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
+    if cgroup_header.is_file():
+        header = cgroup_header.read_text()
+        prototype = 'uint32_t ACgroupController_getFlags(const ACgroupController* controller);'
+        if prototype not in header:
+            if '__END_DECLS' not in header or 'ACgroupController' not in header:
+                raise RuntimeError('cannot locate Cgroup API declaration anchor in {}'.format(cgroup_header))
+            header = header.replace('__END_DECLS', prototype + '\n\n__END_DECLS', 1)
+            cgroup_header.write_text(header)
+        if prototype not in cgroup_header.read_text():
+            raise RuntimeError('Cgroup Flags API declaration missing from {}'.format(cgroup_header))
+        print('libprocessgroup: exposed manifest-local Cgroup Flags declaration for API-24 build', flush=True)
+
+    # Keep VectorImpl's safe_iop.h include from the selected manifest snapshot.
+    zip_cmake = ROOT / 'lib/libziparchive.cmake'
+    if zip_cmake.is_file():
+        text = zip_cmake.read_text()
+        marker = '# SDK_HISTORICAL_LIBUTILS_INCLUDE_COMPAT'
+        if marker not in text:
+            text += (
+                '\n' + marker + '\n'
+                'if(EXISTS "' + '$' + '{SRC}/core/libutils/include/utils/Compat.h")\n'
+                '    target_include_directories(libziparchive PRIVATE "' + '$' + '{SRC}/core/libutils/include")\n'
+                'elseif(EXISTS "' + '$' + '{SRC}/libutils/include/utils/Compat.h")\n'
+                '    target_include_directories(libziparchive PRIVATE "' + '$' + '{SRC}/libutils/include")\n'
+                'endif()\n'
+            )
+            zip_cmake.write_text(text)
+
+    # cgrouprc's internal C API is implemented in this static target. Expose
+    # its declarations even though the app-facing API guard hides them at API 24.
+    cgroup_header = ROOT / 'src/core/libprocessgroup/cgrouprc/include/android/cgrouprc.h'
+    if cgroup_header.is_file():
+        header = cgroup_header.read_text()
+        header, guard_count = re.subn(
+            r'(?m)^[ \t]*#if[ \t]+__ANDROID_API__[ \t]*>=[ \t]*__ANDROID_API_Q__[ \t]*\n',
+            '', header, count=1)
+        if guard_count:
+            if header.rstrip().endswith('#endif'):
+                header = header.rstrip()[:-len('#endif')].rstrip() + '\n'
+            else:
+                header, _ = re.subn(
+                    r'(?m)^[ \t]*#endif[ \t]*\n(?=[ \t]*__END_DECLS)',
+                    '', header, count=1)
+            if '__END_DECLS' not in header:
+                header = header.rstrip() + '\n\n__END_DECLS\n'
+            cgroup_header.write_text(header)
+        if '__ANDROID_API_Q__' in header and 'ACgroupFile_getVersion' in header:
+            raise RuntimeError('cgrouprc API declarations remain hidden by an API guard')
+
+    # Include the C API implementation units; otherwise compilation succeeds
+    # but the static library later fails to link.
+    processgroup_cmake = ROOT / 'lib/libprocessgroup.cmake'
+    if processgroup_cmake.is_file():
+        text = processgroup_cmake.read_text()
+        marker = '# SDK_HISTORICAL_CGROUPRC_API_SOURCES'
+        if marker not in text:
+            anchor = 'add_library(libprocessgroup STATIC\n'
+            if anchor not in text:
+                raise RuntimeError('libprocessgroup CMake target anchor not found')
+            block = (
+                marker + '\n'
+                'set(LIBPROCESSGROUP_CGROUPRC_API_SOURCES)\n'
+                'foreach(_cgrouprc_api_source\n'
+                '    "' + '$' + '{SRC}/core/libprocessgroup/cgrouprc/a_cgroup_controller.cpp"\n'
+                '    "' + '$' + '{SRC}/core/libprocessgroup/cgrouprc/a_cgroup_file.cpp")\n'
+                '    if(EXISTS "' + '$' + '{_cgrouprc_api_source}")\n'
+                '        list(APPEND LIBPROCESSGROUP_CGROUPRC_API_SOURCES "' + '$' + '{_cgrouprc_api_source}")\n'
+                '    endif()\n'
+                'endforeach()\n\n'
+            )
+            text = text.replace(anchor, block + anchor, 1)
+            text = text.replace(
+                anchor,
+                anchor + '    ' + '$' + '{LIBPROCESSGROUP_CGROUPRC_API_SOURCES}\n',
+                1)
+            processgroup_cmake.write_text(text)
+
+    # API 26's property callback is unavailable to the API-24 NDK target.
+    # Use the API-1 read function while retaining the same string result.
+    buildversion = ROOT / 'src/soong/cc/libbuildversion/libbuildversion.cpp'
+    if buildversion.is_file():
+        source = buildversion.read_text()
+        callback = re.compile(
+            r'__system_property_read_callback\s*\(\s*pi\s*,\s*'
+            r'\[\]\s*\(\s*void\s*\*\s*cookie\s*,\s*const\s+char\s*\*\s*,\s*'
+            r'const\s+char\s*\*\s*value\s*,\s*(?:unsigned|uint32_t)\s*\)\s*'
+            r'\{\s*auto\s+property_value\s*=\s*reinterpret_cast<std::string\s*\*>\(cookie\)\s*;\s*'
+            r'\*property_value\s*=\s*value\s*;\s*\}\s*,\s*&property_value\s*\)\s*;',
+            re.S)
+        source, count = callback.subn(
+            'char property_name[PROP_NAME_MAX] = {};\n'
+            '    char property_buffer[PROP_VALUE_MAX] = {};\n'
+            '    if (__system_property_read(pi, property_name, property_buffer) >= 0) {\n'
+            '        property_value = property_buffer;\n'
+            '    }',
+            source, count=1)
+        if count:
+            buildversion.write_text(source)
+        elif '__system_property_read_callback' in source:
+            raise RuntimeError('unhandled property callback in {}'.format(buildversion))
+
+    # fdsan was introduced in API 29; these binaries target API 24.
+    zip_archive = ROOT / 'src/libziparchive/zip_archive.cc'
+    if zip_archive.is_file():
+        source = zip_archive.read_text()
+        source = source.replace(
+            '#if defined(__BIONIC__)',
+            '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29'
+        )
+        zip_archive.write_text(source)
+
+    # ART FdFile uses fdsan APIs introduced in API 29. Keep API-24
+    # builds on ordinary close() semantics.
+    for fd_file in (ROOT / 'src/art/libartbase/base/unix_file/fd_file.cc',
+                    ROOT / 'src/art/runtime/base/unix_file/fd_file.cc'):
+        if fd_file.is_file():
+            source = fd_file.read_text()
+            source = source.replace('#if defined(__BIONIC__)',
+                                    '#if defined(__BIONIC__) && defined(__ANDROID_API__) && __ANDROID_API__ >= 29')
+            fd_file.write_text(source)
+
+    # Format the enum class as an integer in ART's fatal diagnostic.
+    for dex_file in (ROOT / 'src/art/libdexfile/dex/dex_file.cc',
+                     ROOT / 'src/art/runtime/dex_file.cc'):
+        if dex_file.is_file():
+            source = dex_file.read_text()
+            source, count = re.subn(r'(UNIMPLEMENTED\(FATAL\)\s*<<\s*": type "\s*<<\s*)type_(\s*;)',
+                                   r'\1static_cast<int>(type_)\2', source, count=1)
+            if count:
+                dex_file.write_text(source)
+
+    # Align legacy liblog headers with the message-based logger implementation.
+    for log_header in (ROOT / 'src/logging/liblog/include/android/log.h',
+                       ROOT / 'src/core/liblog/include/android/log.h'):
+        if log_header.is_file():
+            header = log_header.read_text()
+            header, _ = re.subn(r'typedef\s+void\s*\(\s*\*__android_logger_function\s*\)\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'typedef void (*__android_logger_function)(const struct __android_log_message* log_message);',
+                                header, count=1)
+            header, _ = re.subn(r'void\s+__android_log_logd_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'void __android_log_logd_logger(const struct __android_log_message* log_message);',
+                                header, count=1)
+            header, _ = re.subn(r'void\s+__android_log_stderr_logger\s*\(\s*const\s+struct\s+__android_logger_data\s*\*\s*\w+\s*,\s*const\s+char\s*\*\s*\w+\s*\)\s*;',
+                                'void __android_log_stderr_logger(const struct __android_log_message* log_message);',
+                                header, count=1)
+            log_header.write_text(header)
+
+    # Use the OpenSSL-compatible headers from this tag's pinned BoringSSL.
+    selinux_cmake = ROOT / 'lib/libselinux.cmake'
+    if selinux_cmake.is_file():
+        source = selinux_cmake.read_text()
+        marker = '# SDK_HISTORICAL_BORINGSSL_INCLUDE_COMPAT'
+        if marker not in source:
+            source += (
+                '\n' + marker + '\n'
+                'if(EXISTS "' + '$' + '{SRC}/boringssl/src/include/openssl/sha.h")\n'
+                '    target_include_directories(libselinux PRIVATE "' + '$' + '{SRC}/boringssl/src/include")\n'
+                'endif()\n'
+            )
+            selinux_cmake.write_text(source)
+
+
+def ensure_libsepol_bool_member_compat():
+    """Rename libsepol's legacy struct member that collides with stdbool.h's bool macro."""
+    libsepol = ROOT / 'src/selinux/libsepol'
+    header = libsepol / 'include/sepol/policydb/conditional.h'
+    if not header.is_file():
+        return
+    header_text = header.read_text()
+    header_text, declaration_count = re.subn(
+        r'uint32_t\s+bool\b', r'uint32_t boolean', header_text, count=1)
+    if declaration_count:
+        header.write_text(header_text)
+    elif not re.search(r'uint32_t\s+boolean\b', header_text):
+        raise RuntimeError('cannot locate legacy cond_expr bool member in {}'.format(header))
+    for source in libsepol.rglob('*'):
+        if source.suffix not in ('.c', '.h') or not source.is_file():
+            continue
+        text = source.read_text()
+        updated, count = re.subn(r'(?:->|\.)bool\b',
+                                 lambda match: match.group(0)[:-4] + 'boolean', text)
+        # Old libsepol snapshots use "bool" as a local pointer name in
+        # multiple C files (including expand.c and cil_binary.c). NDK Clang
+        # predefines bool through stdbool.h, so rename identifier uses in all
+        # libsepol C/header sources, not just one filename. This deliberately
+        # matches only identifier positions used as a declarator, assignment
+        # target, or pointer expression; it does not rewrite bool type tokens.
+        updated, local_count = re.subn(
+            r'(?<![A-Za-z0-9_])bool(?=\s*(?:,|=|->))',
+            'boolean', updated)
+        count += local_count
+        if count:
+            source.write_text(updated)
+    # cil_binary.c contains a separate local variable named "bool" in
+    # __cil_bool_val_array_insert. Some historical source layouts expose CIL
+    # through a symlinked directory, which pathlib.rglob() does not traverse.
+    # Patch this known translation unit directly and validate the whole block.
+    cil_binary = libsepol / 'cil/src/cil_binary.c'
+    if cil_binary.is_file():
+        cil_text = cil_binary.read_text()
+        start = cil_text.find('int __cil_bool_val_array_insert')
+        end = cil_text.find('int __cil_level_val_array_insert', start)
+        if start < 0 or end < 0:
+            raise RuntimeError('cannot locate boolean array insertion function in {}'.format(cil_binary))
+        block = cil_text[start:end]
+        block, local_count = re.subn(r'\bbool\b', 'boolean', block)
+        if local_count:
+            cil_binary.write_text(cil_text[:start] + block + cil_text[end:])
+        if re.search(r'\bbool\b', block):
+            raise RuntimeError('legacy bool identifier remains in {}'.format(cil_binary))
+    else:
+        raise RuntimeError('expected libsepol CIL source is missing: {}'.format(cil_binary))
+
+    # SDK_LIBSEPOL_CIL_POLICY_BOOL_IDENTIFIER_COMPAT
+    # Some pinned SELinux snapshots also use "bool" as a local pointer name
+    # in cil_policy.c. stdbool.h expands that identifier to _Bool under NDK Clang.
+    cil_policy = libsepol / 'cil/src/cil_policy.c'
+    if cil_policy.is_file():
+        policy_text = cil_policy.read_text()
+        original_policy_text = policy_text
+        policy_text, _ = re.subn(
+            r'(struct\s+cil_(?:bool|booleanif)\s*\*\s*)bool\b',
+            r'\1boolean', policy_text)
+        policy_text = re.sub(r'\bbool\s*=\s*i1->data\b',
+                             'boolean = i1->data', policy_text)
+        policy_text = re.sub(r'\bbool->', 'boolean->', policy_text)
+        if re.search(r'struct\s+cil_(?:bool|booleanif)\s*\*\s*bool\b|\bbool\s*=\s*i1->data\b|\bbool->', policy_text):
+            raise RuntimeError('legacy bool local identifier remains in {}'.format(cil_policy))
+        if policy_text != original_policy_text:
+            cil_policy.write_text(policy_text)
+            print('libsepol: normalized CIL policy bool local identifiers for modern Clang', flush=True)
+
+    if re.search(r'uint32_t\s+bool\b', header.read_text()):
+        raise RuntimeError('legacy bool member remains in {}'.format(header))
+    print('libsepol: normalized legacy cond_expr bool member for modern Clang', flush=True)
+
+
+def ensure_aidl_bison_header_requires():
+    """Make AIDL semantic types and Parser visible to generated Bison/Flex headers."""
+    grammar = ROOT / 'src/aidl/aidl_language_y.yy'
+    if grammar.is_file():
+        original = grammar.read_text()
+        text = original
+        needs_parser = re.search(r'(?m)^\s*%parse-param\s*\{[^}]*\bParser\b', text) is not None
+        required = ['#include "aidl_language.h"']
+        if needs_parser:
+            required.append('class Parser;')
+
+        code_requires = re.search(r'(?m)^\s*%code requires\s*\{([\s\S]*?)^\s*\}', text)
+        if code_requires:
+            body = code_requires.group(1)
+            missing = [line for line in required if line not in body]
+            if missing:
+                body = '\n'.join(missing) + '\n' + body
+                text = text[:code_requires.start(1)] + body + text[code_requires.end(1):]
+        else:
+            # Place %code requires before the semantic union so Bison emits
+            # the AIDL declarations into the generated public parser header.
+            anchor = re.search(r'(?m)^\s*%(?:union|parse-param)\b', text)
+            if anchor is None:
+                raise RuntimeError('cannot locate AIDL Bison union/parse-param in {}'.format(grammar))
+            block = '%code requires {\n' + '\n'.join(required) + '\n}\n\n'
+            text = text[:anchor.start()] + block + text[anchor.start():]
+
+        verified = re.search(r'(?m)^\s*%code requires\s*\{([\s\S]*?)^\s*\}', text)
+        if verified is None or any(line not in verified.group(1) for line in required):
+            raise RuntimeError('AIDL Bison header requirements were not installed in {}'.format(grammar))
+        if text != original:
+            grammar.write_text(text)
+            print('AIDL Bison header: added release-safe semantic type declarations', flush=True)
+
+    # BISON_TARGET below generates aidl_language_y.h, not parser.h.
+    # The grammar's %code requires section supplies aidl_language.h to that
+    # generated header, so a separate parser.h include is unnecessary and
+    # invalid for these release source trees.
+    # BISON_TARGET below generates aidl_language_y.h, not parser.h.
+    # ensure_aidl_flex_parser_types() adds the generated header to the scanner;
+    # the grammar's %code requires section supplies the AIDL declarations.
+    # A standalone parser.h is not generated by these release CMake targets.
+    scanner = ROOT / 'src/aidl/aidl_language_l.ll'
+    if scanner.is_file():
+        original = scanner.read_text()
+        text = re.sub(
+            r'(?m)^[ \t]*#include[ \t]+"parser\.h"[ \t]*\n?',
+            '',
+            original,
+        )
+        if not re.search(r'(?m)^[ \t]*#include[ \t]+"aidl_language_y\.h"[ \t]*$', text):
+            raise RuntimeError('AIDL Flex scanner does not include the generated aidl_language_y.h')
+        if text != original:
+            scanner.write_text(text)
+            print('AIDL Flex scanner: removed nonexistent parser.h include', flush=True)
+
+def ensure_aidl_main_cpp_excluded():
+    """Keep main_cpp.cpp in the legacy aidl-cpp target, not the default aidl target."""
+    aidl_cmake = ROOT / 'build-tools/aidl.cmake'
+    if not aidl_cmake.is_file():
+        return
+    text = aidl_cmake.read_text()
+    if 'AIDL_CPP_SOURCES' not in text:
+        return
+
+    # Remove the older escaped-quote form: CMake treated the quotes as part
+    # of the regular expression, so main_cpp.cpp remained in the production
+    # aidl target and introduced a second main() and __asan_default_options.
+    text = re.sub(
+        r'(?m)^[ \t]*list\(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX [^\n]*main_cpp[^\n]*\n?',
+        '',
+        text,
+    )
+    filter_line = 'list(FILTER AIDL_CPP_SOURCES EXCLUDE REGEX "/main_cpp[.]cpp$")'
+    if filter_line not in text:
+        glob = re.search(r'(?m)^[ \t]*file\(GLOB AIDL_CPP_SOURCES[^\n]*\)\s*$', text)
+        if glob is None:
+            raise RuntimeError('cannot locate AIDL source glob in {}'.format(aidl_cmake))
+        text = text[:glob.end()] + '\n' + filter_line + text[glob.end():]
+        aidl_cmake.write_text(text)
+        print('AIDL CMake: excluded main_cpp.cpp from the production aidl target', flush=True)
+
+
+def ensure_android_tools_native_link_sources():
+    """Align host-tool CMake source sets with the exact manifest-pinned AOSP layout."""
+    fastboot_cmake = ROOT / 'platform-tools/fastboot.cmake'
+    if fastboot_cmake.is_file():
+        text = fastboot_cmake.read_text()
+        if 'SDK_AOSP_FASTBOOT_LEGACY_SOURCE_SET' not in text:
+            marker = 'add_executable(fastboot\n'
+            source_marker = '    ${SRC}/core/fastboot/fastboot.cpp\n'
+            if marker not in text or source_marker not in text:
+                raise RuntimeError('cannot locate fastboot executable source list in {}'.format(fastboot_cmake))
+            block = (
+                '# SDK_AOSP_FASTBOOT_LEGACY_SOURCE_SET\n'
+                '# The pinned Android 9/Q fastboot.cpp still uses the queue engine from Android.mk.\n'
+                'set(FASTBOOT_LEGACY_HOST_SOURCES)\n'
+                'foreach(_fastboot_source engine.cpp protocol.cpp)\n'
+                '    if(EXISTS "${SRC}/core/fastboot/${_fastboot_source}")\n'
+                '        list(APPEND FASTBOOT_LEGACY_HOST_SOURCES "${SRC}/core/fastboot/${_fastboot_source}")\n'
+                '    endif()\n'
+                'endforeach()\n'
+                'if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND EXISTS "${SRC}/core/fastboot/util_linux.cpp")\n'
+                '    list(APPEND FASTBOOT_LEGACY_HOST_SOURCES "${SRC}/core/fastboot/util_linux.cpp")\n'
+                'endif()\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+            text = text.replace(source_marker, source_marker + '    ${FASTBOOT_LEGACY_HOST_SOURCES}\n', 1)
+            fastboot_cmake.write_text(text)
+            print('fastboot CMake: restored pinned engine.cpp, protocol.cpp and Linux utility sources', flush=True)
+
+    adb_cmake = ROOT / 'platform-tools/adb.cmake'
+    if adb_cmake.is_file():
+        text = adb_cmake.read_text()
+        if 'SDK_AOSP_ADB_LEGACY_CORE_SOURCE_FALLBACK' not in text:
+            marker = 'add_library(libadb STATIC\n'
+            if marker not in text:
+                raise RuntimeError('cannot locate libadb target in {}'.format(adb_cmake))
+            block = (
+                '# SDK_AOSP_ADB_LEGACY_CORE_SOURCE_FALLBACK\n'
+                '# Android Q/P keep several host ADB implementation units at the adb root;\n'
+                '# newer snapshots move them under client/ or fdevent/. Add only the first\n'
+                '# existing fallback when the modern path is absent and avoid duplicate units.\n'
+                'function(append_aosp_adb_source_fallback modern_relative)\n'
+                '    if(EXISTS "${SRC}/adb/${modern_relative}")\n'
+                '        return()\n'
+                '    endif()\n'
+                '    foreach(_candidate IN LISTS ARGN)\n'
+                '        if(EXISTS "${_candidate}")\n'
+                '            list(FIND ADB_CORE_SOURCES "${_candidate}" _source_index)\n'
+                '            if(_source_index EQUAL -1)\n'
+                '                list(APPEND ADB_CORE_SOURCES "${_candidate}")\n'
+                '                set(ADB_CORE_SOURCES "${ADB_CORE_SOURCES}" PARENT_SCOPE)\n'
+                '            endif()\n'
+                '            return()\n'
+                '        endif()\n'
+                '    endforeach()\n'
+                'endfunction()\n'
+                'append_aosp_adb_source_fallback("fdevent/fdevent.cpp" "${SRC}/adb/fdevent.cpp" "${SRC}/core/adb/fdevent.cpp")\n'
+                'append_aosp_adb_source_fallback("client/transport_local.cpp" "${SRC}/adb/transport_local.cpp" "${SRC}/core/adb/transport_local.cpp")\n'
+                'append_aosp_adb_source_fallback("client/transport_usb.cpp" "${SRC}/adb/transport_usb.cpp" "${SRC}/core/adb/transport_usb.cpp")\n'
+                'append_aosp_adb_source_fallback("client/usb_dispatch.cpp" "${SRC}/adb/usb_dispatch.cpp" "${SRC}/core/adb/usb_dispatch.cpp")\n'
+                'append_aosp_adb_source_fallback("client/usb_linux.cpp" "${SRC}/adb/usb_linux.cpp" "${SRC}/core/adb/usb_linux.cpp")\n'
+                'append_aosp_adb_source_fallback("client/usb_libusb.cpp" "${SRC}/adb/usb_libusb.cpp" "${SRC}/core/adb/usb_libusb.cpp")\n'
+                'append_aosp_adb_source_fallback("client/auth.cpp" "${SRC}/adb/auth.cpp" "${SRC}/core/adb/auth.cpp")\n'
+                'append_aosp_adb_source_fallback("client/transport_mdns.cpp" "${SRC}/adb/transport_mdns.cpp" "${SRC}/core/adb/transport_mdns.cpp")\n'
+                'append_aosp_adb_source_fallback("client/mdns_utils.cpp" "${SRC}/adb/mdns_utils.cpp" "${SRC}/core/adb/mdns_utils.cpp")\n'
+                'append_aosp_adb_source_fallback("client/adb_wifi.cpp" "${SRC}/adb/adb_wifi.cpp" "${SRC}/core/adb/adb_wifi.cpp")\n'
+                'append_aosp_adb_source_fallback("fdevent/fdevent_epoll.cpp" "${SRC}/adb/fdevent_epoll.cpp" "${SRC}/core/adb/fdevent_epoll.cpp")\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+
+        if 'set(ADB_ANDROID_PUBKEY_SOURCE)' not in text:
+            anchor = 'append_existing_sources(ADB_EXECUTABLE_SOURCES'
+            anchor_pos = text.find(anchor)
+            old_start = text.rfind('if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")', 0, anchor_pos)
+            if anchor_pos < 0 or old_start < 0:
+                raise RuntimeError('cannot locate legacy android_pubkey source selection in {}'.format(adb_cmake))
+            old_end = text.find('\nendif()', old_start)
+            if old_end < 0:
+                raise RuntimeError('cannot locate end of legacy android_pubkey source selection in {}'.format(adb_cmake))
+            old_end += len('\nendif()')
+            replacement = (
+                'set(ADB_ANDROID_PUBKEY_SOURCE)\n'
+                'foreach(_pubkey_source\n'
+                '    "${SRC}/core/libcrypto_utils/android_pubkey.cpp"\n'
+                '    "${SRC}/core/libcrypto_utils/android_pubkey.c")\n'
+                '    if(EXISTS "${_pubkey_source}")\n'
+                '        list(APPEND ADB_ANDROID_PUBKEY_SOURCE "${_pubkey_source}")\n'
+                '    endif()\n'
+                'endforeach()\n'
+                'if(ADB_ANDROID_PUBKEY_SOURCE)\n'
+                '    add_library(libcrypto STATIC ${ADB_ANDROID_PUBKEY_SOURCE})\n'
+                '    target_include_directories(libcrypto PRIVATE\n'
+                '        ${SRC}/core/libcrypto_utils/include\n'
+                '        ${SRC}/boringssl/include\n'
+                '    )\n'
+                'else()\n'
+                '    message(FATAL_ERROR "ADB requires android_pubkey_encode, but the pinned system/core libcrypto_utils source is missing")\n'
+                'endif()'
+            )
+            text = text[:old_start] + replacement + text[old_end:]
+        adb_cmake.write_text(text)
+
+    libusb_cmake = ROOT / 'lib/libusb.cmake'
+    if libusb_cmake.is_file():
+        text = libusb_cmake.read_text()
+        if 'LIBUSB_POLL_POSIX_SOURCE' not in text:
+            marker = 'add_library(libusb STATIC\n'
+            source_marker = '    ${LIBUSB_EVENTS_POSIX_SOURCE}\n'
+            if marker not in text or source_marker not in text:
+                raise RuntimeError('cannot locate libusb source list in {}'.format(libusb_cmake))
+            block = (
+                '# SDK_AOSP_LIBUSB_POLL_POSIX_SOURCE\n'
+                '# Android platform-tools snapshots using the classic POSIX backend\n'
+                '# require poll_posix.c for usbi_pipe(), referenced by io.c/netlink.\n'
+                'set(LIBUSB_POLL_POSIX_SOURCE)\n'
+                'if(EXISTS "${SRC}/libusb/libusb/os/poll_posix.c")\n'
+                '    list(APPEND LIBUSB_POLL_POSIX_SOURCE "${SRC}/libusb/libusb/os/poll_posix.c")\n'
+                'endif()\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+            text = text.replace(source_marker, source_marker + '    ${LIBUSB_POLL_POSIX_SOURCE}\n', 1)
+            libusb_cmake.write_text(text)
+            print('libusb CMake: included pinned poll_posix.c backend when present', flush=True)
+
+def main():
+    version = tools_version()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--tags', default='platform-tools-{}'.format(version),
+                        help='git tag or branch of the AOSP repositories, default is platform-tools-{} '
+                             '(from patches/misc/platform_tools_version.h)'.format(version))
+    parser.add_argument('--jobs', type=int, default=8, help='clone N repositories in parallel')
+    parser.add_argument('--retries', type=int, default=3, help='retry times of a failed clone')
+    parser.add_argument('--skip-patch', action='store_true', help='only clone, do not patch the sources')
+    parser.add_argument('--normalize-optional-sources-only', action='store_true', help='normalize CMake sources against an already fetched source tree')
+    args = parser.parse_args()
+
+    if args.normalize_optional_sources_only:
+        create_legacy_source_aliases()
+        normalize_optional_release_sources()
+        ensure_libsepol_bool_member_compat()
+        ensure_liblog_ndk_r27_compat()
+        ensure_art_build_defines()
+        ensure_art_memory_tool_compat()
+        normalize_release_cmake_targets()
+        ensure_android_tools_native_link_sources()
+        ensure_aidl_bison_header_requires()
+        ensure_aidl_main_cpp_excluded()
+        ensure_historical_android_api_compat()
+        return
+
+    # check necessary packages
+    for command in ('git', 'patch', 'go', 'bison', 'flex'):
+        check(command)
+
+    repos = json.loads((ROOT / 'repository.json').read_text())
+    print('fetching sources from Google manifest: {}'.format(args.tags))
+    repos = resolve_manifest_revisions(repos, args.tags, args.retries)
+    errors = []
+    with ThreadPoolExecutor(max_workers=max(1, args.jobs)) as pool:
+        futures = [pool.submit(clone, repo, args.tags, args.retries) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                print(future.result(), flush=True)
+            except RuntimeError as e:
+                errors.append(str(e))
+    if errors:
+        sys.exit('\n'.join(errors))
+
+    create_legacy_source_aliases()
+    normalize_optional_release_sources()
+    ensure_libsepol_bool_member_compat()
+    ensure_liblog_ndk_r27_compat()
+    ensure_liblog_ndk_r27_compat()
+
+    if not args.skip_patch:
+        patches()
+
+    normalize_release_cmake_targets()
+    ensure_android_tools_native_link_sources()
+    ensure_aidl_bison_header_requires()
+    ensure_aidl_main_cpp_excluded()
+    ensure_historical_android_api_compat()
+    print('download success!!')
+
+
+if __name__ == '__main__':
+    main()
+
+        if guarded not in text:
+            text, changed = re.subn(pattern, guarded, text, count=1)
+            if changed:
+                header.write_text(text)
+            elif re.search(r'\btypedef\s+u8\s+bool\b', text):
+                raise RuntimeError('f2fs bool typedef was not guarded: {}'.format(header))
+        verified = header.read_text()
+        if re.search(pattern, verified) and guarded not in verified:
+            raise RuntimeError('f2fs bool typedef validation failed: {}'.format(header))
     if not f2fs_root.is_dir():
         return
     for source in f2fs_root.rglob('*.c'):
