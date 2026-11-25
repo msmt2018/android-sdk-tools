@@ -14,15 +14,40 @@
 # limitations under the License.
 #
 
+# Soong normally generates build/version.h and exports its include directory
+# through generated_headers. Standalone CMake must provide the same public API.
+set(LIBBUILDVERSION_INCLUDE_DIR "${SRC}/soong/cc/libbuildversion/include")
+set(LIBBUILDVERSION_HEADER "${LIBBUILDVERSION_INCLUDE_DIR}/build/version.h")
+if(NOT EXISTS "${LIBBUILDVERSION_HEADER}")
+    file(MAKE_DIRECTORY "${LIBBUILDVERSION_INCLUDE_DIR}/build")
+    file(WRITE "${LIBBUILDVERSION_HEADER}"
+        "#pragma once\n"
+        "#include <string>\n"
+        "namespace android { namespace build { std::string GetBuildNumber(); } }\n")
+endif()
+
 if(EXISTS "${SRC}/soong/cc/libbuildversion/libbuildversion.cpp")
     add_library(libbuildversion STATIC
         ${SRC}/soong/cc/libbuildversion/libbuildversion.cpp
     )
-    target_include_directories(libbuildversion PRIVATE
-        ${SRC}/soong/cc/libbuildversion/include
-    )
 else()
-    # This library was introduced after the Android 8.x source snapshots.
-    # Older tool sources do not reference its API; retain a linkable no-op target.
-    add_library(libbuildversion INTERFACE)
+    # Some historical manifests omit the Soong implementation even though
+    # imported tool sources still call GetBuildNumber(). Supply a compatible
+    # runtime-property implementation instead of a link-time empty target.
+    set(LIBBUILDVERSION_COMPAT_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/libbuildversion_compat.cpp")
+    file(WRITE "${LIBBUILDVERSION_COMPAT_SOURCE}"
+        "#include <string>\n"
+        "#if defined(__ANDROID__)\n"
+        "#include <sys/system_properties.h>\n"
+        "#endif\n"
+        "namespace android { namespace build {\n"
+        "std::string GetBuildNumber() {\n"
+        "#if defined(__ANDROID__)\n"
+        "char value[PROP_VALUE_MAX] = {};\n"
+        "if (__system_property_get(\"ro.build.version.incremental\", value) > 0) return value;\n"
+        "#endif\n"
+        "return \"unknown\";\n"
+        "} } }\n")
+    add_library(libbuildversion STATIC "${LIBBUILDVERSION_COMPAT_SOURCE}")
 endif()
+target_include_directories(libbuildversion PUBLIC "${LIBBUILDVERSION_INCLUDE_DIR}")
