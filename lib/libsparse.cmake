@@ -14,14 +14,29 @@
 # limitations under the License.
 #
 
-add_library(libsparse STATIC
-    ${SRC}/core/libsparse/backed_block.cpp
-    ${SRC}/core/libsparse/output_file.cpp
-    ${SRC}/core/libsparse/sparse.cpp
-    ${SRC}/core/libsparse/sparse_crc32.cpp
-    ${SRC}/core/libsparse/sparse_err.cpp
-    ${SRC}/core/libsparse/sparse_read.cpp
-    )
+# Android P uses C++ implementations for the sparse writer, while Android 9
+# snapshots reverted those files to C. Select the source files actually pinned
+# by the release manifest instead of silently omitting the C implementations.
+set(LIBSPARSE_SOURCES)
+foreach(_name backed_block output_file sparse sparse_crc32 sparse_err)
+    if(EXISTS "${SRC}/core/libsparse/${_name}.cpp")
+        list(APPEND LIBSPARSE_SOURCES "${SRC}/core/libsparse/${_name}.cpp")
+    elseif(EXISTS "${SRC}/core/libsparse/${_name}.c")
+        list(APPEND LIBSPARSE_SOURCES "${SRC}/core/libsparse/${_name}.c")
+    else()
+        message(FATAL_ERROR "Pinned libsparse source is missing: ${_name}.c/.cpp")
+    endif()
+endforeach()
+
+if(EXISTS "${SRC}/core/libsparse/sparse_read.cpp")
+    list(APPEND LIBSPARSE_SOURCES "${SRC}/core/libsparse/sparse_read.cpp")
+elseif(EXISTS "${SRC}/core/libsparse/sparse_read.c")
+    list(APPEND LIBSPARSE_SOURCES "${SRC}/core/libsparse/sparse_read.c")
+else()
+    message(FATAL_ERROR "Pinned libsparse snapshot has no sparse_read implementation")
+endif()
+
+add_library(libsparse STATIC ${LIBSPARSE_SOURCES})
 
 target_include_directories(libsparse PRIVATE
     ${SRC}/core/libsparse/include 
