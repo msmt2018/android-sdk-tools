@@ -110,6 +110,52 @@ def download_verified(url, path, checksums, records, label):
     return url
 
 
+def read_build_tools_package_revision(sdk_root):
+    """Read and cross-check the official Build Tools revision without relabeling it."""
+    properties = sdk_root / "source.properties"
+    package_xml = sdk_root / "package.xml"
+    if not properties.is_file() or not package_xml.is_file():
+        raise RuntimeError("Build Tools base is missing source.properties/package.xml: {}".format(
+            sdk_root
+        ))
+    content = properties.read_text(encoding="utf-8")
+    matches = re.findall(r"(?m)^Pkg\.Revision\s*=\s*(.*?)\s*$", content)
+    if len(matches) != 1:
+        raise RuntimeError("Expected one Build Tools Pkg.Revision in {}, found {}".format(
+            properties, len(matches)
+        ))
+    raw_revision = matches[0]
+    source_revision = re.sub(r"\s+", "-", raw_revision.strip())
+    tree = ET.parse(package_xml)
+    package = next((node for node in tree.iter()
+                    if node.tag.rsplit("}", 1)[-1] == "localPackage"), None)
+    if package is None:
+        raise RuntimeError("Build Tools package.xml localPackage missing: {}".format(package_xml))
+    package_path = package.get("path", "")
+    if not package_path.startswith("build-tools;"):
+        raise RuntimeError("Unexpected Build Tools package path {} in {}".format(
+            package_path, package_xml
+        ))
+    revision = next((node for node in package
+                     if node.tag.rsplit("}", 1)[-1] == "revision"), None)
+    if revision is None:
+        raise RuntimeError("Build Tools package.xml revision missing: {}".format(package_xml))
+    fields = {node.tag.rsplit("}", 1)[-1]: node.text for node in revision}
+    xml_revision = "{}.{}.{}".format(
+        fields.get("major", ""), fields.get("minor", ""), fields.get("micro", "")
+    )
+    if fields.get("preview"):
+        xml_revision += "-rc{}".format(fields["preview"])
+    if package_path.split(";", 1)[1] != xml_revision or source_revision != xml_revision:
+        raise RuntimeError(
+            "Build Tools metadata mismatch: package path={}, XML revision={}, "
+            "source.properties revision={} ({})".format(
+                package_path, xml_revision, raw_revision, sdk_root
+            )
+        )
+    return xml_revision, raw_revision
+
+
 def update_sdk_package_xml(sdk_root, package_path, version, display_name):
     """Keep package.xml path and revision aligned with the repackaged SDK folder."""
     path = sdk_root / "package.xml"
@@ -388,6 +434,7 @@ def main():
             bt_root = root / f"bt-{abi}"
             shutil.copytree(official_pt, pt_root)
             shutil.copytree(official_bt, bt_root)
+            build_tools_version, build_tools_pkg_revision = read_build_tools_package_revision(bt_root)
 
             # Keep the official Java tools/resources intact; adapt only launcher shebangs
             # for Android's shell environment.
@@ -414,21 +461,16 @@ def main():
 
             # Rewrite metadata only after all custom native binaries are installed.
             update_pkg_revision(pt_root, args.version)
-            update_pkg_revision(bt_root, args.version)
             update_sdk_package_xml(
                 pt_root, "platform-tools", args.version, "Android SDK Platform-Tools"
-            )
-            update_sdk_package_xml(
-                bt_root, "build-tools;{}".format(args.version), args.version,
-                "Android SDK Build-Tools {}".format(args.version)
             )
 
             pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
                 archive.add(pt_root, arcname="platform-tools")
 
-            bt_output = args.output / f"build-tools-{args.version}-{abi}.zip"
-            create_build_tools_zip(bt_root, bt_output, args.version)
+            bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
+            create_build_tools_zip(bt_root, bt_output, build_tools_version)
 
             with tarfile.open(pt_output, "r:gz") as archive:
                 pt_metadata = archive.extractfile("platform-tools/source.properties")
@@ -442,12 +484,12 @@ def main():
                     raise RuntimeError(f"{abi}: platform-tools archive missing {sorted(missing)}")
 
             with zipfile.ZipFile(bt_output) as archive:
-                bt_metadata = archive.read(f"{args.version}/source.properties")
-                if f"Pkg.Revision={args.version}".encode() not in bt_metadata:
+                bt_metadata = archive.read(f"{build_tools_version}/source.properties")
+                if f"Pkg.Revision={build_tools_pkg_revision}".encode() not in bt_metadata:
                     raise RuntimeError(f"{abi}: build-tools source.properties has the wrong Pkg.Revision")
                 members = set(archive.namelist())
                 missing = {
-                    f"{args.version}/{name}"
+                    f"{build_tools_version}/{name}"
                     for name in GROUPS["build-tools"] + GROUPS["others"]
                 } - members
                 if missing:
