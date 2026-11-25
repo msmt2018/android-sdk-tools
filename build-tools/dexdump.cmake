@@ -130,6 +130,7 @@ target_link_libraries(dexdump
     libartbase
     libartpalette
     libbase
+    libutils
     libziparchive
     liblog
     sdk_system_libs
