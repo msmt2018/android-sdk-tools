@@ -81,64 +81,48 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", required=True)
     parser.add_argument("--build-tools-version")
+    parser.add_argument("--components", choices=("all", "build-tools", "platform-tools"),
+                        default="all")
     parser.add_argument("--artifacts", type=Path, default=Path("artifacts"))
     parser.add_argument("--output", type=Path, default=Path("dist"))
     args = parser.parse_args()
-    # Platform Tools and Build Tools have independent release trains.
-    # Google published Build Tools 34.0.0, but not 34.0.1/34.0.3/34.0.4/34.0.5.
-    build_tools_version = args.build_tools_version
-    if build_tools_version is None:
-        if args.version.startswith("31.0."):
-            # Platform Tools 31.0.0-31.0.3 share the single official
-            # Android SDK Build Tools 31.0.0 package.
-            build_tools_version = "31.0.0"
-        elif args.version.startswith("34.0."):
-            build_tools_version = "34.0.0"
-        elif args.version == "33.0.4":
-            # Google published Platform Tools 33.0.3 and Build Tools 33.0.3,
-            # but no 33.0.4 binary packages. Repack the latest official 33.0.3
-            # base while retaining this branch's native binaries and metadata.
-            build_tools_version = "33.0.3"
-        else:
-            build_tools_version = args.version
+
+    build_tools_version = args.build_tools_version or args.version
+    want_platform = args.components in ("all", "platform-tools")
+    want_build = args.components in ("all", "build-tools")
     args.output.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
         root = Path(temp)
-        pt_zip = root / "platform-tools.zip"
-        bt_zip = root / "build-tools.zip"
-        # Platform Tools 33.0.4 is a source-branch version only; Google's
-        # last official binary package in this release line is 33.0.3.
-        platform_tools_archive_version = (
-            "33.0.3" if args.version == "33.0.4" else args.version
-        )
-        download(
-            f"https://dl.google.com/android/repository/platform-tools_r{platform_tools_archive_version}-linux.zip",
-            pt_zip,
-        )
-        # Google omits the trailing .0.0 in the archive filename for
-        # the initial major Build Tools release (for example, 35.0.0 is
-        # published as build-tools_r35_linux.zip). Patch releases retain
-        # their full version in the filename (35.0.1 -> build-tools_r35.0.1_linux.zip).
-        build_tools_archive_version = build_tools_version
-        if build_tools_version.endswith(".0.0"):
-            build_tools_archive_version = build_tools_version.rsplit(".", 2)[0]
-        download(
-            f"https://dl.google.com/android/repository/build-tools_r{build_tools_archive_version}-linux.zip",
-            bt_zip,
-        )
+        official_pt = None
+        official_bt = None
 
-        pt_extract = root / "platform-tools-extracted"
-        bt_extract = root / "build-tools-extracted"
-        pt_extract.mkdir()
-        bt_extract.mkdir()
-        extract(pt_zip, pt_extract)
-        extract(bt_zip, bt_extract)
+        if want_platform:
+            pt_zip = root / "platform-tools.zip"
+            pt_extract = root / "platform-tools-extracted"
+            pt_extract.mkdir()
+            download(
+                f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
+                pt_zip,
+            )
+            extract(pt_zip, pt_extract)
+            official_pt = pt_extract / "platform-tools"
+            if not official_pt.is_dir():
+                official_pt = find_parent(pt_extract, "adb")
 
-        official_pt = pt_extract / "platform-tools"
-        if not official_pt.is_dir():
-            official_pt = find_parent(pt_extract, "adb")
-        official_bt = find_parent(bt_extract, "aapt")
+        if want_build:
+            bt_zip = root / "build-tools.zip"
+            bt_extract = root / "build-tools-extracted"
+            bt_extract.mkdir()
+            archive_version = build_tools_version
+            if archive_version.endswith(".0.0"):
+                archive_version = archive_version.rsplit(".", 2)[0]
+            download(
+                f"https://dl.google.com/android/repository/build-tools_r{archive_version}-linux.zip",
+                bt_zip,
+            )
+            extract(bt_zip, bt_extract)
+            official_bt = find_parent(bt_extract, "aapt")
 
         for build_arch, abi in ARCHES.items():
             artifact = next(
@@ -151,74 +135,70 @@ def main():
             built_root = root / f"built-{build_arch}"
             extract(artifact, built_root)
 
-            pt_root = root / f"pt-{abi}"
-            bt_root = root / f"bt-{abi}"
-            shutil.copytree(official_pt, pt_root)
-            shutil.copytree(official_bt, bt_root)
-
-            # Keep the official Java tools/resources intact; adapt only launcher shebangs
-            # for Android's shell environment.
-            for launcher in ("d8", "apksigner"):
-                launcher_path = bt_root / launcher
-                if launcher_path.is_file():
-                    data = launcher_path.read_bytes()
-                    if data.startswith(b"#!"):
-                        _, separator, remainder = data.partition(b"\n")
-                        if separator:
-                            launcher_path.write_bytes(b"#!/system/bin/env sh\n" + remainder)
-
-            for group, names in GROUPS.items():
-                destination_root = pt_root if group == "platform-tools" else bt_root
-                for name in names:
-                    source = built_root / group / name
+            if want_platform:
+                pt_root = root / f"pt-{abi}"
+                shutil.copytree(official_pt, pt_root)
+                for name in GROUPS["platform-tools"]:
+                    source = built_root / "platform-tools" / name
                     if not source.is_file():
                         raise RuntimeError(f"{abi}: built binary missing: {source}")
-                    destination = destination_root / name
+                    destination = pt_root / name
                     destination.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(source, destination)
                     destination.chmod(0o755)
-                    print(f"[{abi}] replaced {group}/{name} mode=755")
+                normalize_source_properties(pt_root, args.version)
 
-            # Normalize Google package metadata only after all native binaries are replaced.
-            normalize_source_properties(pt_root, args.version)
-            normalize_source_properties(bt_root, build_tools_version)
+                pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
+                with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
+                    archive.add(pt_root, arcname="platform-tools")
+                with tarfile.open(pt_output, "r:gz") as archive:
+                    members = set(archive.getnames())
+                    missing = {f"platform-tools/{name}" for name in GROUPS["platform-tools"]} - members
+                    if missing:
+                        raise RuntimeError(f"{abi}: Platform Tools archive missing {sorted(missing)}")
+                    metadata = archive.extractfile("platform-tools/source.properties")
+                    if metadata is None or f"Pkg.Revision={args.version}" not in metadata.read().decode("utf-8").splitlines():
+                        raise RuntimeError(f"{abi}: Platform Tools revision mismatch")
+                print(f"created {pt_output}")
 
-            pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
-            with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
-                archive.add(pt_root, arcname="platform-tools")
+            if want_build:
+                bt_root = root / f"bt-{abi}"
+                shutil.copytree(official_bt, bt_root)
+                # Keep official Java tools/resources; adapt launcher shebangs for Android shells.
+                for launcher in ("d8", "apksigner"):
+                    launcher_path = bt_root / launcher
+                    if launcher_path.is_file():
+                        data = launcher_path.read_bytes()
+                        if data.startswith(b"#!"):
+                            _, separator, remainder = data.partition(b"\n")
+                            if separator:
+                                launcher_path.write_bytes(b"#!/system/bin/env sh\n" + remainder)
 
-            bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
-            create_build_tools_zip(bt_root, bt_output, build_tools_version)
+                for group in ("build-tools", "others"):
+                    for name in GROUPS[group]:
+                        source = built_root / group / name
+                        if not source.is_file():
+                            raise RuntimeError(f"{abi}: built binary missing: {source}")
+                        destination = bt_root / name
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, destination)
+                        destination.chmod(0o755)
+                normalize_source_properties(bt_root, build_tools_version)
 
-            with tarfile.open(pt_output, "r:gz") as archive:
-                members = set(archive.getnames())
-                missing = {
-                    f"platform-tools/{name}" for name in GROUPS["platform-tools"]
-                } - members
-                if missing:
-                    raise RuntimeError(f"{abi}: platform-tools archive missing {sorted(missing)}")
-
-            with zipfile.ZipFile(bt_output) as archive:
-                members = set(archive.namelist())
-                missing = {
-                    f"{build_tools_version}/{name}"
-                    for name in GROUPS["build-tools"] + GROUPS["others"]
-                } - members
-                if missing:
-                    raise RuntimeError(f"{abi}: build-tools archive missing {sorted(missing)}")
-
-            with tarfile.open(pt_output, "r:gz") as archive:
-                metadata = archive.extractfile("platform-tools/source.properties")
-                if metadata is None or f"Pkg.Revision={args.version}" not in metadata.read().decode("utf-8").splitlines():
-                    raise RuntimeError(f"{abi}: Platform Tools source.properties version mismatch")
-
-            with zipfile.ZipFile(bt_output) as archive:
-                metadata = archive.read(f"{build_tools_version}/source.properties").decode("utf-8").splitlines()
-                if f"Pkg.Revision={build_tools_version}" not in metadata:
-                    raise RuntimeError(f"{abi}: Build Tools source.properties version mismatch")
-
-            print(f"created {pt_output}")
-            print(f"created {bt_output}")
+                bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
+                create_build_tools_zip(bt_root, bt_output, build_tools_version)
+                with zipfile.ZipFile(bt_output) as archive:
+                    members = set(archive.namelist())
+                    missing = {
+                        f"{build_tools_version}/{name}"
+                        for name in GROUPS["build-tools"] + GROUPS["others"]
+                    } - members
+                    if missing:
+                        raise RuntimeError(f"{abi}: Build Tools archive missing {sorted(missing)}")
+                    metadata = archive.read(f"{build_tools_version}/source.properties").decode("utf-8").splitlines()
+                    if f"Pkg.Revision={build_tools_version}" not in metadata:
+                        raise RuntimeError(f"{abi}: Build Tools revision mismatch")
+                print(f"created {bt_output}")
 
 
 if __name__ == "__main__":

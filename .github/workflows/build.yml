@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ master, main, 'platform-tools-*' ]
+    branches: [ master, main, 'platform-tools-*', 'build-tools-*' ]
     paths-ignore:
       - '**.md'
       - 'LICENSE.txt'
@@ -252,12 +252,19 @@ jobs:
       - name: Build complete Google SDK archives
         run: |
           set -euo pipefail
+          BRANCH="${GITHUB_REF_NAME}"
+          case "$BRANCH" in
+            build-tools-*) COMPONENT="build-tools"; EXPECTED_FILES=4 ;;
+            platform-tools-*) COMPONENT="all"; EXPECTED_FILES=8 ;;
+            *) echo "::error::Unsupported release branch: $BRANCH"; exit 1 ;;
+          esac
           python3 scripts/package_sdk.py \
             --version "${{ needs.prepare.outputs.version }}" \
+            --components "$COMPONENT" \
             --artifacts artifacts \
             --output dist
           ls -lh dist
-          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 8
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq "$EXPECTED_FILES"
 
       - name: Publish complete SDK packages as a draft release
         env:
@@ -265,9 +272,13 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
-          TAG="platform-tools-$VERSION"
+          TAG="$GITHUB_REF_NAME"
           git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
-          NOTES="Release packages for Android Platform Tools $VERSION and Build Tools $VERSION."
+          if [[ "$TAG" == build-tools-* ]]; then
+            NOTES="Release packages for Android SDK Build Tools $VERSION."
+          else
+            NOTES="Release packages for Android SDK Platform Tools $VERSION and Build Tools $VERSION."
+          fi
           printf '%s\n\nCommit: %s\n' "$NOTES" "$GITHUB_SHA" > notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
