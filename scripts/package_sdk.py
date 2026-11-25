@@ -178,6 +178,10 @@ def main():
                     for name in GROUPS[group]:
                         source = built_root / group / name
                         if not source.is_file():
+                            if group == "others":
+                                # Optional tools such as veridex were introduced
+                                # in later AOSP releases and are absent in 8.x.
+                                continue
                             raise RuntimeError(f"{abi}: built binary missing: {source}")
                         destination = bt_root / name
                         destination.parent.mkdir(parents=True, exist_ok=True)
