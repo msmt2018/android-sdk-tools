@@ -1436,6 +1436,37 @@ def ensure_art_experimental_flags_cxx20_compat():
     elif new not in text:
         raise RuntimeError('ART ExperimentalFlags C++20 compatibility anchor not found')
 
+def ensure_f2fs_ndk_r27_compat():
+    """Guard the legacy bool typedef and include Bionic device macros."""
+    f2fs_root = ROOT / 'src/f2fs-tools'
+    header = f2fs_root / 'include/f2fs_fs.h'
+    if header.is_file():
+        text = header.read_text()
+        old = 'typedef u8              bool;'
+        guarded = '#if !defined(__cplusplus) && !defined(bool)\ntypedef u8 bool;\n#endif'
+        if old in text:
+            text = text.replace(old, guarded, 1)
+            header.write_text(text)
+        elif 'typedef u8 bool;' in text and guarded not in text:
+            raise RuntimeError('f2fs bool typedef has an unrecognized form: {}'.format(header))
+    if not f2fs_root.is_dir():
+        return
+    for source in f2fs_root.rglob('*.c'):
+        text = source.read_text()
+        if not re.search(r'\b(?:major|minor)\s*\(', text):
+            continue
+        if '#include <sys/sysmacros.h>' in text:
+            continue
+        lines = text.splitlines(keepends=True)
+        include_index = next((i for i, line in enumerate(lines) if line.lstrip().startswith('#include ')), None)
+        if include_index is None:
+            raise RuntimeError('cannot find include anchor for f2fs sysmacros: {}'.format(source))
+        lines.insert(include_index, '#include <sys/sysmacros.h>\n')
+        source.write_text(''.join(lines))
+        if '#include <sys/sysmacros.h>' not in source.read_text():
+            raise RuntimeError('f2fs sysmacros include was not applied: {}'.format(source))
+    print('f2fs-tools: guarded legacy bool typedef and included Bionic sysmacros', flush=True)
+
 def ensure_libpng_genout_target_compat():
     """Preserve the NDK target/sysroot when libpng preprocesses pnglibconf.c."""
     template = ROOT / 'src/libpng/scripts/genout.cmake.in'
@@ -1536,6 +1567,7 @@ def patches():
     run_compat_if_present('src/art/libartbase/base/safe_map.h', ensure_art_safe_map_invoke_result_compat)
     run_compat_if_present('src/art/libartbase/base/string_view_cpp20.h', ensure_art_string_view_cpp20_compat)
     run_compat_if_present('src/art/runtime/runtime.h', ensure_art_experimental_flags_cxx20_compat)
+    ensure_f2fs_ndk_r27_compat()
     run_compat_if_present('src/boringssl/src/crypto/x509/t_x509.c', ensure_boringssl_x509_name_print_compat)
     run_compat_if_present('src/libbase/include/android-base/result.h', ensure_libbase_fmt_format_string_compat)
     run_compat_if_present('src/boringssl/src/crypto/fipsmodule/bn/internal.h', ensure_boringssl_bn_comba8_decl_compat)
