@@ -143,7 +143,7 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/adb_trace.cpp
     ${SRC}/adb/adb_unique_fd.cpp
     ${SRC}/adb/adb_utils.cpp
-    ${SRC}/adb/fdevent/fdevent.cpp
+    ${SRC}/core/adb/fdevent/fdevent.cpp
     ${SRC}/adb/services.cpp
     ${SRC}/adb/sockets.cpp
     ${SRC}/adb/socket_spec.cpp
@@ -165,7 +165,8 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/client/transport_usb.cpp
     ${SRC}/adb/client/pairing/pairing_client.cpp
     ${SRC}/adb/client/usb_linux.cpp
-    ${SRC}/adb/fdevent/fdevent_epoll.cpp
+    ${SRC}/core/adb/fdevent/fdevent_epoll.cpp
+    ${SRC}/core/adb/fdevent/fdevent_poll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
 )
