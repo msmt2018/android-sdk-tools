@@ -165,8 +165,15 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
 )
+# SDK_AOSP_ADB_LEGACY_AUTH_HOST_SOURCE
+# Android 9 stores host authentication in adb_auth_host.cpp at the adb root.
+set(ADB_LEGACY_AUTH_HOST_SOURCE)
+if(NOT EXISTS "${SRC}/adb/client/auth.cpp" AND EXISTS "${SRC}/core/adb/adb_auth_host.cpp")
+    list(APPEND ADB_LEGACY_AUTH_HOST_SOURCE "${SRC}/core/adb/adb_auth_host.cpp")
+endif()
 add_library(libadb STATIC
     ${ADB_CORE_SOURCES}
+    ${ADB_LEGACY_AUTH_HOST_SOURCE}
     ${ADB_MDNS_SOURCE}
     ${ADB_MDNS_SERVICE_INFO_SOURCE}
     ${ADB_MDNS_SERVICE_WATCHER_SOURCE}
@@ -314,6 +321,30 @@ if(NOT EXISTS "${SRC}/adb/client/commandline.cpp")
     )
     list(APPEND ADB_EXECUTABLE_SOURCES ${ADB_LEGACY_COMMANDLINE_SOURCE})
 endif()
+# SDK_AOSP_ADB_LEGACY_EXECUTABLE_SOURCE_FALLBACK
+# Android 9's platform-tools ADB host executable keeps these implementation
+# units at the adb root. The modern client/ paths are absent in that snapshot.
+function(append_aosp_adb_executable_source_fallback modern_relative)
+    if(EXISTS "${SRC}/adb/${modern_relative}")
+        return()
+    endif()
+    foreach(_candidate IN LISTS ARGN)
+        if(EXISTS "${_candidate}")
+            list(FIND ADB_EXECUTABLE_SOURCES "${_candidate}" _source_index)
+            if(_source_index EQUAL -1)
+                list(APPEND ADB_EXECUTABLE_SOURCES "${_candidate}")
+                set(ADB_EXECUTABLE_SOURCES "${ADB_EXECUTABLE_SOURCES}" PARENT_SCOPE)
+            endif()
+            return()
+        endif()
+    endforeach()
+endfunction()
+append_aosp_adb_executable_source_fallback("client/adb_client.cpp" "${SRC}/core/adb/adb_client.cpp")
+append_aosp_adb_executable_source_fallback("client/bugreport.cpp" "${SRC}/core/adb/bugreport.cpp")
+append_aosp_adb_executable_source_fallback("client/console.cpp" "${SRC}/core/adb/console.cpp")
+append_aosp_adb_executable_source_fallback("client/file_sync_client.cpp" "${SRC}/core/adb/file_sync_client.cpp")
+append_aosp_adb_executable_source_fallback("client/line_printer.cpp" "${SRC}/core/adb/line_printer.cpp")
+
 add_executable(adb ${ADB_EXECUTABLE_SOURCES} ${ADB_PROTO_HDRS})
 target_include_directories(adb PRIVATE
     ${SRC}/adb
