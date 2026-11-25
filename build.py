@@ -239,14 +239,19 @@ def toolchain_args(args):
 
     if args.toolchain == 'ndk':
         ndk = find_ndk(args)
-        return [
+        command = [
             '-DCMAKE_TOOLCHAIN_FILE={}'.format(ndk / 'build/cmake/android.toolchain.cmake'),
             '-DANDROID_NDK={}'.format(ndk),
             '-DANDROID_ABI={}'.format(arch['abi']),
             '-DANDROID_PLATFORM=android-{}'.format(args.api),
             '-DANDROID_STL=c++_static',
             '-DANDROID_ARM_NEON=ON',
-        ], 'ndk {} ({}, android-{})'.format(ndk.name, arch['abi'], args.api)
+        ]
+        if args.arch == 'aarch64':
+            # AOSP BoringSSL's AArch64 AES/PMULL assembly is runtime-dispatched,
+            # but the assembler must be told that the crypto extension exists.
+            command.append('-DCMAKE_ASM_FLAGS=-march=armv8-a+crypto')
+        return command, 'ndk {} ({}, android-{})'.format(ndk.name, arch['abi'], args.api)
 
     if args.toolchain == 'zig':
         zig = args.zig or shutil.which('zig')
@@ -261,6 +266,8 @@ def toolchain_args(args):
         ]
         if args.zig_cpu:
             command.append('-DZIG_CPU={}'.format(args.zig_cpu))
+        if args.arch == 'aarch64':
+            command.append('-DCMAKE_ASM_FLAGS=-march=armv8-a+crypto')
         return command, 'zig ({})'.format(target)
 
     if args.toolchain == 'host':
