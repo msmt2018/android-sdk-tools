@@ -1413,7 +1413,33 @@ def ensure_liblog_ndk_r27_compat():
                     '    trampoline(data, name, value, 0);')
         if old_call in text: properties.write_text(text.replace(old_call, new_call, 1))
     print('liblog NDK r27/API 24 compatibility applied', flush=True)
+def ensure_libpng_genout_target_compat():
+    """Preserve the NDK target/sysroot when libpng preprocesses pnglibconf.c."""
+    template = ROOT / 'src/libpng/scripts/genout.cmake.in'
+    if not template.is_file():
+        return
+    text = template.read_text()
+    marker = 'set(CMAKE_C_FLAGS @CMAKE_C_FLAGS@)\n'
+    if marker not in text:
+        raise RuntimeError('libpng genout.cmake.in CMAKE_C_FLAGS anchor not found')
+    if 'CMAKE_C_COMPILER_TARGET' not in text:
+        addition = (
+            'set(CMAKE_C_COMPILER_TARGET "@CMAKE_C_COMPILER_TARGET@")\n'
+            'set(CMAKE_SYSROOT "@CMAKE_SYSROOT@")\n'
+            'if(CMAKE_C_COMPILER_TARGET)\n'
+            '    list(APPEND CMAKE_C_FLAGS "--target=${CMAKE_C_COMPILER_TARGET}")\n'
+            'endif()\n'
+            'if(CMAKE_SYSROOT)\n'
+            '    list(APPEND CMAKE_C_FLAGS "--sysroot=${CMAKE_SYSROOT}")\n'
+            'endif()\n'
+        )
+        text = text.replace(marker, marker + addition, 1)
+        template.write_text(text)
+        print('libpng genout: preserved cross compiler target and sysroot', flush=True)
+
+
 def patches():
+    ensure_libpng_genout_target_compat()
     run_compat_if_present(
         'src/abseil-cpp/absl/meta/type_traits.h',
         ensure_abseil_result_of_cxx20_compat)
