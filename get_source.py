@@ -56,10 +56,13 @@ def clone(repo, default_branch, retries):
     branches = [repo.get('branch', default_branch)]
     if repo['path'] == 'src/adb' and 'branch' not in repo:
         version = tools_version()
-        adb_version = '37.0.1' if version == '37.0.2' else version
-        adb_ref = 'platform-tools-' + adb_version
-        if adb_ref not in branches:
-            branches.insert(0, adb_ref)
+        # 37.0.2 never shipped past Canary, and 37.0.3 has no matching
+        # platform-tools-* ref in AOSP. Use the same official Android 17
+        # release snapshot selected by the workflow for these versions.
+        if version not in ('37.0.2', '37.0.3'):
+            adb_ref = 'platform-tools-' + version
+            if adb_ref not in branches:
+                branches.insert(0, adb_ref)
 
     last_error = ''
     for branch in branches:
