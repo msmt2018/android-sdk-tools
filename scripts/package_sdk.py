@@ -94,6 +94,11 @@ def main():
             build_tools_version = "31.0.0"
         elif args.version.startswith("34.0."):
             build_tools_version = "34.0.0"
+        elif args.version == "28.0.2":
+            # Google released Build Tools 28.0.3 independently of Platform Tools 28.0.2.
+            # Keep the genuine Platform Tools release version while packaging the
+            # official Build Tools 28.0.3 archive and its matching package metadata.
+            build_tools_version = "28.0.3"
         elif args.version == "33.0.4":
             # Google published Platform Tools 33.0.3 and Build Tools 33.0.3,
             # but no 33.0.4 binary packages. Repack the latest official 33.0.3
