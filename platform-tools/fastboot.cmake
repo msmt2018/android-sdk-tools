@@ -46,21 +46,25 @@ foreach(source
     endif()
 endforeach()
 
-if(NOT LIBFSMGR_SRC)
-    message(FATAL_ERROR "No liblp sources found in ${SRC}/core/fs_mgr/liblp")
-endif()
-
-add_library(libfsmgr STATIC ${LIBFSMGR_SRC})
-target_include_directories(libfsmgr PRIVATE
-    ${SRC}/core/fs_mgr/liblp/include
-    ${SRC}/libbase/include
-    ${SRC}/extras/ext4_utils/include
-    ${SRC}/core/libsparse/include
-    ${SRC}/boringssl/include
-    ${SRC}/core/libcutils/include
-    )
-if(TARGET fmt::fmt)
-    target_link_libraries(libfsmgr PUBLIC fmt::fmt)
+set(FASTBOOT_LIBFSMGR_TARGET)
+if(LIBFSMGR_SRC)
+    add_library(libfsmgr STATIC ${LIBFSMGR_SRC})
+    target_include_directories(libfsmgr PRIVATE
+        ${SRC}/core/fs_mgr/liblp/include
+        ${SRC}/libbase/include
+        ${SRC}/extras/ext4_utils/include
+        ${SRC}/core/libsparse/include
+        ${SRC}/boringssl/include
+        ${SRC}/core/libcutils/include
+        )
+    if(TARGET fmt::fmt)
+        target_link_libraries(libfsmgr PUBLIC fmt::fmt)
+    endif()
+    set(FASTBOOT_LIBFSMGR_TARGET libfsmgr)
+else()
+    # liblp/dynamic-partition support was added after Android 8.x. Older
+    # fastboot sources do not contain super-flash code and need no liblp.
+    message(STATUS "fastboot: liblp is absent in this Android release; disabling super-partition support")
 endif()
 
 set(FASTBOOT_FILESYSTEM_SRC)
@@ -145,7 +149,7 @@ target_link_libraries(fastboot
     libziparchive
     libbuildversion
     libcutils
-    libfsmgr
+    ${FASTBOOT_LIBFSMGR_TARGET}
     libutils
     libbase
     libext4

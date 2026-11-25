@@ -247,7 +247,11 @@ endif()
 if(NOT TARGET lz4_static)
     message(FATAL_ERROR "Pinned LZ4 source did not provide a static lz4_static target")
 endif()
-add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/brotli/CMakeLists.txt")
+    add_subdirectory(src/brotli EXCLUDE_FROM_ALL)
+else()
+    message(STATUS "Brotli: not part of this historical AOSP manifest; skipping")
+endif()
 # Abseil's standalone CMake project validates that a gtest target already
 # exists. Register the exact googletest checkout before adding Abseil.
 if(NOT TARGET gtest)
@@ -274,7 +278,18 @@ endif()
 if(NOT TARGET gtest)
     add_subdirectory(src/googletest EXCLUDE_FROM_ALL)
 endif()
-add_subdirectory(src/tinyxml2 EXCLUDE_FROM_ALL)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2/CMakeLists.txt")
+    add_subdirectory(src/tinyxml2 EXCLUDE_FROM_ALL)
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2/tinyxml2.cpp")
+    # Older AOSP TinyXML2 checkouts contain sources but no standalone CMake file.
+    file(GLOB TINYXML2_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2/*.cpp")
+    add_library(tinyxml2 STATIC ${TINYXML2_SOURCES})
+    target_include_directories(tinyxml2 PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/tinyxml2")
+else()
+    message(FATAL_ERROR "TinyXML2 source files are missing from the selected AOSP tag")
+endif()
 
 # Do not let third-party CMake variables redirect the version-pinned AOSP tree.
 set(SRC "${CMAKE_CURRENT_SOURCE_DIR}/src")
