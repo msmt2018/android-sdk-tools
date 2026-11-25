@@ -37,6 +37,7 @@ target_link_libraries(veridex
     libartbase
     libartpalette
     libbase
+    libutils
     liblog
     libziparchive
     fmt::fmt
