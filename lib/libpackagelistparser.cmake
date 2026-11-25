@@ -14,9 +14,19 @@
 # limitations under the License.
 #
 
-add_library(libpackagelistparser STATIC
-    ${SRC}/core/libpackagelistparser/packagelistparser.cpp
-    )
+set(LIBPACKAGELISTPARSER_SOURCE)
+if(EXISTS "${SRC}/core/libpackagelistparser/packagelistparser.cpp")
+    list(APPEND LIBPACKAGELISTPARSER_SOURCE
+        "${SRC}/core/libpackagelistparser/packagelistparser.cpp")
+elseif(EXISTS "${SRC}/core/libpackagelistparser/packagelistparser.c")
+    # Android P / Android 9 manifest snapshots ship the original C source.
+    list(APPEND LIBPACKAGELISTPARSER_SOURCE
+        "${SRC}/core/libpackagelistparser/packagelistparser.c")
+else()
+    message(FATAL_ERROR "Pinned system/core snapshot has no libpackagelistparser source")
+endif()
+
+add_library(libpackagelistparser STATIC ${LIBPACKAGELISTPARSER_SOURCE})
 
 target_include_directories(libpackagelistparser PRIVATE
     ${SRC}/core/libpackagelistparser/include
