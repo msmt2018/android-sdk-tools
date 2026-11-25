@@ -304,6 +304,16 @@ append_existing_sources(ADB_EXECUTABLE_SOURCES
     ${SRC}/adb/client/incremental_utils.cpp
     ${SRC}/adb/shell_service_protocol.cpp
 )
+
+# Android 9 moved adb_commandline() from client/commandline.cpp to
+# adb/commandline.cpp. Select the matching implementation from the pinned tree.
+if(NOT EXISTS "${SRC}/adb/client/commandline.cpp")
+    append_existing_sources(ADB_LEGACY_COMMANDLINE_SOURCE
+        "${SRC}/core/adb/commandline.cpp"
+        "${SRC}/core/adb/client/commandline.cpp"
+    )
+    list(APPEND ADB_EXECUTABLE_SOURCES ${ADB_LEGACY_COMMANDLINE_SOURCE})
+endif()
 add_executable(adb ${ADB_EXECUTABLE_SOURCES} ${ADB_PROTO_HDRS})
 target_include_directories(adb PRIVATE
     ${SRC}/adb
