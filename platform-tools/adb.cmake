@@ -165,15 +165,38 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
 )
-# SDK_AOSP_ADB_LEGACY_AUTH_HOST_SOURCE
-# Android 9 stores host authentication in adb_auth_host.cpp at the adb root.
-set(ADB_LEGACY_AUTH_HOST_SOURCE)
-if(NOT EXISTS "${SRC}/adb/client/auth.cpp" AND EXISTS "${SRC}/core/adb/adb_auth_host.cpp")
-    list(APPEND ADB_LEGACY_AUTH_HOST_SOURCE "${SRC}/core/adb/adb_auth_host.cpp")
-endif()
+# SDK_AOSP_ADB_LEGACY_CORE_SOURCE_FALLBACK
+# Android 9/P stores several libadb implementation units at the adb root.
+# Select only the exact legacy source when the modern subdirectory is absent.
+function(append_aosp_adb_source_fallback modern_relative)
+    if(EXISTS "${SRC}/adb/${modern_relative}")
+        return()
+    endif()
+    foreach(_candidate IN LISTS ARGN)
+        if(EXISTS "${_candidate}")
+            list(FIND ADB_CORE_SOURCES "${_candidate}" _source_index)
+            if(_source_index EQUAL -1)
+                list(APPEND ADB_CORE_SOURCES "${_candidate}")
+                set(ADB_CORE_SOURCES "${ADB_CORE_SOURCES}" PARENT_SCOPE)
+            endif()
+            return()
+        endif()
+    endforeach()
+endfunction()
+append_aosp_adb_source_fallback("fdevent/fdevent.cpp" "${SRC}/core/adb/fdevent.cpp")
+append_aosp_adb_source_fallback("client/transport_local.cpp" "${SRC}/core/adb/transport_local.cpp")
+append_aosp_adb_source_fallback("client/transport_usb.cpp" "${SRC}/core/adb/transport_usb.cpp")
+append_aosp_adb_source_fallback("client/usb_dispatch.cpp" "${SRC}/core/adb/usb_dispatch.cpp")
+append_aosp_adb_source_fallback("client/usb_linux.cpp" "${SRC}/core/adb/usb_linux.cpp")
+append_aosp_adb_source_fallback("client/usb_libusb.cpp" "${SRC}/core/adb/usb_libusb.cpp")
+append_aosp_adb_source_fallback("client/auth.cpp" "${SRC}/core/adb/adb_auth_host.cpp")
+append_aosp_adb_source_fallback("client/transport_mdns.cpp" "${SRC}/core/adb/transport_mdns.cpp")
+append_aosp_adb_source_fallback("client/mdns_utils.cpp" "${SRC}/core/adb/mdns_utils.cpp")
+append_aosp_adb_source_fallback("client/adb_wifi.cpp" "${SRC}/core/adb/adb_wifi.cpp")
+append_aosp_adb_source_fallback("fdevent/fdevent_epoll.cpp" "${SRC}/core/adb/fdevent_epoll.cpp")
+
 add_library(libadb STATIC
     ${ADB_CORE_SOURCES}
-    ${ADB_LEGACY_AUTH_HOST_SOURCE}
     ${ADB_MDNS_SOURCE}
     ${ADB_MDNS_SERVICE_INFO_SOURCE}
     ${ADB_MDNS_SERVICE_WATCHER_SOURCE}
