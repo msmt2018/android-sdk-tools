@@ -27,6 +27,7 @@ add_library(libusb STATIC
     ${SRC}/libusb/libusb/sync.c
     ${SRC}/libusb/libusb/strerror.c
     ${SRC}/libusb/libusb/os/linux_usbfs.c
+    ${SRC}/libusb/libusb/os/poll_posix.c
     ${LIBUSB_EVENTS_POSIX_SOURCE}
     ${SRC}/libusb/libusb/os/threads_posix.c
     ${SRC}/libusb/libusb/os/linux_netlink.c
