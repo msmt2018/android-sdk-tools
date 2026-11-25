@@ -263,5 +263,5 @@ target_link_libraries(e2fsdroid
 # The historical source manifest may omit libpackagelistparser.
 # Link it only when the target exists, and only after e2fsdroid is declared.
 if(TARGET libpackagelistparser)
-    target_link_libraries(e2fsdroid PRIVATE libpackagelistparser)
+    target_link_libraries(e2fsdroid libpackagelistparser)
 endif()
