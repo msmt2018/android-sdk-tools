@@ -30,7 +30,11 @@ target_include_directories(zipalign PRIVATE
     )
 
 target_link_libraries(zipalign
+    # Match the AOSP zipalign Android.mk dependency set. Android 8.x keeps
+    # ZipUtils.h under frameworks/base/include and its implementation in libandroidfw.
+    libandroidfw
     libutils
+    libcutils
     libbase
     libziparchive
     libzopfli
