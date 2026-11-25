@@ -58,6 +58,9 @@ set(AIDL_LEGACY_COMMON_SOURCES
 
 # Build only AIDL implementation files present in the pinned release checkout.
 file(GLOB AIDL_CPP_SOURCES CONFIGURE_DEPENDS "${SRC}/aidl/*.cpp")
+# main_cpp.cpp is linked only by the separate aidl-cpp executable below.
+# The Java AIDL executable must have a single entry point (main_java.cpp).
+list(REMOVE_ITEM AIDL_CPP_SOURCES "${SRC}/aidl/main_cpp.cpp")
 add_executable(aidl
     ${AIDL_CPP_SOURCES}
     ${BISON_LangParser_OUTPUTS}
