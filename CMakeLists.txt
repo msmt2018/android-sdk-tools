@@ -185,7 +185,32 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/expat/expat/CMakeLists.txt")
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/expat/CMakeLists.txt")
     add_subdirectory(src/expat EXCLUDE_FROM_ALL)
 else()
-    message(FATAL_ERROR "Expat CMakeLists.txt not found in the checked-out AOSP source")
+    # Android 8.0/8.1 Expat snapshots predate the standalone CMake project.
+    # Build the exact manifest-pinned C sources directly instead of importing
+    # a newer Expat tree or silently omitting the dependency.
+    set(EXPAT_LEGACY_LIB_DIR)
+    foreach(_expat_candidate
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/expat/lib"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/expat/expat/lib"
+    )
+        if(EXISTS "${_expat_candidate}/xmlparse.c"
+           AND EXISTS "${_expat_candidate}/xmlrole.c"
+           AND EXISTS "${_expat_candidate}/xmltok.c")
+            set(EXPAT_LEGACY_LIB_DIR "${_expat_candidate}")
+            break()
+        endif()
+    endforeach()
+    if(NOT EXPAT_LEGACY_LIB_DIR)
+        message(FATAL_ERROR "Expat source files not found in the checked-out AOSP source")
+    endif()
+    add_library(expat STATIC
+        "${EXPAT_LEGACY_LIB_DIR}/xmlparse.c"
+        "${EXPAT_LEGACY_LIB_DIR}/xmlrole.c"
+        "${EXPAT_LEGACY_LIB_DIR}/xmltok.c"
+    )
+    target_include_directories(expat PUBLIC "${EXPAT_LEGACY_LIB_DIR}")
+    target_compile_definitions(expat PRIVATE XML_STATIC)
+    message(STATUS "Expat: using legacy AOSP C sources from ${EXPAT_LEGACY_LIB_DIR}")
 endif()
 get_target_property(EXPAT_TARGET_TYPE expat TYPE)
 if(NOT EXPAT_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
