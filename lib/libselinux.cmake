@@ -134,3 +134,7 @@ target_include_directories(libselinux PRIVATE
 target_include_directories(libselinux PRIVATE
     ${SRC}/selinux/libselinux/src
     )
+
+# android_platform.c uses OpenSSL-compatible SHA1 from the pinned BoringSSL.
+# Keep crypto a transitive dependency so every executable consuming libselinux links it.
+target_link_libraries(libselinux PUBLIC crypto)
