@@ -47,7 +47,7 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "cache-key=sources-$VERSION-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
+          echo "cache-key=sources-v5-$VERSION-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
           echo "platform-tools version: $VERSION"
 
       - name: Check sources cache
@@ -58,6 +58,7 @@ jobs:
             src
             !src/**/.git
             host-tools
+            source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
           lookup-only: true
 
@@ -90,6 +91,7 @@ jobs:
             src
             !src/**/.git
             host-tools
+            source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
 
   build:
@@ -125,6 +127,7 @@ jobs:
             src
             !src/**/.git
             host-tools
+            source-lock.json
           key: ${{ needs.prepare.outputs.cache-key }}
           fail-on-cache-miss: true
 
