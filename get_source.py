@@ -1423,6 +1423,19 @@ def ensure_liblog_ndk_r27_compat():
             '#if defined(__BIONIC_FORTIFY) && defined(__RENAME_CLANG)')
         properties_header.write_text(text)
     print('liblog NDK r27/API 24 compatibility applied', flush=True)
+def ensure_art_experimental_flags_cxx20_compat():
+    """Avoid C++20 rewritten-operator ambiguity in the legacy ART flags wrapper."""
+    runtime_header = ROOT / 'src/art/runtime/runtime.h'
+    text = runtime_header.read_text()
+    old = 'return (experimental_flags_ & flags) != ExperimentalFlags::kNone;'
+    new = 'return static_cast<bool>(experimental_flags_ & flags);'
+    if old in text:
+        text = text.replace(old, new, 1)
+        runtime_header.write_text(text)
+        print('ART ExperimentalFlags: use explicit bool conversion for C++20', flush=True)
+    elif new not in text:
+        raise RuntimeError('ART ExperimentalFlags C++20 compatibility anchor not found')
+
 def ensure_libpng_genout_target_compat():
     """Preserve the NDK target/sysroot when libpng preprocesses pnglibconf.c."""
     template = ROOT / 'src/libpng/scripts/genout.cmake.in'
@@ -1522,6 +1535,7 @@ def patches():
     run_compat_if_present('src/core/libutils/include/utils/LruCache.h', ensure_lru_cache_cxx17_compat)
     run_compat_if_present('src/art/libartbase/base/safe_map.h', ensure_art_safe_map_invoke_result_compat)
     run_compat_if_present('src/art/libartbase/base/string_view_cpp20.h', ensure_art_string_view_cpp20_compat)
+    run_compat_if_present('src/art/runtime/runtime.h', ensure_art_experimental_flags_cxx20_compat)
     run_compat_if_present('src/boringssl/src/crypto/x509/t_x509.c', ensure_boringssl_x509_name_print_compat)
     run_compat_if_present('src/libbase/include/android-base/result.h', ensure_libbase_fmt_format_string_compat)
     run_compat_if_present('src/boringssl/src/crypto/fipsmodule/bn/internal.h', ensure_boringssl_bn_comba8_decl_compat)
