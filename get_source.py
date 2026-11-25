@@ -1412,6 +1412,16 @@ def ensure_liblog_ndk_r27_compat():
                     '    __system_property_read(pi, name, value);\n'
                     '    trampoline(data, name, value, 0);')
         if old_call in text: properties.write_text(text.replace(old_call, new_call, 1))
+    properties_header = ROOT / 'src/core/libcutils/include/cutils/properties.h'
+    if properties_header.is_file():
+        text = properties_header.read_text()
+        # Some NDK r27 sysroots define __BIONIC_FORTIFY without exposing
+        # __RENAME_CLANG. Retain upstream fortify overloads only when their
+        # required rename attribute is available.
+        text = text.replace(
+            '#if defined(__BIONIC_FORTIFY)',
+            '#if defined(__BIONIC_FORTIFY) && defined(__RENAME_CLANG)')
+        properties_header.write_text(text)
     print('liblog NDK r27/API 24 compatibility applied', flush=True)
 def ensure_libpng_genout_target_compat():
     """Preserve the NDK target/sysroot when libpng preprocesses pnglibconf.c."""
