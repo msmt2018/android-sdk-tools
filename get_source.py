@@ -2597,7 +2597,6 @@ def main():
         ensure_art_build_defines()
         ensure_art_memory_tool_compat()
         normalize_release_cmake_targets()
-    ensure_android_tools_native_link_sources()
         ensure_android_tools_native_link_sources()
         ensure_aidl_bison_header_requires()
         ensure_aidl_main_cpp_excluded()
@@ -2632,6 +2631,7 @@ def main():
         patches()
 
     normalize_release_cmake_targets()
+    ensure_android_tools_native_link_sources()
     ensure_aidl_bison_header_requires()
     ensure_aidl_main_cpp_excluded()
     ensure_historical_android_api_compat()
