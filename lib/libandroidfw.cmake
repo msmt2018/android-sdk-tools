@@ -78,6 +78,7 @@ target_compile_definitions(libandroidfw PRIVATE
 
 target_include_directories(libandroidfw PUBLIC
     ${SRC}/base/libs/androidfw/include
+    ${SRC}/base/include
     ${SRC}/base/libs/androidfw/include_pathutils
     ${SRC}/core/libcutils/include
     ${SRC}/logging/liblog/include
