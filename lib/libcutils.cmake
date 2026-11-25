@@ -71,14 +71,6 @@ add_library(libcutils STATIC ${LIBCUTILS_SRC})
 target_compile_definitions(libcutils PRIVATE 
     -D_GNU_SOURCE
     )
-# Old libcutils/properties.h enables a FORTIFY overload that depends on
-# __RENAME_CLANG, which is not exposed by all NDK r27 API-level headers.
-if(EXISTS "${SRC}/core/libcutils/include/cutils/properties.h")
-    file(READ "${SRC}/core/libcutils/include/cutils/properties.h" _cutils_properties_header)
-    if(_cutils_properties_header MATCHES "__RENAME_CLANG")
-        target_compile_options(libcutils PRIVATE -U__BIONIC_FORTIFY)
-    endif()
-endif()
 
 target_include_directories(libcutils PRIVATE
     ${SRC}/core/libutils/include
