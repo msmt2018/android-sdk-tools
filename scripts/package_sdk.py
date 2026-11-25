@@ -192,11 +192,11 @@ def write_integrity_manifests(output_dir, manifests, downloads):
         "downloads": downloads,
     }
     source_path = output_dir / "OFFICIAL-SOURCES.json"
-    source_path.write_text(json.dumps(source_manifest, indent=2, sort_keys=True) + "\\n",
+    source_path.write_text(json.dumps(source_manifest, indent=2, sort_keys=True) + "\n",
                            encoding="utf-8")
     files = archives + [source_path]
     (output_dir / "SHA256SUMS").write_text(
-        "".join("{}  {}\\n".format(sha256_file(item), item.name) for item in files),
+        "".join("{}  {}\n".format(sha256_file(item), item.name) for item in files),
         encoding="utf-8",
     )
 
