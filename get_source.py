@@ -2445,7 +2445,7 @@ def ensure_android_tools_native_link_sources():
             )
             text = text.replace(marker, block + marker, 1)
 
-        if 'set(ADB_ANDROID_PUBKEY_SOURCE)' not in text:
+        if 'set(ADB_ANDROID_PUBKEY_SOURCE' not in text:
             anchor = 'append_existing_sources(ADB_EXECUTABLE_SOURCES'
             anchor_pos = text.find(anchor)
             old_start = text.rfind('if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")', 0, anchor_pos)
