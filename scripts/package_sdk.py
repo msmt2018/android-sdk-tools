@@ -387,9 +387,9 @@ def main():
         root = Path(temp)
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
-        # Platform Tools 37.0.2 never graduated beyond Canary; Google only
-        # publishes the 37.0.1 stable archive. Use it as the untouched base and
-        # replace the native executables with the branch's 37.0.2 builds below.
+        # Platform Tools 37.0.2 never graduated beyond Canary; use the
+        # 37.0.1 archive only for that unpublished revision. Platform Tools
+        # 37.0.3 is resolved directly from Google's matching archive above.
         platform_tools_versions = [args.version]
         if args.version == "37.0.2":
             platform_tools_versions.append("37.0.1")
