@@ -1,0 +1,41 @@
+name: Remove inconsistent 37.0.1 release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/remove-invalid-sdk-releases.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  remove-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete release and tag with stale Build Tools package.xml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/release.json -w '%{http_code}' \
+            -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPOSITORY}/releases/448801851")"
+          if [[ "${status}" != "204" && "${status}" != "404" ]]; then
+            cat /tmp/release.json
+            echo "Release deletion failed: HTTP ${status}" >&2
+            exit 1
+          fi
+          status="$(curl -sS -o /tmp/ref.json -w '%{http_code}' \
+            -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPOSITORY}/git/refs/tags/platform-tools-37.0.1")"
+          if [[ "${status}" != "204" && "${status}" != "404" ]]; then
+            cat /tmp/ref.json
+            echo "Tag deletion failed: HTTP ${status}" >&2
+            exit 1
+          fi
+          echo "platform-tools-37.0.1 release and tag removed."
