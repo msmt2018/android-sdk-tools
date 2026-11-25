@@ -166,6 +166,8 @@ append_existing_sources(ADB_CORE_SOURCES
     ${SRC}/adb/client/pairing/pairing_client.cpp
     ${SRC}/adb/client/usb_linux.cpp
     ${SRC}/adb/fdevent/fdevent_epoll.cpp
+    # The pinned Android Q ADB revision also defines the poll context here.
+    ${SRC}/adb/fdevent/fdevent_poll.cpp
     ${SRC}/adb/sysdeps_unix.cpp
     ${SRC}/adb/sysdeps/posix/network.cpp
 )
