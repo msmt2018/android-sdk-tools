@@ -14,15 +14,27 @@
 # limitations under the License.
 #
 
+# Android 10+ moved diagnose_usb into its own system/core directory. Android 9
+# keeps the same implementation under adb/. Select the source layout from the
+# exact manifest-pinned AOSP checkout instead of assuming the newer path.
+set(LIBDIAGNOSEUSB_SOURCE)
+set(LIBDIAGNOSEUSB_INCLUDE_DIR)
 if(EXISTS "${SRC}/core/diagnose_usb/diagnose_usb.cpp")
-    add_library(libdiagnoseusb STATIC
-        ${SRC}/core/diagnose_usb/diagnose_usb.cpp
-    )
+    set(LIBDIAGNOSEUSB_SOURCE "${SRC}/core/diagnose_usb/diagnose_usb.cpp")
+    set(LIBDIAGNOSEUSB_INCLUDE_DIR "${SRC}/core/diagnose_usb/include")
+elseif(EXISTS "${SRC}/core/adb/diagnose_usb.cpp")
+    set(LIBDIAGNOSEUSB_SOURCE "${SRC}/core/adb/diagnose_usb.cpp")
+    set(LIBDIAGNOSEUSB_INCLUDE_DIR "${SRC}/core/adb")
+endif()
+
+if(LIBDIAGNOSEUSB_SOURCE)
+    add_library(libdiagnoseusb STATIC ${LIBDIAGNOSEUSB_SOURCE})
     target_include_directories(libdiagnoseusb PRIVATE
-        ${SRC}/core/diagnose_usb/include
+        ${LIBDIAGNOSEUSB_INCLUDE_DIR}
         ${SRC}/core/include
         ${SRC}/libbase/include
     )
+    target_link_libraries(libdiagnoseusb PUBLIC libbase)
 else()
     message(STATUS "diagnose_usb: not present in this AOSP snapshot; skipping")
 endif()
