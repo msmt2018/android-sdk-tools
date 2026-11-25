@@ -60,7 +60,7 @@ jobs:
           # Build Tools 35.0.2 is not published as a Google Linux archive.
           # Use the official 35.0.0 resource base and rewrite package metadata.
           BUILD_TOOLS_BASE_VERSION="$VERSION"
-          if [ "$VERSION" = "35.0.2" ]; then BUILD_TOOLS_BASE_VERSION="35.0.0"; fi
+          if [ "$VERSION" = "35.0.2" ]; then BUILD_TOOLS_BASE_VERSION="35.0.1"; fi
           echo "build-tools-base-version=$BUILD_TOOLS_BASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "cache-key=sources-$VERSION-$SOURCE_TAG-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
           echo "platform-tools version: $VERSION"
@@ -209,7 +209,8 @@ jobs:
             --artifacts artifacts \
             --output dist
           ls -lh dist
-          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 8
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 10
+          (cd dist && sha256sum -c SHA256SUMS)
 
       - name: Publish complete SDK packages as a draft release
         env:
@@ -219,7 +220,7 @@ jobs:
           set -euo pipefail
           TAG="platform-tools-$VERSION"
           git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
-          NOTES="Release packages for Android Platform Tools $VERSION and Build Tools $VERSION."
+          NOTES="Release packages for Android Platform Tools $VERSION and official Build Tools ${{ needs.prepare.outputs.build-tools-base-version }}."
           printf '%s\n\nCommit: %s\n' "$NOTES" "$GITHUB_SHA" > notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
