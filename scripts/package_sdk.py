@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """Package complete Google Linux SDK archives with one ABI's native tools."""
 import argparse
+import hashlib
+import json
 import re
 import shutil
 import subprocess
 import tarfile
 import tempfile
+import urllib.request
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
@@ -23,27 +27,193 @@ GROUPS = {
 }
 
 
-def download(url, path):
-    subprocess.run(
-        ["curl", "-fL", "--retry", "3", "--retry-all-errors", "-o", str(path), url],
-        check=True,
+
+
+def load_official_archive_checksums():
+    urls = (
+        "https://dl.google.com/android/repository/repository2-3.xml",
+        "https://dl.google.com/android/repository/repository2-2.xml",
+        "https://dl.google.com/android/repository/repository2-1.xml",
     )
+    checksums = {}
+    loaded = []
+    for url in urls:
+        try:
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "android-sdk-tools-integrity/1.0"}
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
+                root = ET.fromstring(response.read())
+        except Exception as error:
+            print("Google SDK manifest unavailable {}: {}".format(url, error))
+            continue
+        loaded.append(url)
+        for complete in root.iter():
+            if complete.tag.rsplit("}", 1)[-1] != "complete":
+                continue
+            fields = {node.tag.rsplit("}", 1)[-1]: node for node in complete}
+            url_node, checksum_node, size_node = (
+                fields.get("url"), fields.get("checksum"), fields.get("size")
+            )
+            if url_node is None or checksum_node is None or size_node is None:
+                continue
+            if checksum_node.attrib.get("type", "sha1").lower() not in ("sha1", "sha-1"):
+                continue
+            checksums[url_node.text.rsplit("/", 1)[-1]] = (
+                checksum_node.text.strip().lower(), int(size_node.text.strip()), url
+            )
+    if not checksums:
+        raise RuntimeError("No official Google SDK archive checksums could be loaded")
+    return checksums, loaded
+
+
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def download_verified_from_file(url, path, checksums, records, label):
     if not zipfile.is_zipfile(path):
-        raise RuntimeError("Invalid Google SDK ZIP: " + url)
+        path.unlink(missing_ok=True)
+        raise RuntimeError("Invalid Google SDK ZIP for {}: {}".format(label, url))
+    filename = url.split("?", 1)[0].rsplit("/", 1)[-1]
+    official = checksums.get(filename)
+    if official is None:
+        path.unlink(missing_ok=True)
+        raise RuntimeError("No Google-published checksum for {}".format(filename))
+    expected_sha1, expected_size, manifest_url = official
+    actual_size = path.stat().st_size
+    if actual_size != expected_size:
+        path.unlink(missing_ok=True)
+        raise RuntimeError("{} size mismatch: expected {}, got {}".format(
+            filename, expected_size, actual_size
+        ))
+    digest = hashlib.sha1()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual_sha1 = digest.hexdigest()
+    if actual_sha1 != expected_sha1:
+        path.unlink(missing_ok=True)
+        raise RuntimeError("{} SHA-1 mismatch: expected {}, got {}".format(
+            filename, expected_sha1, actual_sha1
+        ))
+    with zipfile.ZipFile(path) as archive:
+        bad = archive.testzip()
+        if bad:
+            path.unlink(missing_ok=True)
+            raise RuntimeError("{} contains corrupt ZIP member {}".format(filename, bad))
+    records.append({
+        "component": label, "url": url, "filename": filename,
+        "size": actual_size, "official_sha1": expected_sha1,
+        "downloaded_sha256": sha256_file(path), "official_manifest": manifest_url,
+    })
+    print("Verified Google archive {} SHA-1={}".format(filename, actual_sha1))
+    return url
 
 
-def download_first_available(urls, path):
-    """Download the first published official archive from an ordered URL list."""
+def download(url, path, checksums, records, label):
+    result = subprocess.run(
+        ["curl", "-fLsS", "--retry", "0", "-o", str(path), url], check=False
+    )
+    if result.returncode != 0:
+        path.unlink(missing_ok=True)
+        raise RuntimeError("Download failed for {}: {}".format(label, url))
+    return download_verified_from_file(url, path, checksums, records, label)
+
+
+def download_first_available(urls, path, checksums, records, label):
     for url in urls:
         result = subprocess.run(
-            ["curl", "-fLsS", "--retry", "0", "-o", str(path), url],
-            check=False,
+            ["curl", "-fLsS", "--retry", "0", "-o", str(path), url], check=False
         )
-        if result.returncode == 0 and zipfile.is_zipfile(path):
-            print("Using official Build Tools archive:", url)
-            return
-        path.unlink(missing_ok=True)
-    raise RuntimeError("No published official Build Tools archive found: " + ", ".join(urls))
+        if result.returncode != 0:
+            path.unlink(missing_ok=True)
+            continue
+        return download_verified_from_file(url, path, checksums, records, label)
+    raise RuntimeError("No published official {} archive found: {}".format(
+        label, ", ".join(urls)
+    ))
+
+
+def update_sdk_package_xml(sdk_root, package_path, version, display_name):
+    path = sdk_root / "package.xml"
+    if not path.is_file():
+        print("No package.xml in {}; source.properties remains authoritative".format(sdk_root))
+        return
+    major, minor, micro = version.split(".", 2)
+    tree = ET.parse(path)
+    package = next((node for node in tree.iter()
+                    if node.tag.rsplit("}", 1)[-1] == "localPackage"), None)
+    if package is None:
+        raise RuntimeError("package.xml localPackage missing: {}".format(path))
+    package.set("path", package_path)
+    revision = next((node for node in package
+                     if node.tag.rsplit("}", 1)[-1] == "revision"), None)
+    if revision is None:
+        raise RuntimeError("package.xml revision missing: {}".format(path))
+    namespace = package.tag.split("}", 1)[0] + "}" if "}" in package.tag else ""
+    for name, value in (("major", major), ("minor", minor), ("micro", micro)):
+        node = next((item for item in revision
+                     if item.tag.rsplit("}", 1)[-1] == name), None)
+        if node is None:
+            node = ET.SubElement(revision, namespace + name)
+        node.text = value
+    tree.write(path, encoding="utf-8", xml_declaration=True)
+    check = ET.parse(path)
+    checked_package = next((node for node in check.iter()
+                            if node.tag.rsplit("}", 1)[-1] == "localPackage"), None)
+    checked_revision = next((node for node in checked_package
+                             if node.tag.rsplit("}", 1)[-1] == "revision"), None)
+    values = {node.tag.rsplit("}", 1)[-1]: node.text for node in checked_revision}
+    if checked_package.get("path") != package_path or (
+        values.get("major"), values.get("minor"), values.get("micro")
+    ) != (major, minor, micro):
+        raise RuntimeError("package.xml version mismatch: {}".format(path))
+
+
+def verify_tar_gz(path):
+    with tarfile.open(path, "r:gz") as archive:
+        for member in archive.getmembers():
+            if member.isfile():
+                stream = archive.extractfile(member)
+                if stream is None:
+                    raise RuntimeError("Cannot read tar member {} in {}".format(
+                        member.name, path
+                    ))
+                while stream.read(1024 * 1024):
+                    pass
+
+
+def write_integrity_manifests(output_dir, manifests, downloads):
+    archives = sorted(
+        list(output_dir.glob("platform-tools-*.tar.gz"))
+        + list(output_dir.glob("build-tools-*.zip"))
+    )
+    if len(archives) != 8:
+        raise RuntimeError("Expected 8 final SDK archives, found {}".format(len(archives)))
+    for path in archives:
+        if path.suffix == ".zip":
+            with zipfile.ZipFile(path) as archive:
+                bad = archive.testzip()
+                if bad:
+                    raise RuntimeError("Corrupt final ZIP member {} in {}".format(bad, path))
+        else:
+            verify_tar_gz(path)
+    source_path = output_dir / "OFFICIAL-SOURCES.json"
+    source_path.write_text(json.dumps({
+        "schema_version": 1,
+        "official_repository_manifests": manifests,
+        "downloads": downloads,
+    }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    files = archives + [source_path]
+    (output_dir / "SHA256SUMS").write_text(
+        "".join("{}  {}\n".format(sha256_file(item), item.name) for item in files),
+        encoding="utf-8",
+    )
 
 
 def extract(path, dest):
@@ -106,6 +276,8 @@ def main():
     platform_tools_version = args.platform_tools_version or args.version
     build_tools_version = args.version
     args.output.mkdir(parents=True, exist_ok=True)
+    official_checksums, manifest_urls = load_official_archive_checksums()
+    download_records = []
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
         root = Path(temp)
@@ -113,7 +285,7 @@ def main():
         bt_zip = root / "build-tools.zip"
         download(
             f"https://dl.google.com/android/repository/platform-tools_r{platform_tools_version}-linux.zip",
-            pt_zip,
+            pt_zip, official_checksums, download_records, "platform-tools",
         )
         # Platform Tools and Build Tools have independent release trains.
         # Prefer an exact matching Build Tools archive, then the official major
@@ -121,8 +293,9 @@ def main():
         major = build_tools_version.split(".", 1)[0]
         build_tools_versions = []
         exact = build_tools_version
-        if exact.endswith(".0.0"):
-            exact = exact.rsplit(".", 2)[0]
+        parts = exact.split(".")
+        if len(parts) == 3 and parts[2] == "0":
+            exact = ".".join(parts[:2]) if parts[1] != "0" else parts[0]
         build_tools_versions.append(exact)
         build_tools_versions.append(major)
         build_tools_versions.extend([f"{major}-rc2", f"{major}-rc1"])
@@ -132,7 +305,9 @@ def main():
             f"https://dl.google.com/android/repository/build-tools_r{version}_linux.zip"
             for version in build_tools_versions
         ]
-        download_first_available(build_tools_urls, bt_zip)
+        download_first_available(
+            build_tools_urls, bt_zip, official_checksums, download_records, "build-tools"
+        )
 
         pt_extract = root / "platform-tools-extracted"
         bt_extract = root / "build-tools-extracted"
@@ -188,6 +363,14 @@ def main():
             # Rewrite metadata only after all custom native binaries are installed.
             update_pkg_revision(pt_root, platform_tools_version)
             update_pkg_revision(bt_root, build_tools_version)
+            update_sdk_package_xml(
+                pt_root, "platform-tools", platform_tools_version,
+                "Android SDK Platform-Tools"
+            )
+            update_sdk_package_xml(
+                bt_root, "build-tools;{}".format(build_tools_version), build_tools_version,
+                "Android SDK Build-Tools {}".format(build_tools_version)
+            )
 
             pt_output = args.output / f"platform-tools-{platform_tools_version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
@@ -219,9 +402,19 @@ def main():
                 if missing:
                     raise RuntimeError(f"{abi}: build-tools archive missing {sorted(missing)}")
 
+            verify_tar_gz(pt_output)
+            with zipfile.ZipFile(bt_output) as archive:
+                bad = archive.testzip()
+                if bad:
+                    raise RuntimeError("{}: corrupt final Build Tools ZIP member: {}".format(
+                        abi, bad
+                    ))
+
             print(f"created {pt_output}")
             print(f"created {bt_output}")
 
+
+    write_integrity_manifests(args.output, manifest_urls, download_records)
 
 if __name__ == "__main__":
     main()
