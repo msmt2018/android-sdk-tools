@@ -115,7 +115,9 @@ def main():
         # Platform Tools 33.0.4 is a source-branch version only; Google's
         # last official binary package in this release line is 33.0.3.
         platform_tools_archive_version = (
-            "33.0.3" if args.version == "33.0.4" else args.version
+            "33.0.3" if args.version == "33.0.4"
+            else "28.0.2" if args.version == "28.0.3"
+            else args.version
         )
         download(
             f"https://dl.google.com/android/repository/platform-tools_r{platform_tools_archive_version}-linux.zip",
