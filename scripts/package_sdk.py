@@ -387,11 +387,13 @@ def main():
         root = Path(temp)
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
-        # Platform Tools 37.0.2 never graduated beyond Canary; use the
-        # 37.0.1 archive only for that unpublished revision. Platform Tools
-        # 37.0.3 is resolved directly from Google's matching archive above.
+        # Canary revisions may not have a versioned Linux archive in the
+        # Google repository manifest. Prefer the exact requested archive, then
+        # use Google's 37.0.1 stable archive as the packaging base. The native
+        # executables are replaced by this branch's freshly built binaries and
+        # the final Platform-Tools metadata is rewritten to args.version.
         platform_tools_versions = [args.version]
-        if args.version == "37.0.2":
+        if args.version in ("37.0.2", "37.0.3"):
             platform_tools_versions.append("37.0.1")
         platform_tools_urls = [
             f"https://dl.google.com/android/repository/platform-tools_r{version}-linux.zip"
