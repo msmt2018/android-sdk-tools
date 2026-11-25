@@ -1443,7 +1443,16 @@ def ensure_f2fs_ndk_r27_compat():
     if header.is_file():
         text = header.read_text()
         guarded = '#if !defined(__cplusplus) && !defined(bool)\ntypedef u8 bool;\n#endif'
-        pattern = r'(?m)^[ \t]*typedef\s+u8\s+bool\s*;[ \t]*
+        pattern = r'(?m)^[ \t]*typedef\s+u8\s+bool\s*;[ \t]*$'
+        if guarded not in text:
+            text, changed = re.subn(pattern, guarded, text, count=1)
+            if changed:
+                header.write_text(text)
+            elif re.search(r'\btypedef\s+u8\s+bool\b', text):
+                raise RuntimeError('f2fs bool typedef was not guarded: {}'.format(header))
+        verified = header.read_text()
+        if re.search(pattern, verified) and guarded not in verified:
+            raise RuntimeError('f2fs bool typedef validation failed: {}'.format(header))
     if not f2fs_root.is_dir():
         return
     for source in f2fs_root.rglob('*.c'):
