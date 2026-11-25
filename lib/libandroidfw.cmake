@@ -87,7 +87,7 @@ target_include_directories(libandroidfw PUBLIC
     ${SRC}/libbase/include
     ${SRC}/native/include
     ${SRC}/native/libs/binder/include
-    ${SRC}/libziparchive/include
+    ${SRC}/core/libziparchive/include
     ${SRC}/incremental_delivery/incfs/util/include
     ${SRC}/incremental_delivery/incfs/kernel-headers
     )
