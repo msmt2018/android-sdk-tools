@@ -56,7 +56,7 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
-          echo "cache-key=sources-$VERSION-$SOURCE_TAG-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
+          echo "cache-key=sources-v5-$VERSION-$SOURCE_TAG-${{ hashFiles('repository.json', 'get_source.py', 'build.py', 'patches/**') }}" >> "$GITHUB_OUTPUT"
           echo "platform-tools version: $VERSION"
           echo "AOSP source tag: $SOURCE_TAG"
 
@@ -68,6 +68,7 @@ jobs:
             src
             !src/**/.git
             host-tools
+            source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
           lookup-only: true
 
@@ -100,6 +101,7 @@ jobs:
             src
             !src/**/.git
             host-tools
+            source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
 
   build:
@@ -136,6 +138,7 @@ jobs:
             src
             !src/**/.git
             host-tools
+            source-lock.json
           key: ${{ needs.prepare.outputs.cache-key }}
 
       - name: Fetch sources when cache restore is unavailable
