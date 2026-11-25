@@ -92,10 +92,24 @@ if(EXISTS "${SRC}/core/fastboot/vendor_boot_img_utils.cpp")
     list(APPEND FASTBOOT_VENDOR_BOOT_IMG_SOURCE "${SRC}/core/fastboot/vendor_boot_img_utils.cpp")
 endif()
 
+# Android 9 keeps the fastboot command queue and wire protocol in
+# separate translation units. These define the fb_* symbols consumed by
+# fastboot.cpp and fastboot_driver.cpp.
+set(FASTBOOT_LEGACY_HOST_SOURCES)
+foreach(_fastboot_source engine.cpp protocol.cpp)
+    if(EXISTS "${SRC}/core/fastboot/${_fastboot_source}")
+        list(APPEND FASTBOOT_LEGACY_HOST_SOURCES "${SRC}/core/fastboot/${_fastboot_source}")
+    endif()
+endforeach()
+if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND EXISTS "${SRC}/core/fastboot/util_linux.cpp")
+    list(APPEND FASTBOOT_LEGACY_HOST_SOURCES "${SRC}/core/fastboot/util_linux.cpp")
+endif()
+
 add_executable(fastboot
     ${SRC}/core/fastboot/bootimg_utils.cpp
     ${SRC}/core/fastboot/fastboot.cpp
     ${SRC}/core/fastboot/fastboot_driver.cpp
+    ${FASTBOOT_LEGACY_HOST_SOURCES}
     ${SRC}/core/fastboot/fs.cpp
     ${FASTBOOT_FILESYSTEM_SRC}
     ${FASTBOOT_SUPER_FLASH_SRC}
