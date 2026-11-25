@@ -674,18 +674,18 @@ def ensure_diagnose_usb_group_member_compat():
         return
 
     helper = (
-        '#include <algorithm>\\n'
-        '#include <vector>\\n'
-        '\\n'
-        'static bool android_group_member(gid_t target_gid) {\\n'
-        '    const int count = getgroups(0, nullptr);\\n'
-        '    if (count <= 0) return false;\\n'
-        '    std::vector<gid_t> groups(static_cast<size_t>(count));\\n'
-        '    const int actual = getgroups(count, groups.data());\\n'
-        '    if (actual <= 0) return false;\\n'
-        '    return std::find(groups.begin(), groups.begin() + actual, target_gid) != groups.begin() + actual;\\n'
-        '}\\n'
-        '\\n'
+        '#include <algorithm>\n'
+        '#include <vector>\n'
+        '\n'
+        'static bool android_group_member(gid_t target_gid) {\n'
+        '    const int count = getgroups(0, nullptr);\n'
+        '    if (count <= 0) return false;\n'
+        '    std::vector<gid_t> groups(static_cast<size_t>(count));\n'
+        '    const int actual = getgroups(count, groups.data());\n'
+        '    if (actual <= 0) return false;\n'
+        '    return std::find(groups.begin(), groups.begin() + actual, target_gid) != groups.begin() + actual;\n'
+        '}\n'
+        '\n'
     )
     anchor = 'static const char kPermissionsHelpUrl[]'
     if 'static bool android_group_member(gid_t target_gid)' not in text:
