@@ -308,15 +308,29 @@ if(EXISTS "${SRC}/adb/fastdeploy/deploypatchgenerator/apk_archive.cpp")
         ${SRC}/boringssl/include)
 endif()
 
-if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
-    add_library(libcrypto STATIC "${SRC}/core/libcrypto_utils/android_pubkey.cpp")
+# Android 9 uses the C implementation; later snapshots use C++.
+set(ANDROID_PUBKEY_SOURCE)
+foreach(_candidate
+    "${SRC}/core/libcrypto_utils/android_pubkey.cpp"
+    "${SRC}/core/libcrypto_utils/android_pubkey.c"
+    "${SRC}/libcrypto_utils/android_pubkey.cpp"
+    "${SRC}/libcrypto_utils/android_pubkey.c")
+    if(EXISTS "${_candidate}")
+        list(APPEND ANDROID_PUBKEY_SOURCE "${_candidate}")
+        break()
+    endif()
+endforeach()
+if(ANDROID_PUBKEY_SOURCE)
+    add_library(libcrypto STATIC ${ANDROID_PUBKEY_SOURCE})
     target_include_directories(libcrypto PRIVATE
         ${SRC}/core/libcrypto_utils/include
+        ${SRC}/libcrypto_utils/include
         ${SRC}/boringssl/include
     )
 else()
     add_library(libcrypto INTERFACE)
 endif()
+
 
 append_existing_sources(ADB_EXECUTABLE_SOURCES
     ${SRC}/adb/client/adb_client.cpp
