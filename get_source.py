@@ -662,8 +662,12 @@ def ensure_fastboot_unique_fd_compat():
 
 def ensure_diagnose_usb_group_member_compat():
     """Replace glibc-only group_member() with a portable supplementary-group check."""
-    path = ROOT / 'src/core/adb/diagnose_usb.cpp'
-    if not path.is_file():
+    candidates = (
+        ROOT / 'src/core/diagnose_usb/diagnose_usb.cpp',
+        ROOT / 'src/core/adb/diagnose_usb.cpp',
+    )
+    path = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if path is None:
         print('diagnose_usb group compatibility: source absent, skipping', flush=True)
         return
 
@@ -1452,7 +1456,7 @@ def patches():
     run_compat_if_present('src/libziparchive/zip_archive.cc', ensure_libziparchive_span_compat)
     run_compat_if_present('src/aidl/aidl_language_l.ll', ensure_aidl_flex_parser_types)
     run_compat_if_present('src/core/fastboot/fastboot.cpp', ensure_fastboot_unique_fd_compat)
-    run_compat_if_present('src/core/adb/diagnose_usb.cpp', ensure_diagnose_usb_group_member_compat)
+    ensure_diagnose_usb_group_member_compat()
     run_compat_if_present('src/adb/adb_mdns.h', ensure_adb_mdns_function_include)
     run_compat_if_present('src/adb/tls/include/adb/tls/tls_connection.h', ensure_adb_tls_function_include)
     ensure_sdk_sandbox_aid_compat()
