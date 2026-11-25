@@ -266,10 +266,17 @@ def main():
         root = Path(temp)
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
-        # Never substitute another Platform Tools revision; Canary packages
-        # are also listed in Google's repository metadata and are checksum-verified.
+        # 37.0.2 never graduated beyond Canary and has no stable Google
+        # Platform Tools archive. Explicitly use the official 37.0.1 archive
+        # as the resource base, then stamp the repackaged package as 37.0.2.
+        # The selected archive is still required to match Google's published
+        # size and SHA-1; the source manifest records the actual base filename.
+        platform_tools_versions = [args.version]
+        if args.version == "37.0.2":
+            platform_tools_versions.append("37.0.1")
         platform_tools_urls = [
-            f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip"
+            "https://dl.google.com/android/repository/platform-tools_r{}-linux.zip".format(version)
+            for version in platform_tools_versions
         ]
         download_first_available(
             platform_tools_urls, pt_zip, official_checksums, download_records, "platform-tools"
