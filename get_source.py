@@ -325,6 +325,35 @@ def patches():
     ensure_androidfw_theme_entry_definition()
 
 
+
+def write_source_lock(repos, default_ref):
+    """Record the exact upstream URL, requested ref, resolved tag, and commit SHA."""
+    records = []
+    for repo in sorted(repos, key=lambda item: item["path"]):
+        path = ROOT / repo["path"]
+        if not path.exists():
+            raise RuntimeError("source repository missing while writing source lock: {}".format(path))
+        def git(*args, check=True):
+            return subprocess.run(
+                ["git", "-C", str(path)] + list(args),
+                check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+        commit = git("rev-parse", "HEAD").stdout.strip()
+        remote = git("remote", "get-url", "origin").stdout.strip()
+        tag_result = git("describe", "--tags", "--exact-match", "HEAD", check=False)
+        resolved_tag = tag_result.stdout.strip() if tag_result.returncode == 0 else None
+        records.append({
+            "path": repo["path"], "url": remote,
+            "requested_ref": repo.get("branch", default_ref),
+            "resolved_tag": resolved_tag, "commit_sha": commit,
+        })
+    lock = {"schema_version": 1, "default_source_ref": default_ref, "repositories": records}
+    (ROOT / "source-lock.json").write_text(
+        json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print("source-lock.json: recorded {} repositories".format(len(records)), flush=True)
+
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -352,6 +381,8 @@ def main():
                 errors.append(str(e))
     if errors:
         sys.exit('\n'.join(errors))
+
+    write_source_lock(repos, args.tags)
 
     if not args.skip_patch:
         patches()
