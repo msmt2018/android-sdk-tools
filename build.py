@@ -173,6 +173,31 @@ def build_host_protoc(args):
         else:
             raise RuntimeError('legacy protobuf Automake files or JavaMicro source directory are missing')
 
+        # GCC 13/libstdc++ requires associative-container comparators to be
+        # callable through a const comparator instance. Historical AOSP
+        # protobuf declares this operator non-const, which breaks host protoc.
+        java_file = source / 'src/google/protobuf/compiler/java/java_file.cc'
+        if java_file.is_file():
+            java_text = java_file.read_text()
+            comparator = re.compile(
+                r'(bool\s+operator\s*\(\s*\)\s*\(\s*'
+                r'const\s+FieldDescriptor\s*\*\s*f1\s*,\s*'
+                r'const\s+FieldDescriptor\s*\*\s*f2\s*\))\s*\{'
+            )
+            fixed, count = comparator.subn(r'\1 const {', java_text, count=1)
+            if count:
+                java_file.write_text(fixed)
+                java_text = fixed
+                print('protobuf Java comparator: added const for modern libstdc++', flush=True)
+            if 'struct FieldDescriptorCompare' in java_text:
+                match = re.search(
+                    r'struct\s+FieldDescriptorCompare\s*\{(?:(?!\};).)*'
+                    r'bool\s+operator\s*\(\s*\)\s*\([^)]*\)\s*const\s*\{',
+                    java_text,
+                    re.S,
+                )
+                if match is None:
+                    raise RuntimeError('protobuf FieldDescriptorCompare is not const-callable')
         # Old AOSP protobuf autogen.sh downloads gmock-1.7.0 from the retired
         # googlecode.com URL whenever this directory is absent. gmock is only
         # needed by protobuf's unit tests, which are not built for host protoc.
