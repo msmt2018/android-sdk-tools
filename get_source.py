@@ -1007,17 +1007,20 @@ def ensure_boringssl_bn_comba8_decl_compat():
         raise RuntimeError('BoringSSL bn internal.h not found: {}'.format(path))
 
     text = path.read_text()
+    # AOSP snapshots use both explicit array bounds and pointer-style
+    # declarations. The implementation consumes eight limbs in either case;
+    # normalize the declaration to the explicit 8-limb contract.
     pattern = re.compile(
-        r'(bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s+a\s*)\[\s*4\s*\](?=\s*\)\s*;)',
+        r'(bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s*)(?:\*\s*a|a\s*\[\s*4\s*\])(?=\s*\)\s*;)',
         re.S,
     )
-    fixed, count = pattern.subn(r'\1[8]', text, count=1)
+    fixed, count = pattern.subn(r'\1a[8]', text, count=1)
     if count:
         path.write_text(fixed)
 
     verified = path.read_text()
     if pattern.search(verified):
-        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration still has a 4-limb bound')
+        raise RuntimeError('BoringSSL bn_sqr_comba8 declaration was not normalized')
     if 'bn_sqr_comba8' in verified and not re.search(
         r'bn_sqr_comba8\s*\([^;{}]*?\bconst\s+BN_ULONG\s+a\s*\[\s*8\s*\]\s*\)\s*;',
         verified,
