@@ -2554,7 +2554,7 @@ def write_source_lock(repos, default_ref):
         "repositories": records,
     }
     (ROOT / "source-lock.json").write_text(
-        json.dumps(lock, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+        json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     print("source-lock.json: recorded {} repositories".format(len(records)), flush=True)
 
