@@ -193,9 +193,11 @@ def main():
                 create_build_tools_zip(bt_root, bt_output, build_tools_version)
                 with zipfile.ZipFile(bt_output) as archive:
                     members = set(archive.namelist())
+                    # Additional tools are source-tag dependent (for example,
+                    # veridex is absent from the Android 8.x manifest).
                     missing = {
                         f"{build_tools_version}/{name}"
-                        for name in GROUPS["build-tools"] + GROUPS["others"]
+                        for name in GROUPS["build-tools"]
                     } - members
                     if missing:
                         raise RuntimeError(f"{abi}: Build Tools archive missing {sorted(missing)}")
