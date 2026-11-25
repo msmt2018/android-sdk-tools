@@ -2561,7 +2561,39 @@ def ensure_android_tools_native_link_sources():
                 'append_aosp_adb_source_fallback("client/transport_mdns.cpp" "${SRC}/adb/transport_mdns.cpp" "${SRC}/core/adb/transport_mdns.cpp")\n'
                 'append_aosp_adb_source_fallback("client/mdns_utils.cpp" "${SRC}/adb/mdns_utils.cpp" "${SRC}/core/adb/mdns_utils.cpp")\n'
                 'append_aosp_adb_source_fallback("client/adb_wifi.cpp" "${SRC}/adb/adb_wifi.cpp" "${SRC}/core/adb/adb_wifi.cpp")\n'
+                'append_aosp_adb_source_fallback("client/auth.cpp" "${SRC}/adb/adb_auth_host.cpp" "${SRC}/core/adb/adb_auth_host.cpp")\n'
                 'append_aosp_adb_source_fallback("fdevent/fdevent_epoll.cpp" "${SRC}/adb/fdevent_epoll.cpp" "${SRC}/core/adb/fdevent_epoll.cpp")\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+
+        if 'SDK_AOSP_ADB_LEGACY_EXECUTABLE_SOURCE_FALLBACK' not in text:
+            marker = 'add_executable(adb ${ADB_EXECUTABLE_SOURCES} ${ADB_PROTO_HDRS})'
+            if marker not in text:
+                raise RuntimeError('cannot locate adb executable target in {}'.format(adb_cmake))
+            block = (
+                '# SDK_AOSP_ADB_LEGACY_EXECUTABLE_SOURCE_FALLBACK\\n'
+                '# Android 9 keeps host executable implementation units at src/core/adb root.\\n'
+                '# Restore the exact Android.mk host source set when newer client/ paths are absent.\\n'
+                'function(append_aosp_adb_executable_source_fallback modern_relative)\\n'
+                '    if(EXISTS "${SRC}/adb/${modern_relative}")\\n'
+                '        return()\\n'
+                '    endif()\\n'
+                '    foreach(_candidate IN LISTS ARGN)\\n'
+                '        if(EXISTS "${_candidate}")\\n'
+                '            list(FIND ADB_EXECUTABLE_SOURCES "${_candidate}" _source_index)\\n'
+                '            if(_source_index EQUAL -1)\\n'
+                '                list(APPEND ADB_EXECUTABLE_SOURCES "${_candidate}")\\n'
+                '                set(ADB_EXECUTABLE_SOURCES "${ADB_EXECUTABLE_SOURCES}" PARENT_SCOPE)\\n'
+                '            endif()\\n'
+                '            return()\\n'
+                '        endif()\\n'
+                '    endforeach()\\n'
+                'endfunction()\\n'
+                'append_aosp_adb_executable_source_fallback("client/adb_client.cpp" "${SRC}/core/adb/adb_client.cpp")\\n'
+                'append_aosp_adb_executable_source_fallback("client/bugreport.cpp" "${SRC}/core/adb/bugreport.cpp")\\n'
+                'append_aosp_adb_executable_source_fallback("client/console.cpp" "${SRC}/core/adb/console.cpp")\\n'
+                'append_aosp_adb_executable_source_fallback("client/file_sync_client.cpp" "${SRC}/core/adb/file_sync_client.cpp")\\n'
+                'append_aosp_adb_executable_source_fallback("client/line_printer.cpp" "${SRC}/core/adb/line_printer.cpp")\\n\\n'
             )
             text = text.replace(marker, block + marker, 1)
 
