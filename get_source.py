@@ -709,7 +709,7 @@ def ensure_diagnose_usb_group_member_compat():
     text = text.replace(call, 'android_group_member(plugdev_group->gr_gid)', 1)
     path.write_text(text)
     verified = path.read_text()
-    if call in verified or 'static bool android_group_member(gid_t target_gid)' not in verified:
+    if 'if (group_member(plugdev_group->gr_gid)' in verified or 'static bool android_group_member(gid_t target_gid)' not in verified:
         raise RuntimeError('diagnose_usb group_member compatibility verification failed')
     print('diagnose_usb: replaced glibc group_member() with getgroups()-based membership check', flush=True)
 
