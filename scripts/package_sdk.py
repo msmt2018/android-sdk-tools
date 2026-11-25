@@ -338,8 +338,8 @@ def main():
         build_tools_versions.append(exact)
         build_tools_versions.append(major)
         build_tools_versions.extend([f"{major}-rc2", f"{major}-rc1"])
-        # Build Tools and Platform Tools have independent release trains.
-        # Build Tools 37.0.0 is the official resource base for custom 37.0.2.
+        # No stable Build Tools 37.0.0 package is published. Prefer the latest
+        # official 37.0.0 preview archive (rc2, then rc1); retain 36.0.0 as fallback.
         if int(major) >= 36:
             build_tools_versions.append("36")
         build_tools_versions = list(dict.fromkeys(build_tools_versions))
