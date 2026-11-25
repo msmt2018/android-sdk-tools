@@ -1398,7 +1398,11 @@ def ensure_liblog_ndk_r27_compat():
             if marker not in text: raise RuntimeError('event_tag_map.cpp compatibility anchor not found')
             declaration = '#include <stddef.h>\nextern "C" int __android_log_is_loggable_len(int prio, const char* tag, size_t len, int default_prio);'
             text = text.replace(marker, marker + '\n' + declaration, 1)
-            event_tag_map.write_text(text)
+        # NDK r27 removed libc++'s experimental/string_view header. The
+        # manifest-pinned Android 8.x implementation only needs C++17 string_view.
+        text = text.replace('#include <experimental/string_view>', '#include <string_view>')
+        text = text.replace('std::experimental::string_view', 'std::string_view')
+        event_tag_map.write_text(text)
     properties = ROOT / 'src/core/libcutils/properties.cpp'
     if properties.is_file():
         text = properties.read_text()
