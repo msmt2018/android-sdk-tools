@@ -120,6 +120,7 @@ target_link_libraries(sload_f2fs
     liblog
     pcre2-8
     lz4_static
+    crypto
     sdk_system_libs
     )
     
