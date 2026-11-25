@@ -209,7 +209,7 @@ else()
         "${EXPAT_LEGACY_LIB_DIR}/xmltok.c"
     )
     target_include_directories(expat PUBLIC "${EXPAT_LEGACY_LIB_DIR}")
-    target_compile_definitions(expat PRIVATE XML_STATIC)
+    target_compile_definitions(expat PRIVATE XML_STATIC HAVE_MEMMOVE=1)
     message(STATUS "Expat: using legacy AOSP C sources from ${EXPAT_LEGACY_LIB_DIR}")
 endif()
 get_target_property(EXPAT_TARGET_TYPE expat TYPE)
