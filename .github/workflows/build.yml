@@ -247,7 +247,7 @@ jobs:
           set -euo pipefail
           TAG="platform-tools-$VERSION"
           git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
-          NOTES="Release packages for Android Platform Tools $VERSION and Build Tools $VERSION."
+          NOTES="Release packages for Android Platform Tools $VERSION and official preview Build Tools 37.0.0-rc2."
           printf '%s\\n\\nCommit: %s\\n' "$NOTES" "$GITHUB_SHA" > notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
