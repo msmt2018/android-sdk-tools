@@ -4,7 +4,7 @@
    return dex::ProtoIndex(it.GetJavaValue().i);
  }
  
-+std::ostream& operator<<(std::ostream& os, EncodedArrayValueIterator::ValueType rhs) {
++std::ostream& operator<<(std::ostream& os, const EncodedArrayValueIterator::ValueType& rhs) {
 +  switch (rhs) {
 +    case EncodedArrayValueIterator::kByte: os << "Byte"; break;
 +    case EncodedArrayValueIterator::kShort: os << "Short"; break;
