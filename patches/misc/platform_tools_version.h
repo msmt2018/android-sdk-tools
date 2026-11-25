@@ -1,2 +1,2 @@
-// https://cs.android.com/android/platform/superproject/+/master:out/soong/.intermediates/development/sdk/platform_tools_version/gen/platform_tools_version.h
-#define PLATFORM_TOOLS_VERSION "28.0.0"
+// SDK tools release version
+#define PLATFORM_TOOLS_VERSION "26.0.2"

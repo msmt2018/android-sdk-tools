@@ -50,6 +50,18 @@ def check(command):
 # These are the nearest official Google source snapshots at the corresponding
 # release points; all project revisions are then taken from that manifest.
 MANIFEST_TAG_OVERRIDES = {
+    # API 26 / Android 8.0 release snapshots. Google did not publish
+    # platform-tools-26.x manifest refs; resolve every project from the
+    # matching official Android release manifest instead.
+    '26.0.0': 'android-8.0.0_r1',
+    '26.0.1': 'android-8.0.0_r7',
+    '26.0.2': 'android-8.0.0_r15',
+    '26.0.3': 'android-8.0.0_r15',
+    # API 27 / Android 8.1 release snapshots.
+    '27.0.0': 'android-8.1.0_r1',
+    '27.0.1': 'android-8.1.0_r4',
+    '27.0.2': 'android-8.1.0_r4',
+    '27.0.3': 'android-8.1.0_r4',
     '28.0.0': 'android-p-preview-4',
     '28.0.1': 'android-9.0.0_r1',
     '28.0.2': 'android-9.0.0_r33',
