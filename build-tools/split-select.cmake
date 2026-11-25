@@ -38,17 +38,15 @@ target_include_directories(split-select PRIVATE
     ${SRC}/base/tools
     ${SRC}/incremental_delivery/incfs/util/include 
     )
-target_link_libraries(split-select
+set(SPLIT_SELECT_LINK_LIBRARIES
     libaapt
     libandroidfw
     libselinux
     libsepol
     libutils
     libcutils
-    libincfs
     libbase
     libziparchive
-    libpackagelistparser
     libprocessgroup
     liblog
     expat
@@ -57,5 +55,16 @@ target_link_libraries(split-select
     jsoncpp_static
     png_static
     sdk_system_libs
-    )
+)
+
+# These libraries were introduced after some Platform Tools 28 source
+# snapshots. Add them only when the pinned AOSP manifest actually provides
+# their CMake targets; otherwise CMake treats the names as -l linker flags.
+foreach(_optional_target libincfs libpackagelistparser)
+    if(TARGET ${_optional_target})
+        list(APPEND SPLIT_SELECT_LINK_LIBRARIES ${_optional_target})
+    endif()
+endforeach()
+
+target_link_libraries(split-select ${SPLIT_SELECT_LINK_LIBRARIES})
     
