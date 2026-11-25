@@ -227,8 +227,13 @@ def write_integrity_manifests(output_dir, manifests, downloads):
                     ))
         else:
             verify_tar_gz(path)
+    source_lock_path = Path("source-lock.json")
+    if not source_lock_path.is_file():
+        raise RuntimeError("source-lock.json missing; refusing to publish without exact source revisions")
+    source_lock = json.loads(source_lock_path.read_text(encoding="utf-8"))
     source_manifest = {
         "schema_version": 1,
+        "source_lock": source_lock,
         "official_repository_manifests": manifests,
         "downloads": downloads,
     }
