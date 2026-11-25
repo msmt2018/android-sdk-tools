@@ -661,6 +661,47 @@ def ensure_fastboot_unique_fd_compat():
         raise RuntimeError('unique_fd fastboot descriptor conversion incomplete')
     print('fastboot descriptor compatibility: converted {} unique_fd call(s)'.format(changed), flush=True)
 
+def ensure_diagnose_usb_group_member_compat():
+    """Replace glibc-only group_member() with a portable supplementary-group check."""
+    path = ROOT / 'src/core/adb/diagnose_usb.cpp'
+    if not path.is_file():
+        print('diagnose_usb group compatibility: source absent, skipping', flush=True)
+        return
+
+    text = path.read_text()
+    call = 'group_member(plugdev_group->gr_gid)'
+    if call not in text:
+        print('diagnose_usb group compatibility: no group_member() call; skipping', flush=True)
+        return
+
+    helper = (
+        '#include <algorithm>\n'
+        '#include <vector>\n'
+        '\n'
+        'static bool android_group_member(gid_t target_gid) {\n'
+        '    const int count = getgroups(0, nullptr);\n'
+        '    if (count <= 0) return false;\n'
+        '    std::vector<gid_t> groups(static_cast<size_t>(count));\n'
+        '    const int actual = getgroups(count, groups.data());\n'
+        '    if (actual <= 0) return false;\n'
+        '    return std::find(groups.begin(), groups.begin() + actual, target_gid) != groups.begin() + actual;\n'
+        '}\n'
+        '\n'
+    )
+    anchor = 'static const char kPermissionsHelpUrl[]'
+    if 'static bool android_group_member(gid_t target_gid)' not in text:
+        if anchor not in text:
+            raise RuntimeError('cannot locate diagnose_usb helper insertion point')
+        text = text.replace(anchor, helper + anchor, 1)
+
+    text = text.replace(call, 'android_group_member(plugdev_group->gr_gid)', 1)
+    path.write_text(text)
+    verified = path.read_text()
+    if call in verified or 'static bool android_group_member(gid_t target_gid)' not in verified:
+        raise RuntimeError('diagnose_usb group_member compatibility verification failed')
+    print('diagnose_usb: replaced glibc group_member() with getgroups()-based membership check', flush=True)
+
+
 def ensure_adb_mdns_function_include():
     """Provide the std::function declaration used by adb_mdns.h."""
     path = ROOT / 'src/adb/adb_mdns.h'
@@ -1412,6 +1453,7 @@ def patches():
     run_compat_if_present('src/libziparchive/zip_archive.cc', ensure_libziparchive_span_compat)
     run_compat_if_present('src/aidl/aidl_language_l.ll', ensure_aidl_flex_parser_types)
     run_compat_if_present('src/core/fastboot/fastboot.cpp', ensure_fastboot_unique_fd_compat)
+    run_compat_if_present('src/core/adb/diagnose_usb.cpp', ensure_diagnose_usb_group_member_compat)
     run_compat_if_present('src/adb/adb_mdns.h', ensure_adb_mdns_function_include)
     run_compat_if_present('src/adb/tls/include/adb/tls/tls_connection.h', ensure_adb_tls_function_include)
     ensure_sdk_sandbox_aid_compat()
