@@ -14,11 +14,15 @@
 # limitations under the License.
 #
 
-add_library(libbuildversion STATIC
-    ${SRC}/soong/cc/libbuildversion/libbuildversion.cpp
+if(EXISTS "${SRC}/soong/cc/libbuildversion/libbuildversion.cpp")
+    add_library(libbuildversion STATIC
+        ${SRC}/soong/cc/libbuildversion/libbuildversion.cpp
     )
-
-target_include_directories(libbuildversion PRIVATE
-    ${SRC}/soong/cc/libbuildversion/include
+    target_include_directories(libbuildversion PRIVATE
+        ${SRC}/soong/cc/libbuildversion/include
     )
-    
+else()
+    # This library was introduced after the Android 8.x source snapshots.
+    # Older tool sources do not reference its API; retain a linkable no-op target.
+    add_library(libbuildversion INTERFACE)
+endif()
