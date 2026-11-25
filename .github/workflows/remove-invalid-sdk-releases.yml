@@ -40,7 +40,7 @@ jobs:
               -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${REPOSITORY}/git/refs/tags/${tag}")"
-            if [[ "${status}" != "204" && "${status}" != "404" ]]; then
+            if [[ "${status}" != "204" && "${status}" != "404" && "${status}" != "422" ]]; then
               cat /tmp/ref.json
               echo "Tag deletion failed for ${tag}: HTTP ${status}" >&2
               exit 1
