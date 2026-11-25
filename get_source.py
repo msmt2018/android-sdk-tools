@@ -2397,6 +2397,130 @@ def ensure_aidl_main_cpp_excluded():
         aidl_cmake.write_text(text)
         print('AIDL CMake: excluded main_cpp.cpp from the production aidl target', flush=True)
 
+
+def ensure_android_tools_native_link_sources():
+    """Align host-tool CMake source sets with the exact manifest-pinned AOSP layout."""
+    fastboot_cmake = ROOT / 'platform-tools/fastboot.cmake'
+    if fastboot_cmake.is_file():
+        text = fastboot_cmake.read_text()
+        if 'SDK_AOSP_FASTBOOT_LEGACY_SOURCE_SET' not in text:
+            marker = 'add_executable(fastboot\n'
+            source_marker = '    ${SRC}/core/fastboot/fastboot.cpp\n'
+            if marker not in text or source_marker not in text:
+                raise RuntimeError('cannot locate fastboot executable source list in {}'.format(fastboot_cmake))
+            block = (
+                '# SDK_AOSP_FASTBOOT_LEGACY_SOURCE_SET\n'
+                '# The pinned Android 9/Q fastboot.cpp still uses the queue engine from Android.mk.\n'
+                'set(FASTBOOT_LEGACY_HOST_SOURCES)\n'
+                'foreach(_fastboot_source engine.cpp protocol.cpp)\n'
+                '    if(EXISTS "${SRC}/core/fastboot/${_fastboot_source}")\n'
+                '        list(APPEND FASTBOOT_LEGACY_HOST_SOURCES "${SRC}/core/fastboot/${_fastboot_source}")\n'
+                '    endif()\n'
+                'endforeach()\n'
+                'if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND EXISTS "${SRC}/core/fastboot/util_linux.cpp")\n'
+                '    list(APPEND FASTBOOT_LEGACY_HOST_SOURCES "${SRC}/core/fastboot/util_linux.cpp")\n'
+                'endif()\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+            text = text.replace(source_marker, source_marker + '    ${FASTBOOT_LEGACY_HOST_SOURCES}\n', 1)
+            fastboot_cmake.write_text(text)
+            print('fastboot CMake: restored pinned engine.cpp, protocol.cpp and Linux utility sources', flush=True)
+
+    adb_cmake = ROOT / 'platform-tools/adb.cmake'
+    if adb_cmake.is_file():
+        text = adb_cmake.read_text()
+        if 'SDK_AOSP_ADB_LEGACY_CORE_SOURCE_FALLBACK' not in text:
+            marker = 'add_library(libadb STATIC\n'
+            if marker not in text:
+                raise RuntimeError('cannot locate libadb target in {}'.format(adb_cmake))
+            block = (
+                '# SDK_AOSP_ADB_LEGACY_CORE_SOURCE_FALLBACK\n'
+                '# Android Q/P keep several host ADB implementation units at the adb root;\n'
+                '# newer snapshots move them under client/ or fdevent/. Add only the first\n'
+                '# existing fallback when the modern path is absent and avoid duplicate units.\n'
+                'function(append_aosp_adb_source_fallback modern_relative)\n'
+                '    if(EXISTS "${SRC}/adb/${modern_relative}")\n'
+                '        return()\n'
+                '    endif()\n'
+                '    foreach(_candidate IN LISTS ARGN)\n'
+                '        if(EXISTS "${_candidate}")\n'
+                '            list(FIND ADB_CORE_SOURCES "${_candidate}" _source_index)\n'
+                '            if(_source_index EQUAL -1)\n'
+                '                list(APPEND ADB_CORE_SOURCES "${_candidate}")\n'
+                '                set(ADB_CORE_SOURCES "${ADB_CORE_SOURCES}" PARENT_SCOPE)\n'
+                '            endif()\n'
+                '            return()\n'
+                '        endif()\n'
+                '    endforeach()\n'
+                'endfunction()\n'
+                'append_aosp_adb_source_fallback("fdevent/fdevent.cpp" "${SRC}/adb/fdevent.cpp" "${SRC}/core/adb/fdevent.cpp")\n'
+                'append_aosp_adb_source_fallback("client/transport_local.cpp" "${SRC}/adb/transport_local.cpp" "${SRC}/core/adb/transport_local.cpp")\n'
+                'append_aosp_adb_source_fallback("client/transport_usb.cpp" "${SRC}/adb/transport_usb.cpp" "${SRC}/core/adb/transport_usb.cpp")\n'
+                'append_aosp_adb_source_fallback("client/usb_dispatch.cpp" "${SRC}/adb/usb_dispatch.cpp" "${SRC}/core/adb/usb_dispatch.cpp")\n'
+                'append_aosp_adb_source_fallback("client/usb_linux.cpp" "${SRC}/adb/usb_linux.cpp" "${SRC}/core/adb/usb_linux.cpp")\n'
+                'append_aosp_adb_source_fallback("client/usb_libusb.cpp" "${SRC}/adb/usb_libusb.cpp" "${SRC}/core/adb/usb_libusb.cpp")\n'
+                'append_aosp_adb_source_fallback("client/auth.cpp" "${SRC}/adb/auth.cpp" "${SRC}/core/adb/auth.cpp")\n'
+                'append_aosp_adb_source_fallback("client/transport_mdns.cpp" "${SRC}/adb/transport_mdns.cpp" "${SRC}/core/adb/transport_mdns.cpp")\n'
+                'append_aosp_adb_source_fallback("client/mdns_utils.cpp" "${SRC}/adb/mdns_utils.cpp" "${SRC}/core/adb/mdns_utils.cpp")\n'
+                'append_aosp_adb_source_fallback("client/adb_wifi.cpp" "${SRC}/adb/adb_wifi.cpp" "${SRC}/core/adb/adb_wifi.cpp")\n'
+                'append_aosp_adb_source_fallback("fdevent/fdevent_epoll.cpp" "${SRC}/adb/fdevent_epoll.cpp" "${SRC}/core/adb/fdevent_epoll.cpp")\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+
+        if 'set(ADB_ANDROID_PUBKEY_SOURCE)' not in text:
+            anchor = 'append_existing_sources(ADB_EXECUTABLE_SOURCES'
+            anchor_pos = text.find(anchor)
+            old_start = text.rfind('if(EXISTS "${SRC}/core/libcrypto_utils/android_pubkey.cpp")', 0, anchor_pos)
+            if anchor_pos < 0 or old_start < 0:
+                raise RuntimeError('cannot locate legacy android_pubkey source selection in {}'.format(adb_cmake))
+            old_end = text.find('\nendif()', old_start)
+            if old_end < 0:
+                raise RuntimeError('cannot locate end of legacy android_pubkey source selection in {}'.format(adb_cmake))
+            old_end += len('\nendif()')
+            replacement = (
+                'set(ADB_ANDROID_PUBKEY_SOURCE)\n'
+                'foreach(_pubkey_source\n'
+                '    "${SRC}/core/libcrypto_utils/android_pubkey.cpp"\n'
+                '    "${SRC}/core/libcrypto_utils/android_pubkey.c")\n'
+                '    if(EXISTS "${_pubkey_source}")\n'
+                '        list(APPEND ADB_ANDROID_PUBKEY_SOURCE "${_pubkey_source}")\n'
+                '    endif()\n'
+                'endforeach()\n'
+                'if(ADB_ANDROID_PUBKEY_SOURCE)\n'
+                '    add_library(libcrypto STATIC ${ADB_ANDROID_PUBKEY_SOURCE})\n'
+                '    target_include_directories(libcrypto PRIVATE\n'
+                '        ${SRC}/core/libcrypto_utils/include\n'
+                '        ${SRC}/boringssl/include\n'
+                '    )\n'
+                'else()\n'
+                '    message(FATAL_ERROR "ADB requires android_pubkey_encode, but the pinned system/core libcrypto_utils source is missing")\n'
+                'endif()'
+            )
+            text = text[:old_start] + replacement + text[old_end:]
+        adb_cmake.write_text(text)
+
+    libusb_cmake = ROOT / 'lib/libusb.cmake'
+    if libusb_cmake.is_file():
+        text = libusb_cmake.read_text()
+        if 'LIBUSB_POLL_POSIX_SOURCE' not in text:
+            marker = 'add_library(libusb STATIC\n'
+            source_marker = '    ${LIBUSB_EVENTS_POSIX_SOURCE}\n'
+            if marker not in text or source_marker not in text:
+                raise RuntimeError('cannot locate libusb source list in {}'.format(libusb_cmake))
+            block = (
+                '# SDK_AOSP_LIBUSB_POLL_POSIX_SOURCE\n'
+                '# Android platform-tools snapshots using the classic POSIX backend\n'
+                '# require poll_posix.c for usbi_pipe(), referenced by io.c/netlink.\n'
+                'set(LIBUSB_POLL_POSIX_SOURCE)\n'
+                'if(EXISTS "${SRC}/libusb/libusb/os/poll_posix.c")\n'
+                '    list(APPEND LIBUSB_POLL_POSIX_SOURCE "${SRC}/libusb/libusb/os/poll_posix.c")\n'
+                'endif()\n\n'
+            )
+            text = text.replace(marker, block + marker, 1)
+            text = text.replace(source_marker, source_marker + '    ${LIBUSB_POLL_POSIX_SOURCE}\n', 1)
+            libusb_cmake.write_text(text)
+            print('libusb CMake: included pinned poll_posix.c backend when present', flush=True)
+
 def main():
     version = tools_version()
     parser = argparse.ArgumentParser()
@@ -2417,6 +2541,7 @@ def main():
         ensure_art_build_defines()
         ensure_art_memory_tool_compat()
         normalize_release_cmake_targets()
+        ensure_android_tools_native_link_sources()
         ensure_aidl_bison_header_requires()
         ensure_aidl_main_cpp_excluded()
         ensure_historical_android_api_compat()
@@ -2449,6 +2574,7 @@ def main():
         patches()
 
     normalize_release_cmake_targets()
+    ensure_android_tools_native_link_sources()
     ensure_aidl_bison_header_requires()
     ensure_aidl_main_cpp_excluded()
     ensure_historical_android_api_compat()
