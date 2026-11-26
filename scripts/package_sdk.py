@@ -530,11 +530,11 @@ def main():
 
         # Platform Tools and Build Tools have independent version trains. For the
         # 37.0.3 branch, publish this repository's next Build Tools repackaging
-        # revision as 37.0.1 while retaining the official Google 37.0.0 archive as
+        # revision as 37.0.3 while retaining the official Google 37.0.0 archive as
         # the Java/resource base. Native binaries are rebuilt from the selected AOSP
         # source tag, and both SDK metadata files are rewritten and verified below.
         package_build_tools_version = (
-            "37.0.1" if args.version == "37.0.3" else official_build_tools_version
+            "37.0.3" if args.version == "37.0.3" else official_build_tools_version
         )
 
         pt_extract = root / "platform-tools-extracted"
