@@ -140,6 +140,17 @@ jobs:
           name: sources-${{ needs.prepare.outputs.version }}
           path: .
 
+      # GitHub Actions artifacts do not preserve executable file permissions.
+      # protoc is copied as a regular executable by build.py in the prepare job,
+      # so restore its mode before CMake tries to execute it in each ABI job.
+      - name: Restore and verify host protoc executable
+        run: |
+          set -euo pipefail
+          test -f host-tools/protoc
+          chmod 755 host-tools/protoc
+          test -x host-tools/protoc
+          host-tools/protoc --version
+
       - name: Setup NDK
         id: ndk
         if: env.TOOLCHAIN == 'ndk'
