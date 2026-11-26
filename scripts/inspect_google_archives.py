@@ -15,7 +15,8 @@ from pathlib import Path
 VERSIONS = (
     "28.0.0", "28.0.1", "28.0.2", "28.0.3",
     "29.0.0", "29.0.1", "29.0.2", "29.0.3",
-    "29.0.4", "29.0.5", "29.0.6",
+    "29.0.4", "29.0.5", "29.0.6", "30.0.2",
+    "33.0.4", "34.0.3", "36.1.0",
 )
 BASE = "https://dl.google.com/android/repository/platform-tools_r{}-linux.zip"
 
@@ -57,16 +58,18 @@ def inspect(version):
 
 def main():
     results = []
+    failures = []
     for version in VERSIONS:
         try:
             result = inspect(version)
             results.append(result)
             print(json.dumps(result, sort_keys=True))
         except Exception as error:
-            failure = {"version": version, "error": str(error)}
+            failure = {"version": version, "status": "unavailable_or_invalid", "error": str(error)}
+            failures.append(failure)
             print(json.dumps(failure, sort_keys=True))
-            raise
     print("ARCHIVE_CHECKSUM_RESULTS=" + json.dumps(results, sort_keys=True))
+    print("ARCHIVE_CHECKSUM_FAILURES=" + json.dumps(failures, sort_keys=True))
 
 
 if __name__ == "__main__":
