@@ -520,13 +520,22 @@ def main():
             build_tools_urls, bt_zip, official_checksums, download_records, "build-tools"
         )
         selected_build_tools_filename = selected_build_tools_url.rsplit("/", 1)[-1]
-        build_tools_version = build_tools_revisions.get(selected_build_tools_filename)
-        if not build_tools_version:
+        official_build_tools_version = build_tools_revisions.get(selected_build_tools_filename)
+        if not official_build_tools_version:
             raise RuntimeError(
                 "No official Google Build Tools package revision for {}".format(
                     selected_build_tools_filename
                 )
             )
+
+        # Platform Tools and Build Tools have independent version trains. For the
+        # 37.0.3 branch, publish this repository's next Build Tools repackaging
+        # revision as 37.0.1 while retaining the official Google 37.0.0 archive as
+        # the Java/resource base. Native binaries are rebuilt from the selected AOSP
+        # source tag, and both SDK metadata files are rewritten and verified below.
+        package_build_tools_version = (
+            "37.0.1" if args.version == "37.0.3" else official_build_tools_version
+        )
 
         pt_extract = root / "platform-tools-extracted"
         bt_extract = root / "build-tools-extracted"
@@ -555,7 +564,18 @@ def main():
             bt_root = root / f"bt-{abi}"
             shutil.copytree(official_pt, pt_root)
             shutil.copytree(official_bt, bt_root)
-            build_tools_version, build_tools_pkg_revision = read_build_tools_package_revision(bt_root, build_tools_version)
+            _, official_package_revision = read_build_tools_package_revision(
+                bt_root, official_build_tools_version
+            )
+            if package_build_tools_version != official_build_tools_version:
+                update_pkg_revision(bt_root, package_build_tools_version)
+                update_sdk_package_xml(
+                    bt_root,
+                    "build-tools;" + package_build_tools_version,
+                    package_build_tools_version,
+                    "Android SDK Build-Tools " + package_build_tools_version,
+                )
+            build_tools_pkg_revision = package_build_tools_version
 
             # Keep the official Java tools/resources intact; adapt only launcher shebangs
             # for Android's shell environment.
@@ -590,8 +610,8 @@ def main():
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
                 archive.add(pt_root, arcname="platform-tools")
 
-            bt_output = args.output / f"build-tools-{build_tools_version}-{abi}.zip"
-            create_build_tools_zip(bt_root, bt_output, build_tools_version)
+            bt_output = args.output / f"build-tools-{package_build_tools_version}-{abi}.zip"
+            create_build_tools_zip(bt_root, bt_output, package_build_tools_version)
 
             with tarfile.open(pt_output, "r:gz") as archive:
                 pt_metadata = archive.extractfile("platform-tools/source.properties")
@@ -605,12 +625,12 @@ def main():
                     raise RuntimeError(f"{abi}: platform-tools archive missing {sorted(missing)}")
 
             with zipfile.ZipFile(bt_output) as archive:
-                bt_metadata = archive.read(f"{build_tools_version}/source.properties")
-                if f"Pkg.Revision={build_tools_pkg_revision}".encode() not in bt_metadata:
+                bt_metadata = archive.read(f"{package_build_tools_version}/source.properties")
+                if f"Pkg.Revision={package_build_tools_version}".encode() not in bt_metadata:
                     raise RuntimeError(f"{abi}: build-tools source.properties has the wrong Pkg.Revision")
                 members = set(archive.namelist())
                 missing = {
-                    f"{build_tools_version}/{name}"
+                    f"{package_build_tools_version}/{name}"
                     for name in GROUPS["build-tools"] + GROUPS["others"]
                 } - members
                 if missing:
