@@ -247,8 +247,15 @@ def main():
         root = Path(temp)
         pt_zip = root / "platform-tools.zip"
         bt_zip = root / "build-tools.zip"
+        # 34.0.3 has an AOSP source tag, but Google did not retain a
+        # verifiable Linux SDK archive/checksum for this pre-release build.
+        # Use the last verifiable official package baseline (34.0.0) and
+        # replace its native tools with the binaries built from the 34.0.3 tag.
+        platform_tools_archive_version = (
+            "34.0.0" if args.version == "34.0.3" else args.version
+        )
         download(
-            f"https://dl.google.com/android/repository/platform-tools_r{args.version}-linux.zip",
+            f"https://dl.google.com/android/repository/platform-tools_r{platform_tools_archive_version}-linux.zip",
             pt_zip, official_checksums, download_records, "platform-tools",
         )
         # Google omits the trailing .0.0 in the archive filename for
