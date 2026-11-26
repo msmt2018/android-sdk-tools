@@ -5,6 +5,10 @@ on:
     branches:
       - archive-checksum-bootstrap
 
+concurrency:
+  group: archive-checksum-bootstrap
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
