@@ -94,6 +94,19 @@ jobs:
             source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
 
+      - name: Upload prepared source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: sources-${{ steps.version.outputs.version }}
+          path: |
+            src/
+            !src/**/.git
+            host-tools/
+            source-lock.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
       - name: Upload exact source lock
         uses: actions/upload-artifact@v4
         with:
@@ -121,30 +134,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends ninja-build bison flex
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - name: Download prepared source snapshot
+        uses: actions/download-artifact@v4
         with:
-          go-version: stable
-          cache: false
-
-      - name: Restore sources
-        id: sources
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            src
-            !src/**/.git
-            host-tools
-            source-lock.json
-          key: ${{ needs.prepare.outputs.cache-key }}
-          fail-on-cache-miss: false
-
-      - name: Fetch sources when cache restore is unavailable
-        if: steps.sources.outputs.cache-hit != 'true'
-        run: |
-          rm -rf src host-tools
-          python3 get_source.py --tags "${{ needs.prepare.outputs.source-tag }}"
-          python3 build.py --protoc-only --protoc-output host-tools/protoc
+          name: sources-${{ needs.prepare.outputs.version }}
+          path: .
 
       - name: Setup NDK
         id: ndk
