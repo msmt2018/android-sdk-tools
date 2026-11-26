@@ -248,6 +248,23 @@ def patches():
 
     replace_in_file('src/abseil-cpp/CMakeLists.txt', '/usr/src/googletest', '${CMAKE_SOURCE_DIR}/src/googletest')
 
+    # Some 35.x BoringSSL tags keep their CMake project under src/.
+    # The top-level build adds src/boringssl, so provide a minimal wrapper
+    # instead of assuming every upstream snapshot has a root CMakeLists.txt.
+    boringssl_root = ROOT / 'src/boringssl'
+    boringssl_root_cmake = boringssl_root / 'CMakeLists.txt'
+    boringssl_nested_cmake = boringssl_root / 'src/CMakeLists.txt'
+    if not boringssl_root_cmake.is_file():
+        if not boringssl_nested_cmake.is_file():
+            raise RuntimeError(
+                'BoringSSL CMakeLists.txt missing at root and src/: {}'.format(boringssl_root)
+            )
+        boringssl_root_cmake.write_text(
+            '# Compatibility entry point for the upstream BoringSSL src/ CMake project.\n'
+            'add_subdirectory(src)\n',
+            encoding='utf-8',
+        )
+
     # symlink googletest to boringssl/**/googletest
     dest = ROOT / 'src/boringssl/src/third_party/googletest'
     if dest.parent.exists() and not dest.exists():
