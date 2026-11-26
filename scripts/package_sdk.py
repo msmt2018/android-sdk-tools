@@ -393,7 +393,9 @@ def main():
 
             # Normalize Google package metadata only after all native binaries are replaced.
             normalize_source_properties(pt_root, args.version)
-            normalize_source_properties(bt_root, args.version)
+            # Build Tools must retain the selected official base package revision;
+            # only Platform Tools is rewritten to the branch's release version.
+            normalize_source_properties(bt_root, build_tools_base_version)
 
             pt_output = args.output / f"platform-tools-{args.version}-{abi}.tar.gz"
             with tarfile.open(pt_output, "w:gz", compresslevel=9) as archive:
