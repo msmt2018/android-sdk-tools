@@ -209,8 +209,13 @@ def download_first_available(urls, path, checksums, records, label):
             ))
         records.append({
             "component": label, "url": url, "filename": filename,
-            "size": actual_size, "official_sha1": expected_sha1,
-            "downloaded_sha256": sha256_file(path), "official_manifest": manifest_url,
+            "size": actual_size, "verified_sha1": expected_sha1,
+            "downloaded_sha256": sha256_file(path), "checksum_source": manifest_url,
+            "checksum_provenance": (
+                "locally_computed_from_official_google_https_download"
+                if "observed 2026-11-26" in manifest_url
+                else "google_repository_manifest"
+            ),
         })
         print("Verified Google archive {} SHA-1={}".format(filename, actual_sha1))
         return url
