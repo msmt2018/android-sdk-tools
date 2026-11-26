@@ -1,0 +1,20 @@
+name: Audit historical Google Platform Tools archives
+
+on:
+  push:
+    branches:
+      - archive-checksum-bootstrap
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-archives:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inspect official Google archives
+        run: python3 scripts/inspect_google_archives.py
