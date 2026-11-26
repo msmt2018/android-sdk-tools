@@ -314,51 +314,61 @@ def update_pkg_revision(sdk_root, version):
     print(f"updated {properties}: Pkg.Revision={version}")
 
 def read_build_tools_package_revision(sdk_root):
-    """Read and cross-check the official Build Tools revision without relabeling it."""
+    """Read the official Build Tools revision; package.xml is not in every Google archive."""
     properties = sdk_root / "source.properties"
     package_xml = sdk_root / "package.xml"
-    if not properties.is_file() or not package_xml.is_file():
-        raise RuntimeError("Build Tools base is missing source.properties/package.xml: {}".format(
-            sdk_root
-        ))
+    if not properties.is_file():
+        raise RuntimeError("Build Tools base is missing source.properties: {}".format(properties))
     content = properties.read_text(encoding="utf-8")
     matches = re.findall(r"(?m)^Pkg\.Revision\s*=\s*(.*?)\s*$", content)
     if len(matches) != 1:
         raise RuntimeError("Expected one Build Tools Pkg.Revision in {}, found {}".format(
             properties, len(matches)
         ))
-    raw_revision = matches[0]
-    source_revision = re.sub(r"\s+", "-", raw_revision.strip())
-    tree = ET.parse(package_xml)
-    package = next((node for node in tree.iter()
-                    if node.tag.rsplit("}", 1)[-1] == "localPackage"), None)
-    if package is None:
-        raise RuntimeError("Build Tools package.xml localPackage missing: {}".format(package_xml))
-    package_path = package.get("path", "")
-    if not package_path.startswith("build-tools;"):
-        raise RuntimeError("Unexpected Build Tools package path {} in {}".format(
-            package_path, package_xml
+    raw_revision = matches[0].strip()
+    source_revision = re.sub(r"\s+", "-", raw_revision)
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\d+)?", source_revision):
+        raise RuntimeError("Invalid official Build Tools revision {!r} in {}".format(
+            raw_revision, properties
         ))
-    revision = next((node for node in package
-                     if node.tag.rsplit("}", 1)[-1] == "revision"), None)
-    if revision is None:
-        raise RuntimeError("Build Tools package.xml revision missing: {}".format(package_xml))
-    fields = {node.tag.rsplit("}", 1)[-1]: node.text for node in revision}
-    xml_revision = "{}.{}.{}".format(
-        fields.get("major", ""), fields.get("minor", ""), fields.get("micro", "")
-    )
-    if fields.get("preview"):
-        xml_revision += "-rc{}".format(fields["preview"])
-    if package_path.split(";", 1)[1] != xml_revision or source_revision != xml_revision:
-        raise RuntimeError(
-            "Build Tools metadata mismatch: package path={}, XML revision={}, "
-            "source.properties revision={} ({})".format(
-                package_path, xml_revision, raw_revision, sdk_root
-            )
+
+    # Google distributes package.xml separately from some host ZIP archives.
+    # source.properties is shipped in the archive and remains the authoritative
+    # revision. Cross-check package.xml when present, but do not reject a valid
+    # official archive solely because the optional SDK-manager metadata is absent.
+    if package_xml.is_file():
+        tree = ET.parse(package_xml)
+        package = next((node for node in tree.iter()
+                        if node.tag.rsplit("}", 1)[-1] == "localPackage"), None)
+        if package is None:
+            raise RuntimeError("Build Tools package.xml localPackage missing: {}".format(package_xml))
+        package_path = package.get("path", "")
+        if not package_path.startswith("build-tools;"):
+            raise RuntimeError("Unexpected Build Tools package path {} in {}".format(
+                package_path, package_xml
+            ))
+        revision = next((node for node in package
+                         if node.tag.rsplit("}", 1)[-1] == "revision"), None)
+        if revision is None:
+            raise RuntimeError("Build Tools package.xml revision missing: {}".format(package_xml))
+        fields = {node.tag.rsplit("}", 1)[-1]: node.text for node in revision}
+        xml_revision = "{}.{}.{}".format(
+            fields.get("major", ""), fields.get("minor", ""), fields.get("micro", "")
         )
-    return xml_revision, raw_revision
-
-
+        if fields.get("preview"):
+            xml_revision += "-rc{}".format(fields["preview"])
+        if package_path.split(";", 1)[1] != xml_revision or source_revision != xml_revision:
+            raise RuntimeError(
+                "Build Tools metadata mismatch: package path={}, XML revision={}, "
+                "source.properties revision={} ({})".format(
+                    package_path, xml_revision, raw_revision, sdk_root
+                )
+            )
+    else:
+        print("Build Tools archive has no package.xml; using verified source.properties revision {}".format(
+            source_revision
+        ))
+    return source_revision, raw_revision
 def create_build_tools_zip(source, output, version):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED,
                          compresslevel=9, allowZip64=True) as archive:
