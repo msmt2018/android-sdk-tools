@@ -62,11 +62,14 @@ jobs:
             SOURCE_TAG="android-16.0.0_r1"
           elif [ "$VERSION" = "36.0.1" ]; then
             SOURCE_TAG="android-16.0.0_r2"
-          elif [ "$VERSION" = "37.0.0" ] || [ "$VERSION" = "37.0.1" ] || [ "$VERSION" = "37.0.2" ] || [ "$VERSION" = "37.0.3" ]; then
-            # Platform Tools 37.0.3 is a November 2026 Canary release. AOSP does not
-            # publish a matching platform-tools-* tag for this release line.
-            # Use the official Android 17 source snapshot for all AOSP libraries.
+          elif [ "$VERSION" = "37.0.0" ] || [ "$VERSION" = "37.0.1" ] || [ "$VERSION" = "37.0.2" ]; then
+            # Use the Android 17 GA source snapshot for Platform Tools 37.0.0-37.0.2.
             SOURCE_TAG="android-17.0.0_r1"
+          elif [ "$VERSION" = "37.0.3" ]; then
+            # Platform Tools 37.0.3 uses the latest published Android 17 security
+            # source snapshot. Build Tools 37.0.1 is a repository repackaging revision
+            # based on Google's official 37.0.0 host archive.
+            SOURCE_TAG="android-security-17.0.0_r3"
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "source-tag=$SOURCE_TAG" >> "$GITHUB_OUTPUT"
@@ -271,7 +274,7 @@ jobs:
           set -euo pipefail
           TAG="platform-tools-$VERSION"
           git push --force origin "$GITHUB_SHA:refs/tags/$TAG"
-          NOTES="Release packages for Android Platform Tools $VERSION and official Build Tools 37.0.0."
+          NOTES="Release packages for Android Platform Tools $VERSION and repository-repackaged Build Tools 37.0.1. Build Tools host archive base: official Google 37.0.0; AOSP source tag: android-security-17.0.0_r3."
           printf '%s\\n\\nCommit: %s\\n' "$NOTES" "$GITHUB_SHA" > notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
