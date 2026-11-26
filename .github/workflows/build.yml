@@ -70,7 +70,7 @@ jobs:
             host-tools
             source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
-          lookup-only: true
+          lookup-only: false
 
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
@@ -113,6 +113,13 @@ jobs:
             host-tools
             source-lock.json
           key: ${{ steps.version.outputs.cache-key }}
+
+      - name: Upload exact source lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-lock-${{ steps.version.outputs.version }}
+          path: source-lock.json
+          if-no-files-found: error
 
   build:
     needs: prepare
@@ -209,6 +216,12 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download exact source lock
+        uses: actions/download-artifact@v4
+        with:
+          name: source-lock-${{ needs.prepare.outputs.version }}
+          path: .
 
       - name: Download all four ABI build artifacts
         uses: actions/download-artifact@v4
