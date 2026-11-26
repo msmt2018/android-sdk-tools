@@ -84,6 +84,9 @@ def load_official_archive_checksums():
         "platform-tools_r35.0.2-linux.zip": ("f6406982a79d67e40b1ca3cb9e5e2cc783c0f232", 7472902, "https://github.com/f-droid/android-sdk-transparency-log/blob/50fcb2cb510daf48c73341118c3180ddecbbc595/android/repository/repository2-1.xml"),
         "platform-tools_r36.0.0-linux.zip": ("ddb0cd76d952d9a1f4c8a32e4ec0e73d7a8bebb8", 7904253, "https://github.com/f-droid/android-sdk-transparency-log/blob/8d3a986511db55ee1a061313e9e0337bb28920bf/android/repository/repository2-1.xml"),
     }
+    archived_google_checksums.update({
+        "platform-tools_r35.0.1-linux.zip": ("959bf20c19ab1c82861ae4a7e7fdb293f4f1fe75", 7035310, "https://github.com/f-droid/android-sdk-transparency-log/blob/939160bdd8698bc70360d0a78e792306e5391366/android/repository/repository2-1.xml"),
+    })
     for filename, metadata in archived_google_checksums.items():
         checksums.setdefault(filename, metadata)
 
