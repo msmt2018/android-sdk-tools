@@ -227,14 +227,6 @@ GROUPS = {
 }
 
 
-def download(url, path):
-    subprocess.run(
-        ["curl", "-fL", "--retry", "3", "--retry-all-errors", "-o", str(path), url],
-        check=True,
-    )
-    if not zipfile.is_zipfile(path):
-        raise RuntimeError("Invalid Google SDK ZIP: " + url)
-
 
 def extract(path, dest):
     with zipfile.ZipFile(path) as archive:
