@@ -30,6 +30,9 @@ GROUPS = {
 
 def load_official_archive_checksums():
     urls = (
+        # Legacy repository manifests retain checksums for historical archives.
+        "https://dl.google.com/android/repository/repository-12.xml",
+        "https://dl.google.com/android/repository/repository-11.xml",
         "https://dl.google.com/android/repository/repository2-3.xml",
         "https://dl.google.com/android/repository/repository2-2.xml",
         "https://dl.google.com/android/repository/repository2-1.xml",
