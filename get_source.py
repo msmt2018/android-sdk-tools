@@ -237,19 +237,19 @@ def ensure_androidfw_theme_entry_definition():
 
     text = path.read_text()
     definition_marker = (
-        '  struct Entry {\\n'
-        '    uint32_t attr_res_id;\\n'
+        '  struct Entry {\n'
+        '    uint32_t attr_res_id;\n'
         '    ApkAssetsCookie cookie;'
     )
     if definition_marker not in text:
         declaration = '  struct Entry;'
         if declaration in text:
             definition = (
-                '  struct Entry {\\n'
-                '    uint32_t attr_res_id;\\n'
-                '    ApkAssetsCookie cookie;\\n'
-                '    uint32_t type_spec_flags;\\n'
-                '    Res_value value;\\n'
+                '  struct Entry {\n'
+                '    uint32_t attr_res_id;\n'
+                '    ApkAssetsCookie cookie;\n'
+                '    uint32_t type_spec_flags;\n'
+                '    Res_value value;\n'
                 '  };'
             )
             text = text.replace(declaration, definition, 1)
