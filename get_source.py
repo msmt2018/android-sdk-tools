@@ -236,20 +236,25 @@ def ensure_androidfw_theme_entry_definition():
         raise RuntimeError('Android framework AssetManager2.h not found: {}'.format(path))
 
     text = path.read_text()
-    definition_marker = '  struct Entry {\n    ApkAssetsCookie cookie;'
+    definition_marker = (
+        '  struct Entry {\\n'
+        '    uint32_t attr_res_id;\\n'
+        '    ApkAssetsCookie cookie;'
+    )
     if definition_marker not in text:
         declaration = '  struct Entry;'
-        if declaration not in text:
-            raise RuntimeError('cannot locate Theme::Entry forward declaration in {}'.format(path))
-
-        definition = (
-            '  struct Entry {\n'
-            '    ApkAssetsCookie cookie;\n'
-            '    uint32_t type_spec_flags;\n'
-            '    Res_value value;\n'
-            '  };'
-        )
-        text = text.replace(declaration, definition, 1)
+        if declaration in text:
+            definition = (
+                '  struct Entry {\\n'
+                '    uint32_t attr_res_id;\\n'
+                '    ApkAssetsCookie cookie;\\n'
+                '    uint32_t type_spec_flags;\\n'
+                '    Res_value value;\\n'
+                '  };'
+            )
+            text = text.replace(declaration, definition, 1)
+        else:
+            raise RuntimeError('cannot locate Theme::Entry declaration in {}'.format(path))
         path.write_text(text)
 
     verified = path.read_text()
