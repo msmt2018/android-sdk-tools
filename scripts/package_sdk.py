@@ -72,6 +72,10 @@ def load_official_archive_checksums():
         "platform-tools_r35.0.2-linux.zip": ("f6406982a79d67e40b1ca3cb9e5e2cc783c0f232", 7472902, "https://github.com/f-droid/android-sdk-transparency-log/blob/50fcb2cb510daf48c73341118c3180ddecbbc595/android/repository/repository2-1.xml"),
         "platform-tools_r36.0.0-linux.zip": ("ddb0cd76d952d9a1f4c8a32e4ec0e73d7a8bebb8", 7904253, "https://github.com/f-droid/android-sdk-transparency-log/blob/8d3a986511db55ee1a061313e9e0337bb28920bf/android/repository/repository2-1.xml"),
     }
+    archived_google_checksums.update({
+        "platform-tools_r36.0.1-linux.zip": ("5ea5ed0ce3734d4f7dfed7f91eeda090101c3411", 8128518, "https://github.com/f-droid/android-sdk-transparency-log/blob/fe21f759ab5f5732a6504974afd3c21cf8a71616/android/repository/repository2-1.xml"),
+        "platform-tools_r36.0.2-linux.zip": ("3c5c54a14f51a2da59d7c4874372619a42deb94d", 8785200, "https://github.com/f-droid/android-sdk-transparency-log/blob/57ce258261e537138359b6254d6ba59572387ab7/android/repository/repository2-1.xml"),
+    })
     for filename, metadata in archived_google_checksums.items():
         checksums.setdefault(filename, metadata)
 
