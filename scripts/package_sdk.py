@@ -75,6 +75,13 @@ def load_official_archive_checksums():
     for filename, metadata in archived_google_checksums.items():
         checksums.setdefault(filename, metadata)
 
+    checksums.update({
+        "platform-tools_r37.0.1-linux.zip": (
+            "477254aa5f903c15cf51001717bdf347fb6b53e0", 9054187,
+            "https://dl.google.com/android/repository/platform-tools_r37.0.1-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)",
+        ),
+    })
+
     if not checksums:
         raise RuntimeError("No official Google SDK archive checksums could be loaded")
     return checksums, loaded
