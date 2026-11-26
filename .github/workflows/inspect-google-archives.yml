@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   inspect-archives:
+    # Audit current and legacy Google repository manifests before hashing archives.
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
