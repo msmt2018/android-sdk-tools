@@ -126,11 +126,39 @@ def download(url, path, checksums, records, label):
     print("Verified Google archive {} SHA-1={}".format(filename, actual_sha1))
 
 
+def create_sdk_package_xml(path, package_path, version, display_name):
+    """Create SDK Manager local metadata when Google's archive omits package.xml.
+
+    Official SDK ZIPs commonly ship source.properties but omit the installed
+    package.xml. The SDK Manager requires a localPackage descriptor for modern
+    package discovery, so generate the minimal generic package descriptor.
+    """
+    major, minor, micro = version.split(".", 2)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    namespace = "http://schemas.android.com/repository/android/common/02"
+    generic_namespace = "http://schemas.android.com/repository/android/generic/02"
+    ET.register_namespace("ns2", namespace)
+    ET.register_namespace("ns3", generic_namespace)
+    root = ET.Element("{" + namespace + "}repository")
+    package = ET.SubElement(root, "localPackage", {
+        "path": package_path,
+        "obsolete": "false",
+    })
+    details = ET.SubElement(package, "type-details")
+    details.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+    details.set("{http://www.w3.org/2001/XMLSchema-instance}type",
+                "ns3:genericDetailsType")
+    revision = ET.SubElement(package, "revision")
+    for name, value in (("major", major), ("minor", minor), ("micro", micro)):
+        ET.SubElement(revision, name).text = value
+    ET.SubElement(package, "display-name").text = display_name
+    ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
+
+
 def update_sdk_package_xml(root, package_path, version, display_name):
     path = root / "package.xml"
     if not path.is_file():
-        raise RuntimeError("SDK package.xml missing: {}".format(path))
-    major, minor, micro = version.split(".", 2)
+        create_sdk_package_xml(path, package_path, version, display_name)
     tree = ET.parse(path)
     package = next((node for node in tree.iter()
                     if node.tag.rsplit("}", 1)[-1] == "localPackage"), None)
