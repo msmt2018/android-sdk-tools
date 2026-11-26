@@ -260,8 +260,8 @@ def patches():
                 'BoringSSL CMakeLists.txt missing at root and src/: {}'.format(boringssl_root)
             )
         boringssl_root_cmake.write_text(
-            '# Compatibility entry point for the upstream BoringSSL src/ CMake project.\\n'
-            'add_subdirectory(src)\\n',
+            '# Compatibility entry point for the upstream BoringSSL src/ CMake project.\n'
+            'add_subdirectory(src)\n',
             encoding='utf-8',
         )
 
