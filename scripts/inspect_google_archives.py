@@ -20,6 +20,52 @@ VERSIONS = (
 )
 BASE = "https://dl.google.com/android/repository/platform-tools_r{}-linux.zip"
 
+MANIFESTS = (
+    "https://dl.google.com/android/repository/repository-12.xml",
+    "https://dl.google.com/android/repository/repository-11.xml",
+    "https://dl.google.com/android/repository/repository2-1.xml",
+)
+
+
+def inspect_historical_manifests():
+    expected = {
+        "platform-tools_r{}.0.0-linux.zip".format(v)
+        for v in ("28", "29", "30", "31", "32", "33", "34", "35", "36", "37")
+    }
+    expected.update(BASE.format(v) for v in VERSIONS)
+    records = []
+    for url in MANIFESTS:
+        try:
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "android-sdk-tools-archive-audit/1.0"}
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
+                root = __import__("xml.etree.ElementTree", fromlist=["ElementTree"]).fromstring(response.read())
+            for complete in root.iter():
+                if complete.tag.rsplit("}", 1)[-1] != "complete":
+                    continue
+                fields = {node.tag.rsplit("}", 1)[-1]: node for node in complete}
+                url_node = fields.get("url")
+                checksum_node = fields.get("checksum")
+                size_node = fields.get("size")
+                if url_node is None or checksum_node is None or size_node is None:
+                    continue
+                filename = url_node.text.rsplit("/", 1)[-1]
+                if filename not in expected:
+                    continue
+                if checksum_node.attrib.get("type", "sha1").lower() not in ("sha1", "sha-1"):
+                    continue
+                records.append({
+                    "manifest": url,
+                    "filename": filename,
+                    "sha1": checksum_node.text.strip().lower(),
+                    "size": int(size_node.text.strip()),
+                })
+        except Exception as error:
+            print(json.dumps({"manifest": url, "status": "unavailable", "error": str(error)}, sort_keys=True))
+    print("HISTORICAL_GOOGLE_MANIFEST_CHECKSUMS=" + json.dumps(records, sort_keys=True))
+    return records
+
 
 def inspect(version):
     url = BASE.format(version)
@@ -57,6 +103,7 @@ def inspect(version):
 
 
 def main():
+    inspect_historical_manifests()
     results = []
     failures = []
     for version in VERSIONS:
