@@ -80,7 +80,7 @@ def load_official_archive_checksums():
         "platform-tools_r33.0.2-linux.zip": ("6bf4f747ad929b02378b44ce083b4502d26109c7", 7406632, "https://github.com/f-droid/android-sdk-transparency-log/blob/0a9f32327df1025fbc9bead15f711eda6e50593d/android/repository/repository2-1.xml"),
         "platform-tools_r33.0.3-linux.zip": ("deb43a0f9eaccd16a47937367ef3b53db3db8d10", 7505569, "https://github.com/f-droid/android-sdk-transparency-log/blob/7643ac590756210ed124780d19ec146c960a68ea/android/repository/repository2-1.xml"),
         "platform-tools_r34.0.0-linux.zip": ("86bb6c1ff4ad8af8c5bb93acabd76926b6388826", 6384379, "https://github.com/f-droid/android-sdk-transparency-log/blob/e2a7e0093516da0290d8ef8d7e035b7ae0f805df/android/repository/repository2-1.xml"),
-        "platform-tools_r34.0.5-linux.zip": ("96097475cf7b279fdd8f218f5d043ffe94104ec3", 6333075, "https://github.com/f-droid/android-sdk-transparency-log/blob/50fcb2cb510daf48c73341118c3180ddecbbc595/android/repository/repository2-1.xml"),
+        "platform-tools_r34.0.5-linux.zip": ("96097475cf7b279fdd8f218f5d043ffe94104ec3", 6333075, "https://github.com/f-droid/android-sdk-transparency-log/blob/7aa5574a7f47272be1262755653f132d00234dc0/android/repository/repository2-3.xml"),
         "platform-tools_r35.0.2-linux.zip": ("f6406982a79d67e40b1ca3cb9e5e2cc783c0f232", 7472902, "https://github.com/f-droid/android-sdk-transparency-log/blob/50fcb2cb510daf48c73341118c3180ddecbbc595/android/repository/repository2-1.xml"),
         "platform-tools_r36.0.0-linux.zip": ("ddb0cd76d952d9a1f4c8a32e4ec0e73d7a8bebb8", 7904253, "https://github.com/f-droid/android-sdk-transparency-log/blob/8d3a986511db55ee1a061313e9e0337bb28920bf/android/repository/repository2-1.xml"),
     }
