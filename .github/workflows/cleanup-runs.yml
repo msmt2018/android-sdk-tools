@@ -9,9 +9,9 @@ on:
   workflow_dispatch:       # Run it by hand from the Actions tab, optionally as a dry run
     inputs:
       keep_days:
-        description: 'Keep runs newer than this many days (0 = delete every finished run)'
+        description: 'Keep runs newer than this many days (90 matches GitHub's default log/artifact retention window)'
         required: false
-        default: '0'
+        default: '90'
       dry_run:
         description: 'Only list what would be deleted'
         type: boolean
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}                # Auth for the gh CLI
-      KEEP_DAYS: ${{ inputs.keep_days || '0' }}    # Scheduled runs have no inputs: delete everything finished
+      KEEP_DAYS: ${{ inputs.keep_days || '90' }}   # Scheduled runs retain the last 90 days
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
       - name: Delete finished workflow runs
