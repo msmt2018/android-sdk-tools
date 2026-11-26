@@ -137,8 +137,7 @@ def create_sdk_package_xml(path, package_path, version, display_name):
     path.parent.mkdir(parents=True, exist_ok=True)
     namespace = "http://schemas.android.com/repository/android/common/02"
     generic_namespace = "http://schemas.android.com/repository/android/generic/02"
-    ET.register_namespace("ns2", namespace)
-    ET.register_namespace("ns3", generic_namespace)
+    ET.register_namespace("", namespace)
     ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
     root = ET.Element("{" + namespace + "}repository")
     root.set("xmlns:ns3", generic_namespace)
