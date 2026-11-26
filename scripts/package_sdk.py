@@ -61,6 +61,25 @@ def load_official_archive_checksums():
             checksums[url_node.text.rsplit("/", 1)[-1]] = (
                 checksum_node.text.strip().lower(), int(size_node.text.strip()), url
             )
+    # Exact bytes observed from Google's official HTTPS archive endpoint on
+    # 2026-11-26. SHA-1/SHA-256 were computed locally and ZIP CRC passed.
+    # These are observed-download pins, not hashes claimed to be published by Google.
+    observed_google_download_checksums = {
+        "platform-tools_r28.0.0-linux.zip": ("f944e69bc96ad2984a7e19febb3f3569b216699f", 5469856, "https://dl.google.com/android/repository/platform-tools_r28.0.0-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r28.0.1-linux.zip": ("74ff83bc203f01c4f04bd9316ab5a2573f023fd1", 6843966, "https://dl.google.com/android/repository/platform-tools_r28.0.1-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r28.0.2-linux.zip": ("46a4c02a9b8e4e2121eddf6025da3c979bf02e28", 11850727, "https://dl.google.com/android/repository/platform-tools_r28.0.2-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r28.0.3-linux.zip": ("3d39beebda1ee919520077ebc8f7694e1c6d6e41", 11825449, "https://dl.google.com/android/repository/platform-tools_r28.0.3-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.0-linux.zip": ("0561e28beb79b93cb46babeccf42be41ee2b4553", 12343021, "https://dl.google.com/android/repository/platform-tools_r29.0.0-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.1-linux.zip": ("698e43552531f92f7662f7cb1a47d0fd89adfb21", 12343049, "https://dl.google.com/android/repository/platform-tools_r29.0.1-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.2-linux.zip": ("d9ec5649a286a5af8220eea495572a5c4c49cb03", 12385966, "https://dl.google.com/android/repository/platform-tools_r29.0.2-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.3-linux.zip": ("9a4ca208b5ddfdfc542922f0ce21063a9e4af595", 8737802, "https://dl.google.com/android/repository/platform-tools_r29.0.3-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.4-linux.zip": ("a266af09893d9005d887e5f788ddb68f006ccd3e", 8738007, "https://dl.google.com/android/repository/platform-tools_r29.0.4-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.5-linux.zip": ("2016a7e8f3f696583c0069881f4270365e247cd7", 8116675, "https://dl.google.com/android/repository/platform-tools_r29.0.5-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r29.0.6-linux.zip": ("e95ed28330406705d47fe96bafb589be6c1f2f23", 8254604, "https://dl.google.com/android/repository/platform-tools_r29.0.6-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+        "platform-tools_r30.0.2-linux.zip": ("8f54b7c1abeed2599d418bb623773e4fb3c0697b", 9238635, "https://dl.google.com/android/repository/platform-tools_r30.0.2-linux.zip (observed 2026-11-26; local SHA-1/SHA-256; ZIP CRC passed)"),
+    }
+    checksums.update(observed_google_download_checksums)
+
     if not checksums:
         raise RuntimeError("No official Google SDK archive checksums could be loaded")
     return checksums, loaded
