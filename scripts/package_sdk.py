@@ -156,6 +156,7 @@ def create_sdk_package_xml(path, package_path, version, display_name):
 
 
 def update_sdk_package_xml(root, package_path, version, display_name):
+    major, minor, micro = version.split(".", 2)
     path = root / "package.xml"
     if not path.is_file():
         create_sdk_package_xml(path, package_path, version, display_name)
