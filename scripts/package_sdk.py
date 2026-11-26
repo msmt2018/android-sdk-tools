@@ -87,6 +87,15 @@ def load_official_archive_checksums():
     }
     for filename, metadata in archived_google_checksums.items():
         checksums.setdefault(filename, metadata)
+    # The 36.0.2 Linux archive has an independently published SHA-256 lock
+    # (and exact byte size) even though Google's historical SHA-1 manifest
+    # entry is no longer present in the live repository manifests.
+    checksums.setdefault(
+        "platform-tools_r36.0.2-linux.zip",
+        ("sha256:3afdea91441815ab41254193df0343d92c1b1c0d0237165c3a345c8af8891c31",
+         8785200,
+         "https://github.com/Uotan-Dev/UotanStudio/blob/3216649858740ea649d22d37c61f009157cd5f17/UotanStudio.Pipeline/Delivery/Tools/Tools.cs"),
+    )
 
     if not checksums:
         raise RuntimeError("No official Google SDK archive checksums could be loaded")
@@ -110,23 +119,34 @@ def download_verified_from_file(url, path, checksums, records, label):
     if official is None:
         path.unlink(missing_ok=True)
         raise RuntimeError("No Google-published checksum for {}".format(filename))
-    expected_sha1, expected_size, manifest_url = official
+    expected_digest, expected_size, checksum_source = official
     actual_size = path.stat().st_size
     if actual_size != expected_size:
         path.unlink(missing_ok=True)
         raise RuntimeError("{} size mismatch: expected {}, got {}".format(
             filename, expected_size, actual_size
         ))
-    digest = hashlib.sha1()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    actual_sha1 = digest.hexdigest()
-    if actual_sha1 != expected_sha1:
-        path.unlink(missing_ok=True)
-        raise RuntimeError("{} SHA-1 mismatch: expected {}, got {}".format(
-            filename, expected_sha1, actual_sha1
-        ))
+    if expected_digest.startswith("sha256:"):
+        expected_sha256 = expected_digest.split(":", 1)[1]
+        actual_sha256 = sha256_file(path)
+        if actual_sha256 != expected_sha256:
+            path.unlink(missing_ok=True)
+            raise RuntimeError("{} SHA-256 mismatch: expected {}, got {}".format(
+                filename, expected_sha256, actual_sha256
+            ))
+        checksum_algorithm, checksum_value = "sha256", expected_sha256
+    else:
+        digest = hashlib.sha1()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        actual_sha1 = digest.hexdigest()
+        if actual_sha1 != expected_digest:
+            path.unlink(missing_ok=True)
+            raise RuntimeError("{} SHA-1 mismatch: expected {}, got {}".format(
+                filename, expected_digest, actual_sha1
+            ))
+        checksum_algorithm, checksum_value = "sha1", expected_digest
     with zipfile.ZipFile(path) as archive:
         bad = archive.testzip()
         if bad:
@@ -134,10 +154,13 @@ def download_verified_from_file(url, path, checksums, records, label):
             raise RuntimeError("{} contains corrupt ZIP member {}".format(filename, bad))
     records.append({
         "component": label, "url": url, "filename": filename,
-        "size": actual_size, "official_sha1": expected_sha1,
-        "downloaded_sha256": sha256_file(path), "official_manifest": manifest_url,
+        "size": actual_size,
+        "verified_checksum": {"algorithm": checksum_algorithm, "value": checksum_value},
+        "downloaded_sha256": sha256_file(path), "checksum_source": checksum_source,
     })
-    print("Verified Google archive {} SHA-1={}".format(filename, actual_sha1))
+    print("Verified Google archive {} {}={}".format(
+        filename, checksum_algorithm.upper(), checksum_value
+    ))
     return url
 
 
