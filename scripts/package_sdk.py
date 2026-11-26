@@ -58,6 +58,32 @@ def load_official_archive_checksums():
             checksums[url_node.text.rsplit("/", 1)[-1]] = (
                 checksum_node.text.strip().lower(), int(size_node.text.strip()), url
             )
+    # Immutable historical snapshots of Google's repository2-1.xml, mirrored by
+    # the F-Droid Android SDK transparency log. These preserve Google's original
+    # SHA-1 and archive size after old entries disappear from the live manifests.
+    archived_google_checksums = {
+        "platform-tools_r30.0.0-linux.zip": ("d124084d621a8cb4b3eb1113d9c90be641d40494", 9337646, "https://github.com/f-droid/android-sdk-transparency-log/blob/a6a62c6d2540fa7ae36064d37030801901675a17/android/repository/repository2-1.xml"),
+        "platform-tools_r30.0.1-linux.zip": ("58393eac83fdc9a1030d81a49731c7c518e043c0", 9397456, "https://github.com/f-droid/android-sdk-transparency-log/blob/2ec704185dbf10e2ce3a0b48909d2b098a2d9d3e/android/repository/repository2-1.xml"),
+        "platform-tools_r30.0.3-linux.zip": ("3aa611654e163fae7e3dbd73b5c04e12dfe1e07b", 9238434, "https://github.com/f-droid/android-sdk-transparency-log/blob/fa2904871715fe8d91cbc1461a7616c13a6ae3a4/android/repository/repository2-1.xml"),
+        "platform-tools_r30.0.4-linux.zip": ("ec00457e833806f08ccdf6661273f0696966d947", 9542280, "https://github.com/f-droid/android-sdk-transparency-log/blob/875ca2b6e2c5ad16e9e47c6bee47fa0e3894285b/android/repository/repository2-1.xml"),
+        "platform-tools_r30.0.5-linux.zip": ("ba07433b8e34c2a51c250033abcd1442a28d0863", 13338136, "https://github.com/f-droid/android-sdk-transparency-log/blob/3e49f12669961bde2df149743bf90131ff5d822d/android/repository/repository2-1.xml"),
+        "platform-tools_r31.0.0-linux.zip": ("9da77a435aa3ab2ca63703f90c3c760921dd1d0c", 13435024, "https://github.com/f-droid/android-sdk-transparency-log/blob/1cd14482b3d30a221bfc4d2740d19e8eeceda105/android/repository/repository2-1.xml"),
+        "platform-tools_r31.0.1-linux.zip": ("35ed511710c1cb613947d429da028e80bcb10dcf", 13476900, "https://github.com/f-droid/android-sdk-transparency-log/blob/d5d6c5711635a3d93f59a38c0ecb7695dfc61859/android/repository/repository2-1.xml"),
+        "platform-tools_r31.0.2-linux.zip": ("ff02a9d8c6fa9687e1207fc0c4b84033925d452d", 13876419, "https://github.com/f-droid/android-sdk-transparency-log/blob/c033068318b185d7d5124d80cae91d682c68e2c1/android/repository/repository2-1.xml"),
+        "platform-tools_r31.0.3-linux.zip": ("f09581347ed39978abb3a99c6bb286de6adc98ef", 13302579, "https://github.com/f-droid/android-sdk-transparency-log/blob/b812bc7b55eeb887698cee52e59a61a33f50e4da/android/repository/repository2-1.xml"),
+        "platform-tools_r32.0.0-linux.zip": ("67ad18f3a2a6716d957b9ce630ea5e564171838a", 13544738, "https://github.com/f-droid/android-sdk-transparency-log/blob/623c85004e565e24dc940c643976f9c9e791f300/android/repository/repository2-1.xml"),
+        "platform-tools_r33.0.0-linux.zip": ("fe07ebd9eb60646f0651e120d69303f2e9969904", 13600680, "https://github.com/f-droid/android-sdk-transparency-log/blob/bb82f9e55786da6ce2e7b9fc92c700b6e975281b/android/repository/repository2-1.xml"),
+        "platform-tools_r33.0.1-linux.zip": ("4792ee4593e8e2395ddb87a3e82d60629eb0e977", 7449306, "https://github.com/f-droid/android-sdk-transparency-log/blob/2ee7dfd7328f1a1bc51a77f2697c60a6dcf676aa/android/repository/repository2-1.xml"),
+        "platform-tools_r33.0.2-linux.zip": ("6bf4f747ad929b02378b44ce083b4502d26109c7", 7406632, "https://github.com/f-droid/android-sdk-transparency-log/blob/0a9f32327df1025fbc9bead15f711eda6e50593d/android/repository/repository2-1.xml"),
+        "platform-tools_r33.0.3-linux.zip": ("deb43a0f9eaccd16a47937367ef3b53db3db8d10", 7505569, "https://github.com/f-droid/android-sdk-transparency-log/blob/7643ac590756210ed124780d19ec146c960a68ea/android/repository/repository2-1.xml"),
+        "platform-tools_r34.0.0-linux.zip": ("86bb6c1ff4ad8af8c5bb93acabd76926b6388826", 6384379, "https://github.com/f-droid/android-sdk-transparency-log/blob/e2a7e0093516da0290d8ef8d7e035b7ae0f805df/android/repository/repository2-1.xml"),
+        "platform-tools_r34.0.5-linux.zip": ("96097475cf7b279fdd8f218f5d043ffe94104ec3", 6333075, "https://github.com/f-droid/android-sdk-transparency-log/blob/50fcb2cb510daf48c73341118c3180ddecbbc595/android/repository/repository2-1.xml"),
+        "platform-tools_r35.0.2-linux.zip": ("f6406982a79d67e40b1ca3cb9e5e2cc783c0f232", 7472902, "https://github.com/f-droid/android-sdk-transparency-log/blob/50fcb2cb510daf48c73341118c3180ddecbbc595/android/repository/repository2-1.xml"),
+        "platform-tools_r36.0.0-linux.zip": ("ddb0cd76d952d9a1f4c8a32e4ec0e73d7a8bebb8", 7904253, "https://github.com/f-droid/android-sdk-transparency-log/blob/8d3a986511db55ee1a061313e9e0337bb28920bf/android/repository/repository2-1.xml"),
+    }
+    for filename, metadata in archived_google_checksums.items():
+        checksums.setdefault(filename, metadata)
+
     if not checksums:
         raise RuntimeError("No official Google SDK archive checksums could be loaded")
     return checksums, loaded
