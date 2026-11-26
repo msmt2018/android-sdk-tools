@@ -139,13 +139,14 @@ def create_sdk_package_xml(path, package_path, version, display_name):
     generic_namespace = "http://schemas.android.com/repository/android/generic/02"
     ET.register_namespace("ns2", namespace)
     ET.register_namespace("ns3", generic_namespace)
+    ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
     root = ET.Element("{" + namespace + "}repository")
+    root.set("xmlns:ns3", generic_namespace)
     package = ET.SubElement(root, "localPackage", {
         "path": package_path,
         "obsolete": "false",
     })
     details = ET.SubElement(package, "type-details")
-    details.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
     details.set("{http://www.w3.org/2001/XMLSchema-instance}type",
                 "ns3:genericDetailsType")
     revision = ET.SubElement(package, "revision")
