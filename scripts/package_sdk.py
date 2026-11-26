@@ -14,13 +14,14 @@ import zipfile
 from pathlib import Path
 
 def load_official_archive_checksums():
-    """Load Google-published SDK archive sizes and SHA-1 checksums."""
+    """Load official archive checksums and package revisions from Google manifests."""
     urls = (
         "https://dl.google.com/android/repository/repository2-3.xml",
         "https://dl.google.com/android/repository/repository2-2.xml",
         "https://dl.google.com/android/repository/repository2-1.xml",
     )
     checksums = {}
+    build_tools_revisions = {}
     loaded = []
     for url in urls:
         try:
@@ -33,6 +34,55 @@ def load_official_archive_checksums():
             print("Google SDK manifest unavailable {}: {}".format(url, error))
             continue
         loaded.append(url)
+
+        # Read package identity from the enclosing remotePackage, not from the
+        # archive filename: build-tools_r37_linux.zip is Build Tools 37.0.0.
+        for package in root.iter():
+            if package.tag.rsplit("}", 1)[-1] != "remotePackage":
+                continue
+            package_path = package.get("path", "")
+            if not package_path.startswith("build-tools;"):
+                continue
+            revision_node = next(
+                (node for node in package
+                 if node.tag.rsplit("}", 1)[-1] == "revision"),
+                None,
+            )
+            if revision_node is None:
+                continue
+            revision_fields = {
+                node.tag.rsplit("}", 1)[-1]: (node.text or "").strip()
+                for node in revision_node
+            }
+            version = "{}.{}.{}".format(
+                revision_fields.get("major", ""),
+                revision_fields.get("minor", ""),
+                revision_fields.get("micro", ""),
+            )
+            if revision_fields.get("preview"):
+                version += "-rc{}".format(revision_fields["preview"])
+            if package_path != "build-tools;" + version:
+                raise RuntimeError(
+                    "Google Build Tools manifest path/revision mismatch: {} vs {}".format(
+                        package_path, version
+                    )
+                )
+            for complete in package.iter():
+                if complete.tag.rsplit("}", 1)[-1] != "complete":
+                    continue
+                fields = {
+                    node.tag.rsplit("}", 1)[-1]: node for node in complete
+                }
+                url_node = fields.get("url")
+                checksum_node = fields.get("checksum")
+                size_node = fields.get("size")
+                if url_node is None or checksum_node is None or size_node is None:
+                    continue
+                if checksum_node.attrib.get("type", "sha1").lower() not in ("sha1", "sha-1"):
+                    continue
+                filename = url_node.text.rsplit("/", 1)[-1]
+                build_tools_revisions[filename] = version
+
         for complete in root.iter():
             if complete.tag.rsplit("}", 1)[-1] != "complete":
                 continue
@@ -51,9 +101,9 @@ def load_official_archive_checksums():
             )
     if not checksums:
         raise RuntimeError("No official Google SDK archive checksums could be loaded")
-    return checksums, loaded
-
-
+    if not build_tools_revisions:
+        raise RuntimeError("No official Google Build Tools package revisions could be loaded")
+    return checksums, loaded, build_tools_revisions
 def sha256_file(path):
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -313,29 +363,46 @@ def update_pkg_revision(sdk_root, version):
         raise RuntimeError(f"Failed to update package revision in {properties}")
     print(f"updated {properties}: Pkg.Revision={version}")
 
-def read_build_tools_package_revision(sdk_root):
-    """Read the official Build Tools revision; package.xml is not in every Google archive."""
+def read_build_tools_package_revision(sdk_root, manifest_revision):
+    """Validate or create local metadata using the exact Google manifest revision."""
     properties = sdk_root / "source.properties"
     package_xml = sdk_root / "package.xml"
-    if not properties.is_file():
-        raise RuntimeError("Build Tools base is missing source.properties: {}".format(properties))
-    content = properties.read_text(encoding="utf-8")
-    matches = re.findall(r"(?m)^Pkg\.Revision\s*=\s*(.*?)\s*$", content)
-    if len(matches) != 1:
-        raise RuntimeError("Expected one Build Tools Pkg.Revision in {}, found {}".format(
-            properties, len(matches)
-        ))
-    raw_revision = matches[0].strip()
-    source_revision = re.sub(r"\s+", "-", raw_revision)
-    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\d+)?", source_revision):
-        raise RuntimeError("Invalid official Build Tools revision {!r} in {}".format(
-            raw_revision, properties
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-rc\d+)?", manifest_revision):
+        raise RuntimeError("Invalid Google Build Tools manifest revision {!r}".format(
+            manifest_revision
         ))
 
-    # Google distributes package.xml separately from some host ZIP archives.
-    # source.properties is shipped in the archive and remains the authoritative
-    # revision. Cross-check package.xml when present, but do not reject a valid
-    # official archive solely because the optional SDK-manager metadata is absent.
+    if properties.is_file():
+        content = properties.read_text(encoding="utf-8")
+        matches = re.findall(r"(?m)^Pkg\.Revision\s*=\s*(.*?)\s*$", content)
+        if len(matches) != 1:
+            raise RuntimeError("Expected one Build Tools Pkg.Revision in {}, found {}".format(
+                properties, len(matches)
+            ))
+        raw_revision = matches[0].strip()
+        source_revision = re.sub(r"\s+", "-", raw_revision)
+        if source_revision != manifest_revision:
+            raise RuntimeError(
+                "Build Tools source.properties revision {} disagrees with Google manifest {}".format(
+                    source_revision, manifest_revision
+                )
+            )
+    else:
+        # Some Google host archives contain only the tools and omit SDK-manager
+        # metadata. Reconstruct the legacy metadata from the verified manifest,
+        # never by guessing from the archive filename or Platform-Tools version.
+        raw_revision = manifest_revision
+        source_revision = manifest_revision
+        properties.write_text(
+            "Pkg.Desc=Android SDK Build-Tools\nPkg.Revision={}\n".format(
+                manifest_revision
+            ),
+            encoding="utf-8",
+        )
+        print("Created {} from verified Google manifest revision {}".format(
+            properties, manifest_revision
+        ))
+
     if package_xml.is_file():
         tree = ET.parse(package_xml)
         package = next((node for node in tree.iter()
@@ -343,7 +410,7 @@ def read_build_tools_package_revision(sdk_root):
         if package is None:
             raise RuntimeError("Build Tools package.xml localPackage missing: {}".format(package_xml))
         package_path = package.get("path", "")
-        if not package_path.startswith("build-tools;"):
+        if package_path != "build-tools;" + manifest_revision:
             raise RuntimeError("Unexpected Build Tools package path {} in {}".format(
                 package_path, package_xml
             ))
@@ -357,18 +424,17 @@ def read_build_tools_package_revision(sdk_root):
         )
         if fields.get("preview"):
             xml_revision += "-rc{}".format(fields["preview"])
-        if package_path.split(";", 1)[1] != xml_revision or source_revision != xml_revision:
+        if xml_revision != manifest_revision:
             raise RuntimeError(
-                "Build Tools metadata mismatch: package path={}, XML revision={}, "
-                "source.properties revision={} ({})".format(
-                    package_path, xml_revision, raw_revision, sdk_root
+                "Build Tools package.xml revision {} disagrees with Google manifest {}".format(
+                    xml_revision, manifest_revision
                 )
             )
     else:
-        print("Build Tools archive has no package.xml; using verified source.properties revision {}".format(
-            source_revision
+        print("No package.xml in {}; Google manifest remains the authoritative package identity".format(
+            sdk_root
         ))
-    return source_revision, raw_revision
+    return manifest_revision, raw_revision
 def create_build_tools_zip(source, output, version):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED,
                          compresslevel=9, allowZip64=True) as archive:
@@ -390,7 +456,7 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("dist"))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    official_checksums, manifest_urls = load_official_archive_checksums()
+    official_checksums, manifest_urls, build_tools_revisions = load_official_archive_checksums()
     download_records = []
 
     with tempfile.TemporaryDirectory(prefix="sdk-package-") as temp:
@@ -433,9 +499,17 @@ def main():
             f"https://dl.google.com/android/repository/build-tools_r{version}_linux.zip"
             for version in build_tools_versions
         ]
-        download_first_available(
+        selected_build_tools_url = download_first_available(
             build_tools_urls, bt_zip, official_checksums, download_records, "build-tools"
         )
+        selected_build_tools_filename = selected_build_tools_url.rsplit("/", 1)[-1]
+        build_tools_version = build_tools_revisions.get(selected_build_tools_filename)
+        if not build_tools_version:
+            raise RuntimeError(
+                "No official Google Build Tools package revision for {}".format(
+                    selected_build_tools_filename
+                )
+            )
 
         pt_extract = root / "platform-tools-extracted"
         bt_extract = root / "build-tools-extracted"
@@ -464,7 +538,7 @@ def main():
             bt_root = root / f"bt-{abi}"
             shutil.copytree(official_pt, pt_root)
             shutil.copytree(official_bt, bt_root)
-            build_tools_version, build_tools_pkg_revision = read_build_tools_package_revision(bt_root)
+            build_tools_version, build_tools_pkg_revision = read_build_tools_package_revision(bt_root, build_tools_version)
 
             # Keep the official Java tools/resources intact; adapt only launcher shebangs
             # for Android's shell environment.
