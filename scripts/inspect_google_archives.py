@@ -29,10 +29,13 @@ MANIFESTS = (
 
 def inspect_historical_manifests():
     expected = {
+        BASE.format(version).rsplit("/", 1)[-1]
+        for version in VERSIONS
+    }
+    expected.update(
         "platform-tools_r{}.0.0-linux.zip".format(v)
         for v in ("28", "29", "30", "31", "32", "33", "34", "35", "36", "37")
-    }
-    expected.update(BASE.format(v) for v in VERSIONS)
+    )
     records = []
     for url in MANIFESTS:
         try:
